@@ -77,6 +77,9 @@ tvm_option(USE_TARGET_ONNX "Build with ONNX Codegen support" OFF)
 tvm_option(USE_ARM_COMPUTE_LIB "Build with Arm Compute Library" OFF)
 tvm_option(USE_ARM_COMPUTE_LIB_GRAPH_RUNTIME "Build with Arm Compute Library graph runtime" OFF)
 
+# Diagnostic options
+tvm_option(USE_ADDRESS_SANITIZER "Build with the Address Sanitizer compile optiono" OFF)
+
 # include directories
 include_directories(${CMAKE_INCLUDE_PATH})
 include_directories("include")
@@ -89,6 +92,27 @@ include_directories(SYSTEM ${PICOJSON_PATH})
 # initial variables
 set(TVM_LINKER_LIBS "")
 set(TVM_RUNTIME_LINKER_LIBS "")
+
+if(USE_ADDRESS_SANITIZER)
+  message(STATUS "Address Sanitizer enabled")
+  if (APPLE)
+    set(ADDRESS_SANITIZER_FLAGS -fsanitize=address)
+  else()
+    set(ADDRESS_SANITIZER_FLAGS -fsanitize=address -fsanitize=leak -fno-omit-frame-pointer)
+  endif()
+  add_compile_options(${ADDRESS_SANITIZER_FLAGS})
+  set(CMAKE_EXE_LINKER_FLAGS ${ADDRESS_SANITIZER_FLAGS})
+  set(CMAKE_MODULE_LINKER_FLAGS ${ADDRESS_SANITIZER_FLAGS})
+  list(LENGTH ADDRESS_SANITIZER_FLAGS LENGTH)
+  message(STATUS "ADDRESS_SANITIZER_FLAGS LENGTH ${LENGTH}")
+  list(LENGTH CMAKE_EXE_LINKER_FLAGS LENGTH)
+  message(STATUS "CMAKE_EXE_LINKER_FLAGS LENGTH ${LENGTH}")
+  list(LENGTH ADDRESS_SANITIZER_FLAGS LENGTH)
+  message(STATUS "CMAKE_MODULE_LINKER_FLAGS LENGTH ${LENGTH}")
+  message(STATUS "ADDRESS_SANITIZER_FLAGS ${ADDRESS_SANITIZER_FLAGS}")
+  message(STATUS "CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS}")
+  message(STATUS "CMAKE_MODULE_LINKER_FLAGS ${CMAKE_MODULE_LINKER_FLAGS}")
+endif()
 
 # Generic compilation options
 if(MSVC)
