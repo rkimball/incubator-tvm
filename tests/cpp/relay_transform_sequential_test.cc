@@ -120,9 +120,3 @@ TEST(Relay, Sequential) {
   auto expected = mod1->Lookup("main");
   CHECK(tvm::StructuralEqual()(f, expected));
 }
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  testing::FLAGS_gtest_death_test_style = "threadsafe";
-  return RUN_ALL_TESTS();
-}

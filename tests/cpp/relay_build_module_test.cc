@@ -176,9 +176,3 @@ TEST(Relay, GetExprRefCount) {
   CHECK(ref_count[y.get()] == 1);
   CHECK(ref_count[z.get()] == 1);
 }
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  testing::FLAGS_gtest_death_test_style = "threadsafe";
-  return RUN_ALL_TESTS();
-}

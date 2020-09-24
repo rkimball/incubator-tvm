@@ -150,9 +150,3 @@ TEST(TargetCreation, DeduplicateKeys) {
   CHECK_EQ(target->attrs.size(), 1U);
   CHECK_EQ(target->GetAttr<String>("device"), "arm_cpu");
 }
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  testing::FLAGS_gtest_death_test_style = "threadsafe";
-  return RUN_ALL_TESTS();
-}
