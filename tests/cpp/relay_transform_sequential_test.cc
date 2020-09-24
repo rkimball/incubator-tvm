@@ -81,7 +81,8 @@ TEST(Relay, Sequential) {
   if (!fs) {
     LOG(FATAL) << "Strategy is not defined.";
   }
-  auto fgeneric = GenericFunc::Get("test.strategy_generic").set_default(*fs);
+  bool override = true;
+  auto fgeneric = GenericFunc::Get("test.strategy_generic").set_default(*fs, override);
   (*reg)("add", "FTVMStrategy", fgeneric, 10);
 
   // Run sequential passes.
