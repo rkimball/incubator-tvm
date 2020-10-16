@@ -336,6 +336,12 @@ if(USE_PROFILER)
   list(APPEND RUNTIME_SRCS ${RUNTIME_VM_PROFILER_SRCS})
 endif(USE_PROFILER)
 
+if (LLVM_CACHE_PATH)
+  message(STATUS "Using LLVM_CACHE_PATH ${LLVM_CACHE_PATH}")
+  include(cmake/modules/LLVMBuildFromSource.cmake)
+  set(USE_LLVM ON)
+endif()
+
 # Module rules
 include(cmake/modules/VTA.cmake)
 include(cmake/modules/StandaloneCrt.cmake)
