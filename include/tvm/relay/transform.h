@@ -405,6 +405,15 @@ TVM_DLL Pass RemoveUnusedFunctions(Array<runtime::String> entry_functions);
  */
 TVM_DLL Pass SimplifyExpr();
 
+/*!
+ * \brief Generate a PDF dump of the graph.
+ *
+ * \param output_path Path to the generated PDF file.
+ *
+ * \return The pass.
+ */
+TVM_DLL Pass VisualizeGraph(std::string output_path);
+
 }  // namespace transform
 
 /*!
