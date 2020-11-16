@@ -46,6 +46,8 @@ using PassContext = tvm::transform::PassContext;
 using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
+using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr)>;
+
 /*
  * \brief Create a function pass.
  *
@@ -418,6 +420,17 @@ TVM_DLL Pass RemoveUnusedFunctions(Array<runtime::String> entry_functions);
  * \return The pass.
  */
 TVM_DLL Pass SimplifyExpr();
+
+/*!
+ * \brief Annotate ops for heterogeneous execution.
+ *
+ * \param get_placement a packed function of type String(Expr) which determines the
+ *        placement of each Expr. The returned String is the target compiler to use
+ *        for Expr.
+ *
+ * \return The pass.
+ */
+TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement get_placement);
 
 }  // namespace transform
 
