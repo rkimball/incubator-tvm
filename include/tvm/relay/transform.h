@@ -431,6 +431,15 @@ TVM_DLL Pass SimplifyExpr();
  */
 TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> targets);
 
+/*!
+ * \brief Generate a PDF dump of the graph.
+ *
+ * \param output_path Path to the generated PDF file.
+ *
+ * \return The pass.
+ */
+TVM_DLL Pass VisualizeGraph(std::string output_path);
+
 }  // namespace transform
 
 /*!
