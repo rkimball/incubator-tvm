@@ -20,6 +20,9 @@
 /*!
  * \file visualize_graph.cc
  */
+
+#include <fstream>
+
 #include <tvm/relay/analysis.h>
 #include <tvm/relay/attrs/transform.h>
 #include <tvm/relay/expr_functor.h>
@@ -31,6 +34,7 @@
 #include <tvm/runtime/ndarray.h>
 #include <tvm/runtime/object.h>
 #include "../ir/indexed_graph.h"
+#include "../../support/utils.h"
 
 #include "pattern_utils.h"
 
@@ -122,8 +126,8 @@ class GraphVisualizer : public MixedModeVisitor {
  public:
   explicit GraphVisualizer(IRModule module) : module_(module) {}
 
-  void Visualize(const Expr& expr) {
-    std::cout << __FILE__ << "   " << __LINE__ << " start\n";
+  void Visualize(const Expr& expr, std::string output_path) {
+    std::cout << __FILE__ << "   " << __LINE__ << " start " << output_path << "\n";
     IndexedGraph<Expr> indexed_graph = CreateIndexedGraph(expr);
     // operator()(expr);
     std::cout << __FILE__ << "   " << __LINE__ << "\n";
@@ -197,7 +201,7 @@ class GraphVisualizer : public MixedModeVisitor {
     //   }
     // });
 
-    render();
+    render(output_path);
 
 
 
@@ -372,10 +376,6 @@ class GraphVisualizer : public MixedModeVisitor {
   //   return ss.str();
   // }
 
-  std::string GetName(Expr op) {
-    return "some node";
-  }
-
   std::string get_attributes(Expr node) {
     std::vector<std::string> attributes;
     attributes.push_back("shape=box");
@@ -392,7 +392,7 @@ class GraphVisualizer : public MixedModeVisitor {
       std::stringstream label;
       label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
               "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-            << GetName(node) << "</td></tr>";
+            << GetNodeName(node) << "</td></tr>";
 
       size_t index = 0;
       const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
@@ -481,7 +481,7 @@ class GraphVisualizer : public MixedModeVisitor {
     // }
 
     std::stringstream ss;
-    ss << "    " << GetName(node) << " [" << Join(attributes, " ") << "]\n";
+    ss << "    " << GetNodeName(node) << " [" << Join(attributes, " ") << "]\n";
 
     return ss.str();
   }
@@ -494,34 +494,33 @@ class GraphVisualizer : public MixedModeVisitor {
   //   return rc;
   // }
 
-  void render() const {
+  void render(std::string output_path) const {
     std::cout << m_ss.str() << std::endl;
-    
-  //   std::string ext = file_util::get_file_ext(m_name);
-  //   std::string output_format = ext.substr(1);
-  //   std::string dot_file = m_name;
-  //   if (to_lower(ext) != ".dot") {
-  //     dot_file += ".dot";
-  //   }
-  //   std::ofstream out(dot_file);
-  //   if (out) {
-  //     out << "digraph ngraph\n{\n";
-  //     out << m_ss.str();
-  //     out << "}\n";
-  //     out.close();
 
-  //     if (!m_dot_only && to_lower(ext) != ".dot") {
-  // #ifndef _WIN32
-  //       std::stringstream ss;
-  //       ss << "dot -T" << output_format << " " << dot_file << " -o" << m_name;
-  //       auto cmd = ss.str();
-  //       auto stream = popen(cmd.c_str(), "r");
-  //       if (stream) {
-  //         pclose(stream);
-  //       }
-  // #endif
-  //     }
-  //   }
+    // Need a real temporary here
+    std::string dot_file = output_path + ".dot";
+    std::string output_format = "pdf";
+
+    std::cout << __FILE__ << " " << __LINE__ << " " << dot_file << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << output_path << std::endl;
+
+    std::ofstream out(dot_file);
+    if (out) {
+      out << "digraph ngraph\n{\n";
+      out << m_ss.str();
+      out << "}\n";
+      out.close();
+
+      std::stringstream ss;
+      ss << "dot -T" << output_format << " " << dot_file << " -o" << output_path;
+      auto cmd = ss.str();
+      std::cout << __FILE__ << " " << __LINE__ << " " << cmd << std::endl;
+
+      auto stream = tvm::support::TVMPOpen(cmd.c_str(), "r");
+      if (stream) {
+        tvm::support::TVMPClose(stream);
+      }
+    }
   }
 
   void VisitExpr_(const VarNode* op) override {
@@ -649,9 +648,9 @@ class GraphVisualizer : public MixedModeVisitor {
   }
 };
 
-void VisualizeGraph(const Expr& expr, const IRModule& mod) {
+void VisualizeGraph(const Expr& expr, const IRModule& mod, std::string output_path) {
   auto gv = GraphVisualizer(mod);
-  gv.Visualize(expr);
+  gv.Visualize(expr, output_path);
 }
 
 namespace transform {
@@ -661,7 +660,7 @@ Pass VisualizeGraph(std::string output_path) {
       [=](Function f, IRModule m, PassContext pc) {
         // return Downcast<Function>(VisualizeGraph(f, m));
         // run visualize
-        VisualizeGraph(f, m);
+        VisualizeGraph(f, m, output_path);
         return f;
       };
   return CreateFunctionPass(pass_func, 2, "VisualizeGraph", {});
