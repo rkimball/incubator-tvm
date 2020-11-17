@@ -37,7 +37,6 @@
 namespace tvm {
 namespace relay {
 
-namespace {
 // This code is originally from https://github.com/NervanaSystems/ngraph
 //
 // As we are visualizing the graph, we will make some tweaks to the generated dot file to make
@@ -119,361 +118,6 @@ namespace {
 // dealt with, but have not had time to implement them yet. --amprocte
 //
 
-const int max_jump_distance = 20;
-
-/*!
- * \brief Join a sequence of values into a string with separators.
- * \param v The collection to iterate.
- * \param sep The separator to place between each item in v.
- * \return the combined result.
- */
-template <typename T>
-std::string Join(const T& v, const std::string& sep = ", ")
-{
-    std::ostringstream ss;
-    size_t count = 0;
-    for (const auto& x : v)
-    {
-        if (count++ > 0)
-        {
-            ss << sep;
-        }
-        ss << x;
-    }
-    return ss.str();
-}
-
-class HeightMap {
- public:
-  HeightMap() {}
-  HeightMap(std::set<const void*> initials) {
-    for (auto& n : initials) {
-      heights_[n] = 0;
-    }
-  }
-  void absorb(const HeightMap& other) {
-    for (auto& p : other.heights_) {
-      auto k = p.first;
-      auto v = p.second;
-      heights_[k] = std::max(heights_[k], v + 1);
-    }
-  }
-  int64_t max_jump_to(const HeightMap& target) {
-    int64_t result = 0;
-    for (auto& p : heights_) {
-      auto k = p.first;
-      auto v = p.second;
-      if (target.heights_.count(k) != 0) {
-        result = std::max(result, std::abs(target.heights_.at(k) - v));
-      }
-    }
-    return result;
-  }
-
- private:
-  std::unordered_map<const void*, int64_t> heights_;
-};
-
-// static std::string label_edge(const Output<Node>& output, const std::shared_ptr<Node>& dst,
-//                               int64_t jump_distance) {
-//   std::stringstream ss;
-//   // for (Input<Node> input : output.get_target_inputs()) {
-//   //   if (input.get_node() == dst.get()) {
-//   //     std::stringstream label;
-//   //     label << "[label=\" " << output.get_index() << "-" << input.get_index() << " \"]";
-//   //     ss << label.str();
-//   //   }
-//   // }
-
-//   // if (getenv_bool("NGRAPH_VISUALIZE_EDGE_JUMP_DISTANCE")) {
-//   //   if (jump_distance > 1) {
-//   //     std::stringstream label;
-//   //     label << "[label=\"jump=" << jump_distance << "\"]";
-//   //     ss << label.str();
-//   //   }
-//   // }
-//   return ss.str();
-// }
-
-// bool run_on_module(std::vector<std::shared_ptr<Function>>& functions) {
-//   for (std::shared_ptr<Function> f : functions) {
-//     std::unordered_map<Node*, HeightMap> height_maps;
-
-//     for (auto& node : f->get_ops()) {
-//       if (is_type<op::v0::Result>(node)) {
-//         height_maps[node.get()] = HeightMap({node.get()});
-//       } else {
-//         height_maps[node.get()] = HeightMap();
-//       }
-//     }
-
-//     auto nodes = topological_sort(f->get_ops());
-
-//     for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-//       auto& node = *it;
-//       for (auto& output : node->outputs()) {
-//         for (auto& input : output.get_target_inputs()) {
-//           auto target_node = input.get_node();
-//           height_maps[node.get()].absorb(height_maps[target_node]);
-//         }
-//       }
-//     }
-
-//     size_t fake_node_ctr = 0;
-
-//     traverse_nodes(f, [&](shared_ptr<Node> node) {
-//       if (auto ck = as_type_ptr<ngraph::op::v0::CompiledKernel>(node)) {
-//         // print sub-graph
-//         auto nodes_list = ck->get_function()->get_ordered_ops();
-
-//         // all nodes inside the CK sub-graph
-//         for (auto& ck_node : nodes_list) {
-//           m_ss << add_attributes(ck_node);
-//         }
-//         // all edges to each node in the sub-graph
-//         for (auto& subgraph_node : nodes_list) {
-//           add_node_arguments(subgraph_node, height_maps, fake_node_ctr);
-//         }
-//       }
-//       add_node_arguments(node, height_maps, fake_node_ctr);
-//     });
-//   }
-
-//   render();
-
-//   return false;
-// }
-
-// VisualizeTree(const string& file_name, node_modifiers_t nm, bool dot_only)
-//     : m_name{file_name}, m_node_modifiers{nm}, m_dot_only(dot_only) {}
-
-// void add_node_arguments(Expr node,
-//                         std::unordered_map<const void*, HeightMap>& height_maps,
-//                         size_t& fake_node_ctr) {
-//   for (auto input_value : node->input_values()) {
-//     auto arg = input_value.get_node_shared_ptr();
-//     size_t jump_distance = height_maps[arg.get()].max_jump_to(height_maps[node.get()]);
-//     if (is_type<ngraph::op::v0::Constant>(arg) || is_type<ngraph::op::v0::Parameter>(arg)) {
-//       auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
-//       auto color = (is_type<op::v0::Parameter>(arg) ? "blue" : "black");
-//       m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
-//            << "\" fillcolor=\"white\" label=\"" << get_node_name(arg) << "\"]\n";
-//       m_ss << "    " << clone_name << " -> " << node->get_name()
-//            << label_edge(input_value, node, jump_distance) << "\n";
-//       fake_node_ctr++;
-//     } else if (jump_distance > max_jump_distance) {
-//       m_ss << add_attributes(arg);
-//       m_ss << add_attributes(node);
-//       auto recv_node_name = "RECV_" + std::to_string(fake_node_ctr);
-//       auto send_node_name = "SEND_" + std::to_string(fake_node_ctr);
-//       m_ss << "    " << recv_node_name
-//            << "[shape=\"box\" style=\"solid,filled\" "
-//               "fillcolor=\"#ffcccc\" label=\"Receive["
-//            << arg->get_name() << "]\"]\n";
-//       m_ss << "    " << send_node_name
-//            << "[shape=\"box\" style=\"solid,filled\" "
-//               "fillcolor=\"#ccffcc\" label=\"Send["
-//            << node->get_name() << "]\"]\n";
-//       m_ss << "    " << arg->get_name() << " -> " << send_node_name
-//            << label_edge(input_value, node, jump_distance) << "\n";
-//       m_ss << "    " << recv_node_name << " -> " << node->get_name()
-//            << label_edge(input_value, node, jump_distance) << "\n";
-//       fake_node_ctr++;
-//     } else {
-//       m_ss << add_attributes(arg);
-//       m_ss << add_attributes(node);
-//       m_ss << "    " << arg->get_name() << " -> " << node->get_name()
-//            << label_edge(input_value, node, jump_distance) << "\n";
-//     }
-//   }
-// }
-
-std::string add_attributes(Expr node) {
-  std::string rc;
-  // if (m_nodes_with_attributes.find(node) == m_nodes_with_attributes.end()) {
-  //   m_nodes_with_attributes.insert(node);
-  //   rc = get_attributes(node);
-  // }
-  return rc;
-}
-
-// static std::string pretty_partial_shape(const PartialShape& shape) {
-//   std::stringstream ss;
-
-//   if (shape.rank().is_dynamic()) {
-//     ss << "?";
-//   } else {
-//     bool first = true;
-
-//     ss << "[";
-//     for (size_t i = 0; i < shape.rank().get_length(); i++) {
-//       if (!first) {
-//         ss << ",";
-//       }
-//       if (shape[i].is_dynamic()) {
-//         ss << "?";
-//       } else {
-//         ss << shape[i].get_length();
-//       }
-//       first = false;
-//     }
-//     ss << "]";
-//   }
-
-//   return ss.str();
-// }
-
-std::string GetName(Expr op) {
-  return "some node";
-}
-
-// std::string get_attributes(Expr node) {
-//   std::vector<std::string> attributes;
-//   attributes.push_back("shape=box");
-
-//   // if (node->is_output()) {
-//   //   attributes.push_back("color=crimson");
-//   //   attributes.push_back("penwidth=1.5");
-//   // } else {
-//     attributes.push_back("color=black");
-//   // }
-
-//   // Construct the label attribute
-//   {
-//     std::stringstream label;
-//     label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
-//              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-//           << GetName(node) << "</td></tr>";
-
-//     size_t index = 0;
-//     const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
-//     const std::string td_end = "</font></td>";
-//     // std::vector<std::string> rows;
-//     // std::vector<std::string> row_compare;
-//     // for (auto input : node->inputs()) {
-//     //   std::stringstream row_ss;
-//     //   std::stringstream row_compare_ss;
-//     //   row_ss << "<tr>";
-//     //   row_ss << td_start << "I[" << index++ << "]" << td_end;
-//     //   row_compare_ss << td_start << input.get_element_type().get_type_name() << td_end;
-//     //   row_compare_ss << td_start << pretty_partial_shape(input.get_shape()) << td_end;
-//     //   row_ss << row_compare_ss.str() << "</tr>";
-//     //   rows.push_back(row_ss.str());
-//     //   row_compare.push_back("I" + row_compare_ss.str());
-//     // }
-//     // index = 0;
-//     // for (auto output : node->outputs()) {
-//     //   std::stringstream row_ss;
-//     //   std::stringstream row_compare_ss;
-//     //   row_ss << "<tr>";
-//     //   row_ss << td_start << "O[" << index++ << "]" << td_end;
-//     //   row_compare_ss << td_start << output.get_element_type().get_type_name() << td_end;
-//     //   row_compare_ss << td_start << pretty_partial_shape(output.get_shape()) << td_end;
-//     //   row_ss << row_compare_ss.str() << "</tr>";
-//     //   rows.push_back(row_ss.str());
-//     //   row_compare.push_back("O" + row_compare_ss.str());
-//     // }
-
-//     // // Collapse duplicate rows
-//     // std::vector<int64_t> remove_list;
-//     // for (size_t i = 1; i < row_compare.size() - 1; i++) {
-//     //   std::string s1 = row_compare[i - 1];
-//     //   std::string s2 = row_compare[i];
-//     //   std::string s3 = row_compare[i + 1];
-//     //   if (s1 == s2 && s2 == s3) {
-//     //     remove_list.push_back(i);
-//     //   }
-//     // }
-//     // if (remove_list.size() > 3) {
-//     //   // Go backwards through the list to make removal easier
-//     //   int64_t start = remove_list[remove_list.size() - 1];
-//     //   int64_t end = start;
-//     //   int64_t count = 0;
-//     //   for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
-//     //     int64_t row = remove_list[i];
-//     //     if (row == start - 1) {
-//     //       // continue
-//     //       start = row;
-//     //       count++;
-//     //     } else {
-//     //       rows.erase(rows.begin() + start, rows.begin() + end + 1);
-//     //       std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-//     //       rows.insert(rows.begin() + start, str);
-//     //       end = row;
-//     //       start = row;
-//     //     }
-//     //   }
-//     //   if (start != end) {
-//     //     rows.erase(rows.begin() + start, rows.begin() + end + 1);
-//     //     std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-//     //     rows.insert(rows.begin() + start, str);
-//     //   }
-//     // }
-
-//     // if (get_provenance_enabled())
-//     // {
-//     //     for (auto tag : node->get_provenance_tags())
-//     //     {
-//     //         std::string str = "<tr><td align=\"left\" colspan=\"5\">tag=" + tag + "</td></tr>";
-//     //         rows.push_back(str);
-//     //     }
-//     // }
-
-//     // for (const std::string& s : rows) {
-//     //   label << s;
-//     // }
-
-//     label << "</table>>";
-//     attributes.push_back(label.str());
-//   }
-
-//   // if (m_node_modifiers) {
-//   //   m_node_modifiers(*node, attributes);
-//   // }
-
-//   std::stringstream ss;
-//   ss << "    " << GetName(node) << " [" << Join(attributes, " ") << "]\n";
-
-//   return ss.str();
-// }
-
-// std::string get_node_name(std::shared_ptr<Node> node) {
-//   std::string rc = node->get_friendly_name();
-//   if (node->get_friendly_name() != node->get_name()) {
-//     rc += "\\n" + node->get_name();
-//   }
-//   return rc;
-// }
-
-// void render() const {
-//   std::string ext = file_util::get_file_ext(m_name);
-//   std::string output_format = ext.substr(1);
-//   std::string dot_file = m_name;
-//   if (to_lower(ext) != ".dot") {
-//     dot_file += ".dot";
-//   }
-//   std::ofstream out(dot_file);
-//   if (out) {
-//     out << "digraph ngraph\n{\n";
-//     out << m_ss.str();
-//     out << "}\n";
-//     out.close();
-
-//     if (!m_dot_only && to_lower(ext) != ".dot") {
-// #ifndef _WIN32
-//       std::stringstream ss;
-//       ss << "dot -T" << output_format << " " << dot_file << " -o" << m_name;
-//       auto cmd = ss.str();
-//       auto stream = popen(cmd.c_str(), "r");
-//       if (stream) {
-//         pclose(stream);
-//       }
-// #endif
-//     }
-//   }
-// }
-}  // namespace
-
 class GraphVisualizer : public MixedModeVisitor {
  public:
   explicit GraphVisualizer(IRModule module) : module_(module) {}
@@ -487,23 +131,398 @@ class GraphVisualizer : public MixedModeVisitor {
     for (auto node : indexed_graph.topological_order_) {
       node_name_map_[node->ref_.get()] = NextNodeName(node->ref_.get());
     }
+
+
+
+    std::unordered_map<const void*, HeightMap> height_maps;
+
+    size_t fake_node_ctr = 0;
     for (auto node : indexed_graph.topological_order_) {
-      if (auto call = node->ref_.as<CallNode>()) {
-        if (const OpNode* op = call->op.as<OpNode>()){
-          std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(node->ref_) << " " << op->name << std::endl;
-          for (auto input : node->inputs_){
-            std::cout << "input " << GetNodeName(input->ref_) << std::endl;
-          }
-          for (auto output : node->outputs_){
-            std::cout << "output " << GetNodeName(output->ref_) << std::endl;
-          }
-        }
-      }
+      add_node_arguments(*node, height_maps, fake_node_ctr);
+      // if (auto call = node->ref_.as<CallNode>()) {
+      //   if (const OpNode* op = call->op.as<OpNode>()){
+      //     std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(node->ref_) << " " << op->name << std::endl;
+      //     for (auto input : node->inputs_){
+      //       std::cout << "input " << GetNodeName(input->ref_) << std::endl;
+      //     }
+      //     for (auto output : node->outputs_){
+      //       std::cout << "output " << GetNodeName(output->ref_) << std::endl;
+      //     }
+      //   }
+      // }
     }
+
+
+
+
+
+
+    // std::unordered_map<IndexedGraph<Expr>::Node*, HeightMap> height_maps;
+
+    // for (auto& node : f->get_ops()) {
+    //   if (is_type<op::v0::Result>(node)) {
+    //     height_maps[node.get()] = HeightMap({node.get()});
+    //   } else {
+    //     height_maps[node.get()] = HeightMap();
+    //   }
+    // }
+
+    // auto nodes = topological_sort(f->get_ops());
+
+    // for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
+    //   auto& node = *it;
+    //   for (auto& output : node->outputs()) {
+    //     for (auto& input : output.get_target_inputs()) {
+    //       auto target_node = input.get_node();
+    //       height_maps[node.get()].absorb(height_maps[target_node]);
+    //     }
+    //   }
+    // }
+
+    // size_t fake_node_ctr = 0;
+
+    // traverse_nodes(f, [&](shared_ptr<Node> node) {
+    //   if (auto ck = as_type_ptr<ngraph::op::v0::CompiledKernel>(node)) {
+    //     // print sub-graph
+    //     auto nodes_list = ck->get_function()->get_ordered_ops();
+
+    //     // all nodes inside the CK sub-graph
+    //     for (auto& ck_node : nodes_list) {
+    //       m_ss << add_attributes(ck_node);
+    //     }
+    //     // all edges to each node in the sub-graph
+    //     for (auto& subgraph_node : nodes_list) {
+    //       add_node_arguments(subgraph_node, height_maps, fake_node_ctr);
+    //     }
+    //   }
+    // });
+
+    render();
+
+
+
+
+
+
+
+
+
     std::cout << __FILE__ << "   " << __LINE__ << " end\n";
   }
 
   using MixedModeVisitor::VisitExpr_;
+
+  const int max_jump_distance = 20;
+
+  /*!
+  * \brief Join a sequence of values into a string with separators.
+  * \param v The collection to iterate.
+  * \param sep The separator to place between each item in v.
+  * \return the combined result.
+  */
+  template <typename T>
+  std::string Join(const T& v, const std::string& sep = ", ")
+  {
+      std::ostringstream ss;
+      size_t count = 0;
+      for (const auto& x : v)
+      {
+          if (count++ > 0)
+          {
+              ss << sep;
+          }
+          ss << x;
+      }
+      return ss.str();
+  }
+
+  class HeightMap {
+  public:
+    HeightMap() {}
+    HeightMap(std::set<const void*> initials) {
+      for (auto& n : initials) {
+        heights_[n] = 0;
+      }
+    }
+    void absorb(const HeightMap& other) {
+      for (auto& p : other.heights_) {
+        auto k = p.first;
+        auto v = p.second;
+        heights_[k] = std::max(heights_[k], v + 1);
+      }
+    }
+    int64_t max_jump_to(const HeightMap& target) {
+      int64_t result = 0;
+      for (auto& p : heights_) {
+        auto k = p.first;
+        auto v = p.second;
+        if (target.heights_.count(k) != 0) {
+          result = std::max(result, std::abs(target.heights_.at(k) - v));
+        }
+      }
+      return result;
+    }
+
+  private:
+    std::unordered_map<const void*, int64_t> heights_;
+  };
+
+  static std::string label_edge(const IndexedGraph<Expr>::Node* source,
+                                const IndexedGraph<Expr>::Node* target,
+                                int64_t jump_distance) {
+    std::stringstream ss;
+    // for (Input<Node> input : output.get_target_inputs()) {
+    //   if (input.get_node() == dst.get()) {
+    //     std::stringstream label;
+    //     label << "[label=\" " << output.get_index() << "-" << input.get_index() << " \"]";
+    //     ss << label.str();
+    //   }
+    // }
+
+    // if (getenv_bool("NGRAPH_VISUALIZE_EDGE_JUMP_DISTANCE")) {
+    //   if (jump_distance > 1) {
+    //     std::stringstream label;
+    //     label << "[label=\"jump=" << jump_distance << "\"]";
+    //     ss << label.str();
+    //   }
+    // }
+    return ss.str();
+  }
+
+  bool run_on_module(std::vector<std::shared_ptr<Function>>& functions) {
+  }
+
+  // VisualizeTree(const string& file_name, node_modifiers_t nm, bool dot_only)
+  //     : m_name{file_name}, m_node_modifiers{nm}, m_dot_only(dot_only) {}
+
+  void add_node_arguments(const IndexedGraph<Expr>::Node& node,
+                          std::unordered_map<const void*, HeightMap>& height_maps,
+                          size_t& fake_node_ctr) {
+    for (auto input_value : node.inputs_) {
+      Expr arg = input_value->ref_;
+      size_t jump_distance = height_maps[arg.get()].max_jump_to(height_maps[node.ref_.get()]);
+      if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
+        auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
+        auto color = (arg.as<VarNode>() ? "blue" : "black");
+        m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
+             << "\" fillcolor=\"white\" label=\"" << GetNodeName(arg) << "\"]\n";
+        m_ss << "    " << clone_name << " -> " << GetNodeName(node.ref_)
+             << label_edge(input_value, &node, jump_distance) << "\n";
+        fake_node_ctr++;
+      } else if (jump_distance > max_jump_distance) {
+        m_ss << add_attributes(arg);
+        m_ss << add_attributes(node.ref_);
+        auto recv_node_name = "RECV_" + std::to_string(fake_node_ctr);
+        auto send_node_name = "SEND_" + std::to_string(fake_node_ctr);
+        m_ss << "    " << recv_node_name
+             << "[shape=\"box\" style=\"solid,filled\" "
+                "fillcolor=\"#ffcccc\" label=\"Receive["
+             << GetNodeName(arg) << "]\"]\n";
+        m_ss << "    " << send_node_name
+             << "[shape=\"box\" style=\"solid,filled\" "
+                "fillcolor=\"#ccffcc\" label=\"Send["
+             <<GetNodeName(node.ref_) << "]\"]\n";
+        m_ss << "    " << GetNodeName(arg) << " -> " << send_node_name
+             << label_edge(input_value, &node, jump_distance) << "\n";
+        m_ss << "    " << recv_node_name << " -> " <<GetNodeName(node.ref_)
+             << label_edge(input_value, &node, jump_distance) << "\n";
+        fake_node_ctr++;
+      } else {
+        m_ss << add_attributes(arg);
+        m_ss << add_attributes(node.ref_);
+        m_ss << "    " << GetNodeName(arg) << " -> " <<GetNodeName(node.ref_)
+             << label_edge(input_value, &node, jump_distance) << "\n";
+      }
+    }
+  }
+
+  std::string add_attributes(Expr node) {
+    std::string rc;
+    // if (m_nodes_with_attributes.find(node) == m_nodes_with_attributes.end()) {
+    //   m_nodes_with_attributes.insert(node);
+    //   rc = get_attributes(node);
+    // }
+    rc = get_attributes(node);
+    return rc;
+  }
+
+  // static std::string pretty_partial_shape(const PartialShape& shape) {
+  //   std::stringstream ss;
+
+  //   if (shape.rank().is_dynamic()) {
+  //     ss << "?";
+  //   } else {
+  //     bool first = true;
+
+  //     ss << "[";
+  //     for (size_t i = 0; i < shape.rank().get_length(); i++) {
+  //       if (!first) {
+  //         ss << ",";
+  //       }
+  //       if (shape[i].is_dynamic()) {
+  //         ss << "?";
+  //       } else {
+  //         ss << shape[i].get_length();
+  //       }
+  //       first = false;
+  //     }
+  //     ss << "]";
+  //   }
+
+  //   return ss.str();
+  // }
+
+  std::string GetName(Expr op) {
+    return "some node";
+  }
+
+  std::string get_attributes(Expr node) {
+    std::vector<std::string> attributes;
+    attributes.push_back("shape=box");
+
+    // if (node->is_output()) {
+    //   attributes.push_back("color=crimson");
+    //   attributes.push_back("penwidth=1.5");
+    // } else {
+      attributes.push_back("color=black");
+    // }
+
+    // Construct the label attribute
+    {
+      std::stringstream label;
+      label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
+              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
+            << GetName(node) << "</td></tr>";
+
+      size_t index = 0;
+      const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
+      const std::string td_end = "</font></td>";
+      // std::vector<std::string> rows;
+      // std::vector<std::string> row_compare;
+      // for (auto input : node->inputs()) {
+      //   std::stringstream row_ss;
+      //   std::stringstream row_compare_ss;
+      //   row_ss << "<tr>";
+      //   row_ss << td_start << "I[" << index++ << "]" << td_end;
+      //   row_compare_ss << td_start << input.get_element_type().get_type_name() << td_end;
+      //   row_compare_ss << td_start << pretty_partial_shape(input.get_shape()) << td_end;
+      //   row_ss << row_compare_ss.str() << "</tr>";
+      //   rows.push_back(row_ss.str());
+      //   row_compare.push_back("I" + row_compare_ss.str());
+      // }
+      // index = 0;
+      // for (auto output : node->outputs()) {
+      //   std::stringstream row_ss;
+      //   std::stringstream row_compare_ss;
+      //   row_ss << "<tr>";
+      //   row_ss << td_start << "O[" << index++ << "]" << td_end;
+      //   row_compare_ss << td_start << output.get_element_type().get_type_name() << td_end;
+      //   row_compare_ss << td_start << pretty_partial_shape(output.get_shape()) << td_end;
+      //   row_ss << row_compare_ss.str() << "</tr>";
+      //   rows.push_back(row_ss.str());
+      //   row_compare.push_back("O" + row_compare_ss.str());
+      // }
+
+      // // Collapse duplicate rows
+      // std::vector<int64_t> remove_list;
+      // for (size_t i = 1; i < row_compare.size() - 1; i++) {
+      //   std::string s1 = row_compare[i - 1];
+      //   std::string s2 = row_compare[i];
+      //   std::string s3 = row_compare[i + 1];
+      //   if (s1 == s2 && s2 == s3) {
+      //     remove_list.push_back(i);
+      //   }
+      // }
+      // if (remove_list.size() > 3) {
+      //   // Go backwards through the list to make removal easier
+      //   int64_t start = remove_list[remove_list.size() - 1];
+      //   int64_t end = start;
+      //   int64_t count = 0;
+      //   for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
+      //     int64_t row = remove_list[i];
+      //     if (row == start - 1) {
+      //       // continue
+      //       start = row;
+      //       count++;
+      //     } else {
+      //       rows.erase(rows.begin() + start, rows.begin() + end + 1);
+      //       std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+      //       rows.insert(rows.begin() + start, str);
+      //       end = row;
+      //       start = row;
+      //     }
+      //   }
+      //   if (start != end) {
+      //     rows.erase(rows.begin() + start, rows.begin() + end + 1);
+      //     std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+      //     rows.insert(rows.begin() + start, str);
+      //   }
+      // }
+
+      // if (get_provenance_enabled())
+      // {
+      //     for (auto tag : node->get_provenance_tags())
+      //     {
+      //         std::string str = "<tr><td align=\"left\" colspan=\"5\">tag=" + tag + "</td></tr>";
+      //         rows.push_back(str);
+      //     }
+      // }
+
+      // for (const std::string& s : rows) {
+      //   label << s;
+      // }
+
+      label << "</table>>";
+      attributes.push_back(label.str());
+    }
+
+    // if (m_node_modifiers) {
+    //   m_node_modifiers(*node, attributes);
+    // }
+
+    std::stringstream ss;
+    ss << "    " << GetName(node) << " [" << Join(attributes, " ") << "]\n";
+
+    return ss.str();
+  }
+
+  // std::string get_node_name(std::shared_ptr<Node> node) {
+  //   std::string rc = node->get_friendly_name();
+  //   if (node->get_friendly_name() != node->get_name()) {
+  //     rc += "\\n" + node->get_name();
+  //   }
+  //   return rc;
+  // }
+
+  void render() const {
+    std::cout << m_ss.str() << std::endl;
+    
+  //   std::string ext = file_util::get_file_ext(m_name);
+  //   std::string output_format = ext.substr(1);
+  //   std::string dot_file = m_name;
+  //   if (to_lower(ext) != ".dot") {
+  //     dot_file += ".dot";
+  //   }
+  //   std::ofstream out(dot_file);
+  //   if (out) {
+  //     out << "digraph ngraph\n{\n";
+  //     out << m_ss.str();
+  //     out << "}\n";
+  //     out.close();
+
+  //     if (!m_dot_only && to_lower(ext) != ".dot") {
+  // #ifndef _WIN32
+  //       std::stringstream ss;
+  //       ss << "dot -T" << output_format << " " << dot_file << " -o" << m_name;
+  //       auto cmd = ss.str();
+  //       auto stream = popen(cmd.c_str(), "r");
+  //       if (stream) {
+  //         pclose(stream);
+  //       }
+  // #endif
+  //     }
+  //   }
+  }
 
   void VisitExpr_(const VarNode* op) override {
     std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
@@ -589,6 +608,7 @@ class GraphVisualizer : public MixedModeVisitor {
  private:
   // Module
   IRModule module_;
+  std::stringstream m_ss;
 
   // Map the address of each node to a unique name
   std::map<const void*, std::string> node_name_map_;
