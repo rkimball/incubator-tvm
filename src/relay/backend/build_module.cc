@@ -300,7 +300,7 @@ class RelayBuildModule : public runtime::ModuleNode {
       }
     });
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
-    pass_seqs.push_back(transform::VisualizeGraph("source_graph.pdf"));
+    // pass_seqs.push_back(transform::VisualizeGraph("source_graph.pdf"));
     pass_seqs.push_back(transform::EliminateCommonSubexpr(fskip));
     pass_seqs.push_back(transform::SimplifyExpr());
     pass_seqs.push_back(transform::CombineParallelConv2D(3));
