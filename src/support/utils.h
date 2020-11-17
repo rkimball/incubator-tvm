@@ -162,6 +162,28 @@ inline size_t HashCombine(size_t key, size_t value) {
   return key ^ (value + 0x9e3779b9 + (key << 6) + (key >> 2));
 }
 
+/*!
+ * \brief Join a sequence of values into a string with separators.
+ * \param v The collection to iterate.
+ * \param sep The separator to place between each item in v.
+ * \return the combined result.
+ */
+template <typename T>
+std::string Join(const T& v, const std::string& sep = ", ")
+{
+    std::ostringstream ss;
+    size_t count = 0;
+    for (const auto& x : v)
+    {
+        if (count++ > 0)
+        {
+            ss << sep;
+        }
+        ss << x;
+    }
+    return ss.str();
+}
+
 }  // namespace support
 }  // namespace tvm
 #endif  // TVM_SUPPORT_UTILS_H_
