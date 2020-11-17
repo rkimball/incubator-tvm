@@ -30,6 +30,7 @@
 #include <tvm/runtime/container.h>
 #include <tvm/runtime/ndarray.h>
 #include <tvm/runtime/object.h>
+#include "../ir/indexed_graph.h"
 
 #include "pattern_utils.h"
 
@@ -479,7 +480,26 @@ class GraphVisualizer : public MixedModeVisitor {
 
   void Visualize(const Expr& expr) {
     std::cout << __FILE__ << "   " << __LINE__ << " start\n";
-    operator()(expr);
+    IndexedGraph<Expr> indexed_graph = CreateIndexedGraph(expr);
+    // operator()(expr);
+    std::cout << __FILE__ << "   " << __LINE__ << "\n";
+    // First populate the node name map so that outputs are valid
+    for (auto node : indexed_graph.topological_order_) {
+      node_name_map_[node->ref_.get()] = NextNodeName(node->ref_.get());
+    }
+    for (auto node : indexed_graph.topological_order_) {
+      if (auto call = node->ref_.as<CallNode>()) {
+        if (const OpNode* op = call->op.as<OpNode>()){
+          std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(node->ref_) << " " << op->name << std::endl;
+          for (auto input : node->inputs_){
+            std::cout << "input " << GetNodeName(input->ref_) << std::endl;
+          }
+          for (auto output : node->outputs_){
+            std::cout << "output " << GetNodeName(output->ref_) << std::endl;
+          }
+        }
+      }
+    }
     std::cout << __FILE__ << "   " << __LINE__ << " end\n";
   }
 
@@ -509,19 +529,23 @@ class GraphVisualizer : public MixedModeVisitor {
     std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
-  void VisitExpr_(const CallNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
-
-    // for (Type ty_arg : op->type_args) {
+  void VisitExpr_(const CallNode* call) override {
+    // if (const OpNode* op = call->op.as<OpNode>()){
+    //   std::cout << __FILE__ << " " << __LINE__ << " " << op->name << std::endl;
     // }
 
-    for (Expr arg : op->args) {
-      node_inputs_[op].push_back(arg.get());
+    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(call) << std::endl;
+
+    // for (Type ty_arg : call->type_args) {
+    // }
+
+    for (Expr arg : call->args) {
+      node_inputs_[call].push_back(arg.get());
       // std::string name = GetNodeName(arg);
       // std::cout << __FILE__ << " " << __LINE__ << " arg " << name << std::endl;
     }
 
-    ExprVisitor::VisitExpr_(op);
+    ExprVisitor::VisitExpr_(call);
   }
   void VisitExpr_(const LetNode* op) override {
     std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
@@ -534,6 +558,11 @@ class GraphVisualizer : public MixedModeVisitor {
   void VisitExpr_(const TupleGetItemNode* op) override {
     // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << " " << op->index << std::endl;
     // std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(op->tuple) << " " << op->index << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
+    if (auto tuple = op->tuple.as<TupleNode>()) {
+      std::cout << __FILE__ << " " << __LINE__ << " is a tuple node" << std::endl;
+
+    }
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const RefCreateNode* op) override {
