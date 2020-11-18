@@ -133,7 +133,7 @@ class GraphVisualizer : public MixedModeVisitor {
     std::cout << __FILE__ << "   " << __LINE__ << "\n";
     // First populate the node name map so that outputs are valid
     for (auto node : indexed_graph.topological_order_) {
-      node_name_map_[node->ref_.get()] = NextNodeName(node->ref_.get());
+      node_name_map_[node->ref_.get()] = NextUniqueId(node->ref_.get());
     }
 
 
@@ -161,15 +161,17 @@ class GraphVisualizer : public MixedModeVisitor {
 
     size_t fake_node_ctr = 0;
     for (auto node : indexed_graph.topological_order_) {
-      add_node_arguments(*node, height_maps, fake_node_ctr);
+      if (!node->ref_.as<OpNode>()){
+        add_node_arguments(*node, height_maps, fake_node_ctr);
+      }
       // if (auto call = node->ref_.as<CallNode>()) {
       //   if (const OpNode* op = call->op.as<OpNode>()){
-      //     std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(node->ref_) << " " << op->name << std::endl;
+      //     std::cout << __FILE__ << " " << __LINE__ << " " << GetUniqueId(node->ref_) << " " << op->name << std::endl;
       //     for (auto input : node->inputs_){
-      //       std::cout << "input " << GetNodeName(input->ref_) << std::endl;
+      //       std::cout << "input " << GetUniqueId(input->ref_) << std::endl;
       //     }
       //     for (auto output : node->outputs_){
-      //       std::cout << "output " << GetNodeName(output->ref_) << std::endl;
+      //       std::cout << "output " << GetUniqueId(output->ref_) << std::endl;
       //     }
       //   }
       // }
@@ -280,12 +282,14 @@ class GraphVisualizer : public MixedModeVisitor {
     for (auto input_value : node.inputs_) {
       Expr arg = input_value->ref_;
       size_t jump_distance = height_maps[arg.get()].max_jump_to(height_maps[node.ref_.get()]);
-      if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
+      if (arg.as<OpNode>()) {
+        // Don't render OpNode
+      } else if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
-        auto color = (arg.as<VarNode>() ? "blue" : "green");
+        auto color = (arg.as<ConstantNode>() ? "blue" : "dark green");
         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
              << "\" fillcolor=\"white\" label=\"" << GetNodeName(arg) << "\"]\n";
-        m_ss << "    " << clone_name << " -> " << GetNodeName(node.ref_)
+        m_ss << "    " << clone_name << " -> " << GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
         fake_node_ctr++;
       } else if (jump_distance > max_jump_distance) {
@@ -296,20 +300,20 @@ class GraphVisualizer : public MixedModeVisitor {
         m_ss << "    " << recv_node_name
              << "[shape=\"box\" style=\"solid,filled\" "
                 "fillcolor=\"#ffcccc\" label=\"Receive["
-             << GetNodeName(arg) << "]\"]\n";
+             << GetUniqueId(arg) << "]\"]\n";
         m_ss << "    " << send_node_name
              << "[shape=\"box\" style=\"solid,filled\" "
                 "fillcolor=\"#ccffcc\" label=\"Send["
-             <<GetNodeName(node.ref_) << "]\"]\n";
-        m_ss << "    " << GetNodeName(arg) << " -> " << send_node_name
+             <<GetUniqueId(node.ref_) << "]\"]\n";
+        m_ss << "    " << GetUniqueId(arg) << " -> " << send_node_name
              << label_edge(input_value, &node, jump_distance) << "\n";
-        m_ss << "    " << recv_node_name << " -> " <<GetNodeName(node.ref_)
+        m_ss << "    " << recv_node_name << " -> " <<GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
         fake_node_ctr++;
       } else {
         m_ss << add_attributes(arg);
         m_ss << add_attributes(node.ref_);
-        m_ss << "    " << GetNodeName(arg) << " -> " <<GetNodeName(node.ref_)
+        m_ss << "    " << GetUniqueId(arg) << " -> " <<GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
       }
     }
@@ -456,7 +460,7 @@ class GraphVisualizer : public MixedModeVisitor {
     // }
 
     std::stringstream ss;
-    ss << "    " << GetNodeName(node) << " [" << Join(attributes, " ") << "]\n";
+    ss << "    " << GetUniqueId(node) << " [" << Join(attributes, " ") << "]\n";
 
     return ss.str();
   }
@@ -470,14 +474,9 @@ class GraphVisualizer : public MixedModeVisitor {
   // }
 
   void render(std::string output_path) const {
-    std::cout << m_ss.str() << std::endl;
-
     // Need a real temporary here
     std::string dot_file = output_path + ".dot";
     std::string output_format = "pdf";
-
-    std::cout << __FILE__ << " " << __LINE__ << " " << dot_file << std::endl;
-    std::cout << __FILE__ << " " << __LINE__ << " " << output_path << std::endl;
 
     std::ofstream out(dot_file);
     if (out) {
@@ -499,27 +498,27 @@ class GraphVisualizer : public MixedModeVisitor {
   }
 
   void VisitExpr_(const VarNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const ConstantNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const GlobalVarNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const OpNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const TupleNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const FunctionNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const CallNode* call) override {
@@ -527,30 +526,30 @@ class GraphVisualizer : public MixedModeVisitor {
     //   std::cout << __FILE__ << " " << __LINE__ << " " << op->name << std::endl;
     // }
 
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(call) << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(call) << std::endl;
 
     // for (Type ty_arg : call->type_args) {
     // }
 
     for (Expr arg : call->args) {
       node_inputs_[call].push_back(arg.get());
-      // std::string name = GetNodeName(arg);
+      // std::string name = GetUniqueId(arg);
       // std::cout << __FILE__ << " " << __LINE__ << " arg " << name << std::endl;
     }
 
     ExprVisitor::VisitExpr_(call);
   }
   void VisitExpr_(const LetNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const IfNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const TupleGetItemNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << " " << op->index << std::endl;
-    // std::cout << __FILE__ << " " << __LINE__ << " " << GetNodeName(op->tuple) << " " << op->index << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << " " << op->index << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " " << GetUniqueId(op->tuple) << " " << op->index << std::endl;
     std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
     if (auto tuple = op->tuple.as<TupleNode>()) {
       std::cout << __FILE__ << " " << __LINE__ << " is a tuple node" << std::endl;
@@ -559,23 +558,23 @@ class GraphVisualizer : public MixedModeVisitor {
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const RefCreateNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const RefReadNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const RefWriteNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const ConstructorNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
   void VisitExpr_(const MatchNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextNodeName(op) << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
     ExprVisitor::VisitExpr_(op);
   }
 
@@ -608,13 +607,37 @@ class GraphVisualizer : public MixedModeVisitor {
     }
   }
 
-  std::string NextNodeName(const void* op) {
+  std::string NextUniqueId(const void* op) {
     std::string name = "node_" + std::to_string(next_id_++);
     node_name_map_[op] = name;
     return name;
   }
 
   std::string GetNodeName(const Expr& op) {
+    std::string node_name = "unknown";
+    if (const CallNode* call_node = op.as<CallNode>()){
+      if (const OpNode* op_node = call_node->op.as<OpNode>()){
+        node_name = op_node->name;
+      }
+    } else if (const OpNode* op_node = op.as<OpNode>()) {
+      node_name = "op " + op_node->name;
+    } else if (op.as<ConstantNode>()) {
+      node_name = "constant";
+    } else if (op.as<VarNode>()) {
+      node_name = "variable";
+    } else if (op.as<GlobalVarNode>()) {
+      node_name = "global";
+    } else if (op.as<FunctionNode>()) {
+      node_name = "function";
+    } else if (op.as<TupleGetItemNode>()) {
+      node_name = "tuple get item";
+    } else {
+      std::cout << "unknown " << op << std::endl;
+    }
+    return node_name;
+  }
+
+  std::string GetUniqueId(const Expr& op) {
     auto it = node_name_map_.find(op.get());
     if (it == node_name_map_.end()) {
       std::cout << __FILE__ << " " << __LINE__ << " bad" << std::endl;
