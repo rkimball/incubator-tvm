@@ -140,6 +140,25 @@ class GraphVisualizer : public MixedModeVisitor {
 
     std::unordered_map<const void*, HeightMap> height_maps;
 
+    auto nodes = indexed_graph.topological_order_;
+    for (auto node : nodes) {
+        height_maps[node.get()] = HeightMap();
+    }
+    auto result_node = nodes[nodes.size()-1];
+    height_maps[result_node.get()] = HeightMap({result_node.get()});
+
+    // auto nodes = topological_sort(f->get_ops());
+
+    for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
+      const IndexedGraph<Expr>::Node& node = **it;
+      for (const IndexedGraph<Expr>::Node* output : node.outputs_) {
+        for (const IndexedGraph<Expr>::Node* input : output->inputs_) {
+          // auto target_node = input.get_node();
+          height_maps[&node.ref_].absorb(height_maps[&input->ref_]);
+        }
+      }
+    }
+
     size_t fake_node_ctr = 0;
     for (auto node : indexed_graph.topological_order_) {
       add_node_arguments(*node, height_maps, fake_node_ctr);
@@ -156,50 +175,6 @@ class GraphVisualizer : public MixedModeVisitor {
       // }
     }
 
-
-
-
-
-
-    // std::unordered_map<IndexedGraph<Expr>::Node*, HeightMap> height_maps;
-
-    // for (auto& node : f->get_ops()) {
-    //   if (is_type<op::v0::Result>(node)) {
-    //     height_maps[node.get()] = HeightMap({node.get()});
-    //   } else {
-    //     height_maps[node.get()] = HeightMap();
-    //   }
-    // }
-
-    // auto nodes = topological_sort(f->get_ops());
-
-    // for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-    //   auto& node = *it;
-    //   for (auto& output : node->outputs()) {
-    //     for (auto& input : output.get_target_inputs()) {
-    //       auto target_node = input.get_node();
-    //       height_maps[node.get()].absorb(height_maps[target_node]);
-    //     }
-    //   }
-    // }
-
-    // size_t fake_node_ctr = 0;
-
-    // traverse_nodes(f, [&](shared_ptr<Node> node) {
-    //   if (auto ck = as_type_ptr<ngraph::op::v0::CompiledKernel>(node)) {
-    //     // print sub-graph
-    //     auto nodes_list = ck->get_function()->get_ordered_ops();
-
-    //     // all nodes inside the CK sub-graph
-    //     for (auto& ck_node : nodes_list) {
-    //       m_ss << add_attributes(ck_node);
-    //     }
-    //     // all edges to each node in the sub-graph
-    //     for (auto& subgraph_node : nodes_list) {
-    //       add_node_arguments(subgraph_node, height_maps, fake_node_ctr);
-    //     }
-    //   }
-    // });
 
     render(output_path);
 
@@ -307,7 +282,7 @@ class GraphVisualizer : public MixedModeVisitor {
       size_t jump_distance = height_maps[arg.get()].max_jump_to(height_maps[node.ref_.get()]);
       if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
-        auto color = (arg.as<VarNode>() ? "blue" : "black");
+        auto color = (arg.as<VarNode>() ? "blue" : "green");
         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
              << "\" fillcolor=\"white\" label=\"" << GetNodeName(arg) << "\"]\n";
         m_ss << "    " << clone_name << " -> " << GetNodeName(node.ref_)
