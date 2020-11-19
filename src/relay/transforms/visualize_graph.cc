@@ -35,12 +35,15 @@
 #include <tvm/runtime/object.h>
 #include "../ir/indexed_graph.h"
 #include "../../support/utils.h"
+#include "../../printer/text_printer.h"
 
 #include "pattern_utils.h"
 
 namespace tvm {
 namespace relay {
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 // This code is originally from https://github.com/NervanaSystems/ngraph
 //
 // As we are visualizing the graph, we will make some tweaks to the generated dot file to make
@@ -57,7 +60,7 @@ namespace relay {
 //
 // [Actual Graph Structure]      [Visualization]
 //    n0                             n0
-//    | \                            |  \ 
+//    | \                            |  \                            this text silences warning
 //    n1 \                           n1  [to n50]
 //    |   |                          |
 //    n2  |                          n2
@@ -121,22 +124,37 @@ namespace relay {
 // be careful to avoid splitting the components. I have some rough ideas on how this could be
 // dealt with, but have not had time to implement them yet. --amprocte
 //
+// dot file colors are defined here http://www.graphviz.org/doc/info/colors.html
+//
+#pragma GCC diagnostic pop
 
 class GraphVisualizer : public MixedModeVisitor {
  public:
   explicit GraphVisualizer(IRModule module) : module_(module) {}
 
-  void Visualize(const Expr& expr, std::string output_path) {
-    std::cout << __FILE__ << "   " << __LINE__ << " start " << output_path << "\n";
+  Expr InferType(const Expr& expr) {
+    auto mod = IRModule::FromExpr(expr);
+    mod = transform::InferType()(mod);
+    if (expr.as<FunctionNode>()) {
+      return mod->Lookup("main");
+    } else {
+      return mod->Lookup("main").as<FunctionNode>()->body;
+    }
+  }
+
+  void Visualize(const Expr& expr_, std::string output_path) {
+    Expr expr = InferType(expr_);
+
+    if (const FunctionNode* function = expr.as<FunctionNode>()) {
+      expr = function->body;
+      std::cout << __FILE__ << " " << __LINE__ << " expr is FunctionNode\n";
+    }
+
     IndexedGraph<Expr> indexed_graph = CreateIndexedGraph(expr);
-    // operator()(expr);
-    std::cout << __FILE__ << "   " << __LINE__ << "\n";
     // First populate the node name map so that outputs are valid
     for (auto node : indexed_graph.topological_order_) {
       node_name_map_[node->ref_.get()] = NextUniqueId(node->ref_.get());
     }
-
-
 
     std::unordered_map<const void*, HeightMap> height_maps;
 
@@ -146,8 +164,6 @@ class GraphVisualizer : public MixedModeVisitor {
     }
     auto result_node = nodes[nodes.size()-1];
     height_maps[result_node.get()] = HeightMap({result_node.get()});
-
-    // auto nodes = topological_sort(f->get_ops());
 
     for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
       const IndexedGraph<Expr>::Node& node = **it;
@@ -164,58 +180,14 @@ class GraphVisualizer : public MixedModeVisitor {
       if (!node->ref_.as<OpNode>()){
         add_node_arguments(*node, height_maps, fake_node_ctr);
       }
-      // if (auto call = node->ref_.as<CallNode>()) {
-      //   if (const OpNode* op = call->op.as<OpNode>()){
-      //     std::cout << __FILE__ << " " << __LINE__ << " " << GetUniqueId(node->ref_) << " " << op->name << std::endl;
-      //     for (auto input : node->inputs_){
-      //       std::cout << "input " << GetUniqueId(input->ref_) << std::endl;
-      //     }
-      //     for (auto output : node->outputs_){
-      //       std::cout << "output " << GetUniqueId(output->ref_) << std::endl;
-      //     }
-      //   }
-      // }
     }
 
-
     render(output_path);
-
-
-
-
-
-
-
-
-
-    std::cout << __FILE__ << "   " << __LINE__ << " end\n";
   }
 
   using MixedModeVisitor::VisitExpr_;
 
-  const int max_jump_distance = 20;
-
-  /*!
-  * \brief Join a sequence of values into a string with separators.
-  * \param v The collection to iterate.
-  * \param sep The separator to place between each item in v.
-  * \return the combined result.
-  */
-  template <typename T>
-  std::string Join(const T& v, const std::string& sep = ", ")
-  {
-      std::ostringstream ss;
-      size_t count = 0;
-      for (const auto& x : v)
-      {
-          if (count++ > 0)
-          {
-              ss << sep;
-          }
-          ss << x;
-      }
-      return ss.str();
-  }
+  const size_t max_jump_distance = 20;
 
   class HeightMap {
   public:
@@ -270,9 +242,6 @@ class GraphVisualizer : public MixedModeVisitor {
     return ss.str();
   }
 
-  bool run_on_module(std::vector<std::shared_ptr<Function>>& functions) {
-  }
-
   // VisualizeTree(const string& file_name, node_modifiers_t nm, bool dot_only)
   //     : m_name{file_name}, m_node_modifiers{nm}, m_dot_only(dot_only) {}
 
@@ -286,15 +255,15 @@ class GraphVisualizer : public MixedModeVisitor {
         // Don't render OpNode
       } else if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
-        auto color = (arg.as<ConstantNode>() ? "blue" : "dark green");
+        auto color = (arg.as<ConstantNode>() ? "blue" : "green3");
         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
              << "\" fillcolor=\"white\" label=\"" << GetNodeName(arg) << "\"]\n";
         m_ss << "    " << clone_name << " -> " << GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
         fake_node_ctr++;
       } else if (jump_distance > max_jump_distance) {
-        m_ss << add_attributes(arg);
-        m_ss << add_attributes(node.ref_);
+        m_ss << add_attributes(*input_value);
+        m_ss << add_attributes(node);
         auto recv_node_name = "RECV_" + std::to_string(fake_node_ctr);
         auto send_node_name = "SEND_" + std::to_string(fake_node_ctr);
         m_ss << "    " << recv_node_name
@@ -311,15 +280,15 @@ class GraphVisualizer : public MixedModeVisitor {
              << label_edge(input_value, &node, jump_distance) << "\n";
         fake_node_ctr++;
       } else {
-        m_ss << add_attributes(arg);
-        m_ss << add_attributes(node.ref_);
+        m_ss << add_attributes(*input_value);
+        m_ss << add_attributes(node);
         m_ss << "    " << GetUniqueId(arg) << " -> " <<GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
       }
     }
   }
 
-  std::string add_attributes(Expr node) {
+  std::string add_attributes(const IndexedGraph<Expr>::Node& node) {
     std::string rc;
     // if (m_nodes_with_attributes.find(node) == m_nodes_with_attributes.end()) {
     //   m_nodes_with_attributes.insert(node);
@@ -355,7 +324,7 @@ class GraphVisualizer : public MixedModeVisitor {
   //   return ss.str();
   // }
 
-  std::string get_attributes(Expr node) {
+  std::string get_attributes(const IndexedGraph<Expr>::Node& node) {
     std::vector<std::string> attributes;
     attributes.push_back("shape=box");
 
@@ -371,72 +340,81 @@ class GraphVisualizer : public MixedModeVisitor {
       std::stringstream label;
       label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
               "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-            << GetNodeName(node) << "</td></tr>";
+            << GetNodeName(node.ref_) << "</td></tr>";
 
       size_t index = 0;
       const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
       const std::string td_end = "</font></td>";
-      // std::vector<std::string> rows;
-      // std::vector<std::string> row_compare;
-      // for (auto input : node->inputs()) {
-      //   std::stringstream row_ss;
-      //   std::stringstream row_compare_ss;
-      //   row_ss << "<tr>";
-      //   row_ss << td_start << "I[" << index++ << "]" << td_end;
-      //   row_compare_ss << td_start << input.get_element_type().get_type_name() << td_end;
-      //   row_compare_ss << td_start << pretty_partial_shape(input.get_shape()) << td_end;
-      //   row_ss << row_compare_ss.str() << "</tr>";
-      //   rows.push_back(row_ss.str());
-      //   row_compare.push_back("I" + row_compare_ss.str());
-      // }
-      // index = 0;
-      // for (auto output : node->outputs()) {
-      //   std::stringstream row_ss;
-      //   std::stringstream row_compare_ss;
-      //   row_ss << "<tr>";
-      //   row_ss << td_start << "O[" << index++ << "]" << td_end;
-      //   row_compare_ss << td_start << output.get_element_type().get_type_name() << td_end;
-      //   row_compare_ss << td_start << pretty_partial_shape(output.get_shape()) << td_end;
-      //   row_ss << row_compare_ss.str() << "</tr>";
-      //   rows.push_back(row_ss.str());
-      //   row_compare.push_back("O" + row_compare_ss.str());
-      // }
+      std::vector<std::string> rows;
+      std::vector<std::string> row_compare;
+      for (auto input : node.inputs_) {
+        if (input->ref_.as<OpNode>()) {
+          continue;
+        }
+        std::stringstream row_ss;
+        std::stringstream row_compare_ss;
+        row_ss << "<tr>";
+        row_ss << td_start << "I[" << index++ << "]" << td_end;
+        row_compare_ss << td_start << GetNodeType(input->ref_) << td_end;
+        row_compare_ss << td_start << GetNodeShape(input->ref_) << td_end;
+        row_ss << row_compare_ss.str() << "</tr>";
+        rows.push_back(row_ss.str());
+        row_compare.push_back("I" + row_compare_ss.str());
+      }
+      index = 0;
+      Array<Type> types;
+      if (const TupleTypeNode* tuple_node = node.ref_.as<TupleTypeNode>()) {
+        types = tuple_node->fields;
+      } else {
+        types.push_back(node.ref_->checked_type_);
+      }
+      for (Type type : types) {
+        std::stringstream row_ss;
+        std::stringstream row_compare_ss;
+        row_ss << "<tr>";
+        row_ss << td_start << "O[" << index++ << "]" << td_end;
+        row_compare_ss << td_start << GetNodeType(type) << td_end;
+        row_compare_ss << td_start << GetNodeShape(type) << td_end;
+        row_ss << row_compare_ss.str() << "</tr>";
+        rows.push_back(row_ss.str());
+        row_compare.push_back("O" + row_compare_ss.str());
+      }
 
-      // // Collapse duplicate rows
-      // std::vector<int64_t> remove_list;
-      // for (size_t i = 1; i < row_compare.size() - 1; i++) {
-      //   std::string s1 = row_compare[i - 1];
-      //   std::string s2 = row_compare[i];
-      //   std::string s3 = row_compare[i + 1];
-      //   if (s1 == s2 && s2 == s3) {
-      //     remove_list.push_back(i);
-      //   }
-      // }
-      // if (remove_list.size() > 3) {
-      //   // Go backwards through the list to make removal easier
-      //   int64_t start = remove_list[remove_list.size() - 1];
-      //   int64_t end = start;
-      //   int64_t count = 0;
-      //   for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
-      //     int64_t row = remove_list[i];
-      //     if (row == start - 1) {
-      //       // continue
-      //       start = row;
-      //       count++;
-      //     } else {
-      //       rows.erase(rows.begin() + start, rows.begin() + end + 1);
-      //       std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-      //       rows.insert(rows.begin() + start, str);
-      //       end = row;
-      //       start = row;
-      //     }
-      //   }
-      //   if (start != end) {
-      //     rows.erase(rows.begin() + start, rows.begin() + end + 1);
-      //     std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-      //     rows.insert(rows.begin() + start, str);
-      //   }
-      // }
+      // Collapse duplicate rows
+      std::vector<int64_t> remove_list;
+      for (size_t i = 1; i < row_compare.size() - 1; i++) {
+        std::string s1 = row_compare[i - 1];
+        std::string s2 = row_compare[i];
+        std::string s3 = row_compare[i + 1];
+        if (s1 == s2 && s2 == s3) {
+          remove_list.push_back(i);
+        }
+      }
+      if (remove_list.size() > 3) {
+        // Go backwards through the list to make removal easier
+        int64_t start = remove_list[remove_list.size() - 1];
+        int64_t end = start;
+        int64_t count = 0;
+        for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
+          int64_t row = remove_list[i];
+          if (row == start - 1) {
+            // continue
+            start = row;
+            count++;
+          } else {
+            rows.erase(rows.begin() + start, rows.begin() + end + 1);
+            std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+            rows.insert(rows.begin() + start, str);
+            end = row;
+            start = row;
+          }
+        }
+        if (start != end) {
+          rows.erase(rows.begin() + start, rows.begin() + end + 1);
+          std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+          rows.insert(rows.begin() + start, str);
+        }
+      }
 
       // if (get_provenance_enabled())
       // {
@@ -447,9 +425,9 @@ class GraphVisualizer : public MixedModeVisitor {
       //     }
       // }
 
-      // for (const std::string& s : rows) {
-      //   label << s;
-      // }
+      for (const std::string& s : rows) {
+        label << s;
+      }
 
       label << "</table>>";
       attributes.push_back(label.str());
@@ -460,7 +438,7 @@ class GraphVisualizer : public MixedModeVisitor {
     // }
 
     std::stringstream ss;
-    ss << "    " << GetUniqueId(node) << " [" << Join(attributes, " ") << "]\n";
+    ss << "    " << GetUniqueId(node.ref_) << " [" << tvm::support::Join(attributes, " ") << "]\n";
 
     return ss.str();
   }
@@ -497,85 +475,45 @@ class GraphVisualizer : public MixedModeVisitor {
     }
   }
 
-  void VisitExpr_(const VarNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const ConstantNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const GlobalVarNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const OpNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const TupleNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const FunctionNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const CallNode* call) override {
-    // if (const OpNode* op = call->op.as<OpNode>()){
-    //   std::cout << __FILE__ << " " << __LINE__ << " " << op->name << std::endl;
-    // }
 
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(call) << std::endl;
-
-    // for (Type ty_arg : call->type_args) {
-    // }
-
-    for (Expr arg : call->args) {
-      node_inputs_[call].push_back(arg.get());
-      // std::string name = GetUniqueId(arg);
-      // std::cout << __FILE__ << " " << __LINE__ << " arg " << name << std::endl;
+  std::string GetNodeType(const Type& checked_type) const {
+    std::string type = "unknown type";
+    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
+      // tensor_type->shape;
+      type = DLDataType2String(tensor_type->dtype);
     }
+    return type;
+  }
 
-    ExprVisitor::VisitExpr_(call);
-  }
-  void VisitExpr_(const LetNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const IfNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const TupleGetItemNode* op) override {
-    // std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << " " << op->index << std::endl;
-    // std::cout << __FILE__ << " " << __LINE__ << " " << GetUniqueId(op->tuple) << " " << op->index << std::endl;
-    std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
-    if (auto tuple = op->tuple.as<TupleNode>()) {
-      std::cout << __FILE__ << " " << __LINE__ << " is a tuple node" << std::endl;
-
+  std::string GetNodeShape(const Type& checked_type) const {
+    std::string shape = "unknown shape";
+    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
+      std::vector<std::string> axes;
+      for (auto e : tensor_type->shape) {
+        axes.push_back(tvm::TextPrinter(false, nullptr).PrintFinal(e).str());
+      }
+      shape = "[" + tvm::support::Join(axes, ",") + "]";
     }
-    ExprVisitor::VisitExpr_(op);
+    else if(const TupleTypeNode* tuple = checked_type.as<TupleTypeNode>()) {
+      shape = "tuple";
+    }
+    return shape;
   }
-  void VisitExpr_(const RefCreateNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
+
+  std::string GetNodeType(const Expr& expr) const {
+    std::string type = "unknown type";
+    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
+      type = GetNodeType(rexpr->checked_type_);
+    }
+    return type;
   }
-  void VisitExpr_(const RefReadNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const RefWriteNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const ConstructorNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
-  }
-  void VisitExpr_(const MatchNode* op) override {
-    std::cout << __FILE__ << " " << __LINE__ << " " << NextUniqueId(op) << std::endl;
-    ExprVisitor::VisitExpr_(op);
+
+  std::string GetNodeShape(const Expr& expr) const {
+    std::string shape = "unknown shape";
+    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
+      shape = GetNodeShape(rexpr->checked_type_);
+    }
+    return shape;
   }
 
  private:
@@ -585,8 +523,6 @@ class GraphVisualizer : public MixedModeVisitor {
 
   // Map the address of each node to a unique name
   std::map<const void*, std::string> node_name_map_;
-  std::map<const void*, std::vector<const void*>> node_inputs_;
-  std::map<const void*, std::vector<const void*>> node_outputs_;
   size_t next_id_ = 0;
 
   // Convert value to expression.
