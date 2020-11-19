@@ -147,7 +147,6 @@ class GraphVisualizer : public MixedModeVisitor {
 
     if (const FunctionNode* function = expr.as<FunctionNode>()) {
       expr = function->body;
-      std::cout << __FILE__ << " " << __LINE__ << " expr is FunctionNode\n";
     }
 
     IndexedGraph<Expr> indexed_graph = CreateIndexedGraph(expr);
@@ -338,98 +337,93 @@ class GraphVisualizer : public MixedModeVisitor {
     // Construct the label attribute
     {
       std::stringstream label;
-      label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
-              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-            << GetNodeName(node.ref_) << "</td></tr>";
 
-      size_t index = 0;
-      const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
-      const std::string td_end = "</font></td>";
-      std::vector<std::string> rows;
-      std::vector<std::string> row_compare;
-      for (auto input : node.inputs_) {
-        if (input->ref_.as<OpNode>()) {
-          continue;
-        }
-        std::stringstream row_ss;
-        std::stringstream row_compare_ss;
-        row_ss << "<tr>";
-        row_ss << td_start << "I[" << index++ << "]" << td_end;
-        row_compare_ss << td_start << GetNodeType(input->ref_) << td_end;
-        row_compare_ss << td_start << GetNodeShape(input->ref_) << td_end;
-        row_ss << row_compare_ss.str() << "</tr>";
-        rows.push_back(row_ss.str());
-        row_compare.push_back("I" + row_compare_ss.str());
-      }
-      index = 0;
-      Array<Type> types;
-      if (const TupleTypeNode* tuple_node = node.ref_.as<TupleTypeNode>()) {
-        types = tuple_node->fields;
+      if (const TupleGetItemNode* tgi = node.ref_.as<TupleGetItemNode>()) {
+        label << "label=\"TupleGetItemNode\\nindex=" << tgi->index << "\" fontname=courier";
       } else {
-        types.push_back(node.ref_->checked_type_);
-      }
-      for (Type type : types) {
-        std::stringstream row_ss;
-        std::stringstream row_compare_ss;
-        row_ss << "<tr>";
-        row_ss << td_start << "O[" << index++ << "]" << td_end;
-        row_compare_ss << td_start << GetNodeType(type) << td_end;
-        row_compare_ss << td_start << GetNodeShape(type) << td_end;
-        row_ss << row_compare_ss.str() << "</tr>";
-        rows.push_back(row_ss.str());
-        row_compare.push_back("O" + row_compare_ss.str());
-      }
-
-      // Collapse duplicate rows
-      std::vector<int64_t> remove_list;
-      for (size_t i = 1; i < row_compare.size() - 1; i++) {
-        std::string s1 = row_compare[i - 1];
-        std::string s2 = row_compare[i];
-        std::string s3 = row_compare[i + 1];
-        if (s1 == s2 && s2 == s3) {
-          remove_list.push_back(i);
+        label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
+                "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
+              << GetNodeName(node.ref_) << "</td></tr>";
+        size_t index = 0;
+        const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
+        const std::string td_end = "</font></td>";
+        std::vector<std::string> rows;
+        std::vector<std::string> row_compare;            
+        for (auto input : node.inputs_) {
+          if (input->ref_.as<OpNode>()) {
+            continue;
+          }
+          std::stringstream row_ss;
+          std::stringstream row_compare_ss;
+          row_ss << "<tr>";
+          row_ss << td_start << "I[" << index++ << "]" << td_end;
+          row_compare_ss << td_start << GetNodeType(input->ref_) << td_end;
+          row_compare_ss << td_start << GetNodeShape(input->ref_) << td_end;
+          row_ss << row_compare_ss.str() << "</tr>";
+          rows.push_back(row_ss.str());
+          row_compare.push_back("I" + row_compare_ss.str());
         }
-      }
-      if (remove_list.size() > 3) {
-        // Go backwards through the list to make removal easier
-        int64_t start = remove_list[remove_list.size() - 1];
-        int64_t end = start;
-        int64_t count = 0;
-        for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
-          int64_t row = remove_list[i];
-          if (row == start - 1) {
-            // continue
-            start = row;
-            count++;
-          } else {
+        index = 0;
+        Array<Type> types;
+        if (const TupleTypeNode* tuple_node = node.ref_->checked_type_.as<TupleTypeNode>()) {
+          types = tuple_node->fields;
+        } else {
+          types.push_back(node.ref_->checked_type_);
+        }
+        for (Type type : types) {
+          std::stringstream row_ss;
+          std::stringstream row_compare_ss;
+          row_ss << "<tr>";
+          row_ss << td_start << "O[" << index++ << "]" << td_end;
+          row_compare_ss << td_start << GetNodeType(type) << td_end;
+          row_compare_ss << td_start << GetNodeShape(type) << td_end;
+          row_ss << row_compare_ss.str() << "</tr>";
+          rows.push_back(row_ss.str());
+          row_compare.push_back("O" + row_compare_ss.str());
+        }
+
+        // Collapse duplicate rows
+        std::vector<int64_t> remove_list;
+        for (size_t i = 1; i < row_compare.size() - 1; i++) {
+          std::string s1 = row_compare[i - 1];
+          std::string s2 = row_compare[i];
+          std::string s3 = row_compare[i + 1];
+          if (s1 == s2 && s2 == s3) {
+            remove_list.push_back(i);
+          }
+        }
+        if (remove_list.size() > 3) {
+          // Go backwards through the list to make removal easier
+          int64_t start = remove_list[remove_list.size() - 1];
+          int64_t end = start;
+          int64_t count = 0;
+          for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
+            int64_t row = remove_list[i];
+            if (row == start - 1) {
+              // continue
+              start = row;
+              count++;
+            } else {
+              rows.erase(rows.begin() + start, rows.begin() + end + 1);
+              std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+              rows.insert(rows.begin() + start, str);
+              end = row;
+              start = row;
+            }
+          }
+          if (start != end) {
             rows.erase(rows.begin() + start, rows.begin() + end + 1);
             std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
             rows.insert(rows.begin() + start, str);
-            end = row;
-            start = row;
           }
         }
-        if (start != end) {
-          rows.erase(rows.begin() + start, rows.begin() + end + 1);
-          std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-          rows.insert(rows.begin() + start, str);
+
+        for (const std::string& s : rows) {
+          label << s;
         }
+        label << "</table>>";
       }
 
-      // if (get_provenance_enabled())
-      // {
-      //     for (auto tag : node->get_provenance_tags())
-      //     {
-      //         std::string str = "<tr><td align=\"left\" colspan=\"5\">tag=" + tag + "</td></tr>";
-      //         rows.push_back(str);
-      //     }
-      // }
-
-      for (const std::string& s : rows) {
-        label << s;
-      }
-
-      label << "</table>>";
       attributes.push_back(label.str());
     }
 
@@ -466,7 +460,6 @@ class GraphVisualizer : public MixedModeVisitor {
       std::stringstream ss;
       ss << "dot -T" << output_format << " " << dot_file << " -o" << output_path;
       auto cmd = ss.str();
-      std::cout << __FILE__ << " " << __LINE__ << " " << cmd << std::endl;
 
       auto stream = tvm::support::TVMPOpen(cmd.c_str(), "r");
       if (stream) {
@@ -504,6 +497,9 @@ class GraphVisualizer : public MixedModeVisitor {
     std::string type = "unknown type";
     if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
       type = GetNodeType(rexpr->checked_type_);
+    }
+    else if(const TupleTypeNode* tuple = expr.as<TupleTypeNode>()) {
+      type = "tuple";
     }
     return type;
   }
@@ -565,8 +561,8 @@ class GraphVisualizer : public MixedModeVisitor {
       node_name = "global";
     } else if (op.as<FunctionNode>()) {
       node_name = "function";
-    } else if (op.as<TupleGetItemNode>()) {
-      node_name = "tuple get item";
+    } else if (const TupleGetItemNode* tgi = op.as<TupleGetItemNode>()) {
+      node_name = "tuple get item " + std::to_string(tgi->index);
     } else {
       std::cout << "unknown " << op << std::endl;
     }
