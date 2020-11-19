@@ -335,97 +335,95 @@ class GraphVisualizer : public MixedModeVisitor {
     // }
 
     // Construct the label attribute
-    {
-      std::stringstream label;
+    std::stringstream label;
 
-      if (const TupleGetItemNode* tgi = node.ref_.as<TupleGetItemNode>()) {
-        label << "label=\"TupleGetItemNode\\nindex=" << tgi->index << "\" fontname=courier";
-      } else {
-        label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
-                "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-              << GetNodeName(node.ref_) << "</td></tr>";
-        size_t index = 0;
-        const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
-        const std::string td_end = "</font></td>";
-        std::vector<std::string> rows;
-        std::vector<std::string> row_compare;            
-        for (auto input : node.inputs_) {
-          if (input->ref_.as<OpNode>()) {
-            continue;
-          }
-          std::stringstream row_ss;
-          std::stringstream row_compare_ss;
-          row_ss << "<tr>";
-          row_ss << td_start << "I[" << index++ << "]" << td_end;
-          row_compare_ss << td_start << GetNodeType(input->ref_) << td_end;
-          row_compare_ss << td_start << GetNodeShape(input->ref_) << td_end;
-          row_ss << row_compare_ss.str() << "</tr>";
-          rows.push_back(row_ss.str());
-          row_compare.push_back("I" + row_compare_ss.str());
-        }
-        index = 0;
-        Array<Type> types;
-        if (const TupleTypeNode* tuple_node = node.ref_->checked_type_.as<TupleTypeNode>()) {
-          types = tuple_node->fields;
-        } else {
-          types.push_back(node.ref_->checked_type_);
-        }
-        for (Type type : types) {
-          std::stringstream row_ss;
-          std::stringstream row_compare_ss;
-          row_ss << "<tr>";
-          row_ss << td_start << "O[" << index++ << "]" << td_end;
-          row_compare_ss << td_start << GetNodeType(type) << td_end;
-          row_compare_ss << td_start << GetNodeShape(type) << td_end;
-          row_ss << row_compare_ss.str() << "</tr>";
-          rows.push_back(row_ss.str());
-          row_compare.push_back("O" + row_compare_ss.str());
-        }
-
-        // Collapse duplicate rows
-        std::vector<int64_t> remove_list;
-        for (size_t i = 1; i < row_compare.size() - 1; i++) {
-          std::string s1 = row_compare[i - 1];
-          std::string s2 = row_compare[i];
-          std::string s3 = row_compare[i + 1];
-          if (s1 == s2 && s2 == s3) {
-            remove_list.push_back(i);
-          }
-        }
-        if (remove_list.size() > 3) {
-          // Go backwards through the list to make removal easier
-          int64_t start = remove_list[remove_list.size() - 1];
-          int64_t end = start;
-          int64_t count = 0;
-          for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
-            int64_t row = remove_list[i];
-            if (row == start - 1) {
-              // continue
-              start = row;
-              count++;
-            } else {
-              rows.erase(rows.begin() + start, rows.begin() + end + 1);
-              std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-              rows.insert(rows.begin() + start, str);
-              end = row;
-              start = row;
-            }
-          }
-          if (start != end) {
-            rows.erase(rows.begin() + start, rows.begin() + end + 1);
-            std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
-            rows.insert(rows.begin() + start, str);
-          }
-        }
-
-        for (const std::string& s : rows) {
-          label << s;
-        }
-        label << "</table>>";
-      }
-
-      attributes.push_back(label.str());
+    label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
+            "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
+          << GetNodeName(node.ref_) << "</td></tr>";
+    size_t table_index = 0;
+    size_t tuple_index = 0;
+    if (const TupleGetItemNode* tgi = node.ref_.as<TupleGetItemNode>()) {
+      tuple_index = tgi->index;
     }
+    const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
+    const std::string td_end = "</font></td>";
+    std::vector<std::string> rows;
+    std::vector<std::string> row_compare;
+    for (auto input : node.inputs_) {
+      if (input->ref_.as<OpNode>()) {
+        continue;
+      }
+      std::stringstream row_ss;
+      std::stringstream row_compare_ss;
+      row_ss << "<tr>";
+      row_ss << td_start << "I[" << table_index++ << "]" << td_end;
+      row_compare_ss << td_start << GetNodeType(input->ref_, tuple_index) << td_end;
+      row_compare_ss << td_start << GetNodeShape(input->ref_, tuple_index) << td_end;
+      row_ss << row_compare_ss.str() << "</tr>";
+      rows.push_back(row_ss.str());
+      row_compare.push_back("I" + row_compare_ss.str());
+    }
+    table_index = 0;
+    Array<Type> types;
+    if (const TupleTypeNode* tuple_node = node.ref_->checked_type_.as<TupleTypeNode>()) {
+      types = tuple_node->fields;
+    } else {
+      types.push_back(node.ref_->checked_type_);
+    }
+    for (Type type : types) {
+      std::stringstream row_ss;
+      std::stringstream row_compare_ss;
+      row_ss << "<tr>";
+      row_ss << td_start << "O[" << table_index++ << "]" << td_end;
+      row_compare_ss << td_start << GetNodeType(type, 0) << td_end;
+      row_compare_ss << td_start << GetNodeShape(type, 0) << td_end;
+      row_ss << row_compare_ss.str() << "</tr>";
+      rows.push_back(row_ss.str());
+      row_compare.push_back("O" + row_compare_ss.str());
+    }
+
+    // Collapse duplicate rows
+    std::vector<int64_t> remove_list;
+    for (size_t i = 1; i < row_compare.size() - 1; i++) {
+      std::string s1 = row_compare[i - 1];
+      std::string s2 = row_compare[i];
+      std::string s3 = row_compare[i + 1];
+      if (s1 == s2 && s2 == s3) {
+        remove_list.push_back(i);
+      }
+    }
+    if (remove_list.size() > 3) {
+      // Go backwards through the list to make removal easier
+      int64_t start = remove_list[remove_list.size() - 1];
+      int64_t end = start;
+      int64_t count = 0;
+      for (int64_t i = remove_list.size() - 2; i >= 0; --i) {
+        int64_t row = remove_list[i];
+        if (row == start - 1) {
+          // continue
+          start = row;
+          count++;
+        } else {
+          rows.erase(rows.begin() + start, rows.begin() + end + 1);
+          std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+          rows.insert(rows.begin() + start, str);
+          end = row;
+          start = row;
+        }
+      }
+      if (start != end) {
+        rows.erase(rows.begin() + start, rows.begin() + end + 1);
+        std::string str = "<tr><td align=\"center\" colspan=\"5\">...</td></tr>";
+        rows.insert(rows.begin() + start, str);
+      }
+    }
+
+    for (const std::string& s : rows) {
+      label << s;
+    }
+    label << "</table>>";
+
+    attributes.push_back(label.str());
 
     // if (m_node_modifiers) {
     //   m_node_modifiers(*node, attributes);
@@ -468,17 +466,19 @@ class GraphVisualizer : public MixedModeVisitor {
     }
   }
 
-
-  std::string GetNodeType(const Type& checked_type) const {
+  std::string GetNodeType(const Type& checked_type, size_t index) const {
     std::string type = "unknown type";
     if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
       // tensor_type->shape;
       type = DLDataType2String(tensor_type->dtype);
     }
+    else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+      type = GetNodeType(ttn->fields[index], 0);
+    }
     return type;
   }
 
-  std::string GetNodeShape(const Type& checked_type) const {
+  std::string GetNodeShape(const Type& checked_type, size_t index) const {
     std::string shape = "unknown shape";
     if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
       std::vector<std::string> axes;
@@ -487,28 +487,31 @@ class GraphVisualizer : public MixedModeVisitor {
       }
       shape = "[" + tvm::support::Join(axes, ",") + "]";
     }
-    else if(const TupleTypeNode* tuple = checked_type.as<TupleTypeNode>()) {
-      shape = "tuple";
+    else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+      shape = GetNodeShape(ttn->fields[index], 0);
     }
     return shape;
   }
 
-  std::string GetNodeType(const Expr& expr) const {
+  std::string GetNodeType(const Expr& expr, size_t index) const {
     std::string type = "unknown type";
     if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-      type = GetNodeType(rexpr->checked_type_);
+      type = GetNodeType(rexpr->checked_type_, index);
     }
-    else if(const TupleTypeNode* tuple = expr.as<TupleTypeNode>()) {
-      type = "tuple";
-    }
+    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
+    //   type = GetNodeType(ttn->fields[index]);
+    // }
     return type;
   }
 
-  std::string GetNodeShape(const Expr& expr) const {
+  std::string GetNodeShape(const Expr& expr, size_t index) const {
     std::string shape = "unknown shape";
     if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-      shape = GetNodeShape(rexpr->checked_type_);
+      shape = GetNodeShape(rexpr->checked_type_, index);
     }
+    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
+    //   shape = GetNodeShape(ttn->fields[index]);
+    // }
     return shape;
   }
 
