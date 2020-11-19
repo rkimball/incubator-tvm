@@ -254,7 +254,6 @@ class RelayBuildModule : public runtime::ModuleNode {
 
     Array<Pass> pass_seqs;
     Array<runtime::String> entry_functions{"main"};
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     pass_seqs.push_back(transform::VisualizeGraph("source_graph.pdf"));
     pass_seqs.push_back(transform::RemoveUnusedFunctions(entry_functions));
     pass_seqs.push_back(transform::ToBasicBlockNormalForm());
@@ -285,7 +284,6 @@ class RelayBuildModule : public runtime::ModuleNode {
         }
       }
     });
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     // pass_seqs.push_back(transform::VisualizeGraph("source_graph.pdf"));
     pass_seqs.push_back(transform::EliminateCommonSubexpr(fskip));
     pass_seqs.push_back(transform::SimplifyExpr());
