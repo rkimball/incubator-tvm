@@ -53,6 +53,8 @@ class NodeInfo {
   std::string unique_name_;
 };
 
+void VisualizeGraph(const std::vector<NodeInfo*>& node_info, std::string output_path);
+
 }  // namespace ir
 }  // namespace tvm
 

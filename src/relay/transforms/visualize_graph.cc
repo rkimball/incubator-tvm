@@ -134,7 +134,9 @@ class RelayNodeInfo;
 class RelayEdgeInfo : public tvm::ir::EdgeInfo {
  public:
   RelayEdgeInfo(const RelayNodeInfo* node)
-      : node_(node) {}
+      : node_(node) {
+  std::cout << __FILE__ << " " << __LINE__ << " " << (void*)node << std::endl;
+      }
 
   std::string GetType() const override { return "type"; }
   std::string GetShape() const override { return "shape"; }
@@ -147,13 +149,9 @@ class RelayEdgeInfo : public tvm::ir::EdgeInfo {
 
 class RelayNodeInfo : public tvm::ir::NodeInfo {
  public:
-  RelayNodeInfo(const IndexedGraph<Expr>::Node* node, std::map<const Expr*, RelayNodeInfo> node_map) : node_(node) {
-    for (auto input : node->inputs_) {
-      const relay::Expr* expr = &input->ref_;
-      RelayNodeInfo& rni = node_map[expr];
-      inputs_.push_back((tvm::ir::EdgeInfo)RelayEdgeInfo(&rni));
-    }
+  RelayNodeInfo(const IndexedGraph<Expr>::Node* node) : node_(node) {
   }
+  RelayNodeInfo(const RelayNodeInfo&) = default;
   std::string GetName() const override {
     Expr expr = node_->ref_;
     std::string node_name = "unknown";
@@ -181,10 +179,26 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
   std::vector<const tvm::ir::EdgeInfo*> GetInputs() const override { return inputs_; }
   std::vector<const tvm::ir::EdgeInfo*> GetOutputs() const override { return outputs_; }
 
+  void PopulateIO(std::map<const Expr*, std::shared_ptr<RelayNodeInfo>>& node_map) {
+    for (auto input : node_->inputs_) {
+      if (input->ref_.as<OpNode>()) { continue; }
+      RelayEdgeInfo rei(node_map[&input->ref_].get());
+      input_instances.push_back(rei);
+      inputs_.push_back(&input_instances[input_instances.size()-1]);
+    }
+    for (auto output : node_->outputs_) {
+      RelayEdgeInfo rei(node_map[&output->ref_].get());
+      output_instances.push_back(rei);
+      outputs_.push_back(&output_instances[output_instances.size()-1]);
+    }
+  }
+
  private:
   const IndexedGraph<Expr>::Node* node_;
   std::vector<const tvm::ir::EdgeInfo*> inputs_;
   std::vector<const tvm::ir::EdgeInfo*> outputs_;
+  std::deque<RelayEdgeInfo> input_instances;
+  std::deque<RelayEdgeInfo> output_instances;
 };
 
 class GraphVisualizer {
@@ -209,20 +223,24 @@ class GraphVisualizer {
     }
 
     IndexedGraph<Expr> relay_graph = CreateIndexedGraph(expr);
-    std::map<const Expr*, RelayNodeInfo> node_map;
+    std::map<const Expr*, std::shared_ptr<RelayNodeInfo>> node_map;
     for (auto relay_node : relay_graph.topological_order_) {
-      node_map[&relay_node->ref_] = RelayNodeInfo(relay_node.get());
     }
 
 
-    std::vector<RelayNodeInfo> node_info;
+
+    std::vector<tvm::ir::NodeInfo*> node_info_list;
     for (auto relay_node : relay_graph.topological_order_) {
-      node_info.emplace_back(*relay_node);
-      tvm::ir::NodeInfo& node = node_info.back();
-      node_map[&relay_node->ref_] = &node;
+      if (relay_node->ref_.as<OpNode>()) { continue; }
+      auto rni = std::make_shared<RelayNodeInfo>(relay_node.get());
+      node_map[&relay_node->ref_] = rni;
+      node_info_list.push_back(rni.get());
+    }
+    for (auto info : node_info_list) {
+      ((RelayNodeInfo*)info)->PopulateIO(node_map);
     }
 
-    render(output_path);
+    tvm::ir::VisualizeGraph(node_info_list, output_path);
   }
 
   const size_t max_jump_distance = 20;
@@ -627,8 +645,6 @@ namespace transform {
 Pass VisualizeGraph(std::string output_path) {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        // return Downcast<Function>(VisualizeGraph(f, m));
-        // run visualize
         VisualizeGraph(f, m, output_path);
         return f;
       };

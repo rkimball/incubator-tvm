@@ -119,17 +119,18 @@ namespace ir {
 
 class GraphVisualizer {
  public:
-  void Visualize(const std::vector<NodeInfo>& node_info, std::string output_path) {
+  void Visualize(const std::vector<NodeInfo*>& node_info, std::string output_path) {
     std::unordered_map<const NodeInfo*, HeightMap> height_maps;
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
-    for (const NodeInfo& node : node_info) {
-      height_maps[&node] = HeightMap();
+    for (const NodeInfo* node : node_info) {
+      height_maps[node] = HeightMap();
     }
-    const NodeInfo& result_node = node_info[node_info.size() - 1];
-    height_maps[&result_node] = HeightMap({&result_node});
+    const NodeInfo* result_node = node_info[node_info.size() - 1];
+    height_maps[result_node] = HeightMap({result_node});
 
     for (auto it = node_info.rbegin(); it != node_info.rend(); ++it) {
-      const NodeInfo& node = *it;
+      const NodeInfo* node = *it;
       // for (const IndexedGraph<Expr>::Node* output : node.outputs_) {
       //   for (const IndexedGraph<Expr>::Node* input : output->inputs_) {
       //     // auto target_node = input.get_node();
@@ -139,11 +140,13 @@ class GraphVisualizer {
     }
 
     size_t fake_node_ctr = 0;
-    for (const NodeInfo& node : node_info) {
-      add_node_arguments(&node, height_maps, fake_node_ctr);
+    for (const NodeInfo* node : node_info) {
+      add_node_arguments(node, height_maps, fake_node_ctr);
     }
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     render(output_path);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
 
   const size_t max_jump_distance = 20;
@@ -206,6 +209,7 @@ class GraphVisualizer {
                           std::unordered_map<const NodeInfo*, HeightMap>& height_maps,
                           size_t& fake_node_ctr) {
     for (const EdgeInfo* input_value : node->GetInputs()) {
+      CHECK(input_value);
       const NodeInfo* arg = input_value->GetInfo();
       size_t jump_distance =
           height_maps[input_value->GetInfo()].max_jump_to(height_maps[node]);
@@ -281,7 +285,7 @@ class GraphVisualizer {
   // }
 
   std::string get_attributes(const NodeInfo* node) {
-    std::vector<std::string> attributes;
+  std::vector<std::string> attributes;
     attributes.push_back("shape=box");
 
     // if (node->is_output()) {
@@ -294,6 +298,7 @@ class GraphVisualizer {
     // Construct the label attribute
     std::stringstream label;
 
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
           << node->GetName() << "</td></tr>";
@@ -307,6 +312,7 @@ class GraphVisualizer {
     std::vector<std::string> rows;
     std::vector<std::string> row_compare;
     for (const EdgeInfo* input : node->GetInputs()) {
+      CHECK(input);
       std::stringstream row_ss;
       std::stringstream row_compare_ss;
       row_ss << "<tr>";
@@ -384,7 +390,8 @@ class GraphVisualizer {
     // }
 
     std::stringstream ss;
-    ss << "    " << node->GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
+    // ss << "    " << node->GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
+    ss << "    " << node->GetUniqueName() << "\n";
 
     return ss.str();
   }
@@ -401,6 +408,7 @@ class GraphVisualizer {
     // Need a real temporary here
     std::string dot_file = output_path + ".dot";
     std::string output_format = "pdf";
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     std::ofstream out(dot_file);
     if (out) {
@@ -412,12 +420,17 @@ class GraphVisualizer {
       std::stringstream ss;
       ss << "dot -T" << output_format << " " << dot_file << " -o" << output_path;
       auto cmd = ss.str();
+  std::cout << __FILE__ << " " << __LINE__ << " " << cmd << std::endl;
 
       auto stream = tvm::support::TVMPOpen(cmd.c_str(), "r");
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
       if (stream) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
         tvm::support::TVMPClose(stream);
       }
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
     }
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
 
   // std::string GetNodeType(const Type& checked_type, size_t index) const {
@@ -534,6 +547,11 @@ class GraphVisualizer {
   //   return it->second;
   // }
 };
+
+void VisualizeGraph(const std::vector<NodeInfo*>& node_info, std::string output_path) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  GraphVisualizer().Visualize(node_info, output_path);
+}
 
 }  // namespace ir
 }  // namespace tvm
