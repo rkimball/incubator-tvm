@@ -51,12 +51,60 @@ class RelayEdgeInfo : public tvm::ir::EdgeInfo {
       : node_(node) {
       }
 
-  std::string GetType() const override { return "type"; }
-  std::string GetShape() const override { return "shape"; }
+  std::string GetType() const override;
+  std::string GetShape() const override;
   size_t GetIndex() const override { return 0; }
   const tvm::ir::NodeInfo* GetInfo() const override { return (const tvm::ir::NodeInfo*)node_; }
 
  private:
+
+  std::string GetNodeType(const Type& checked_type, size_t index) const {
+    std::string type = "unknown type";
+    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
+      // tensor_type->shape;
+      type = DLDataType2String(tensor_type->dtype);
+    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+      type = GetNodeType(ttn->fields[index], 0);
+    }
+    return type;
+  }
+
+  std::string GetNodeShape(const Type& checked_type, size_t index) const {
+    std::string shape = "unknown shape";
+    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
+      std::vector<std::string> axes;
+      for (auto e : tensor_type->shape) {
+        axes.push_back(tvm::TextPrinter(false, nullptr).PrintFinal(e).str());
+      }
+      shape = "[" + tvm::support::Join(axes, ",") + "]";
+    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+      shape = GetNodeShape(ttn->fields[index], 0);
+    }
+    return shape;
+  }
+
+  std::string GetNodeType(const Expr& expr, size_t index) const {
+    std::string type = "unknown type";
+    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
+      type = GetNodeType(rexpr->checked_type_, index);
+    }
+    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
+    //   type = GetNodeType(ttn->fields[index]);
+    // }
+    return type;
+  }
+
+  std::string GetNodeShape(const Expr& expr, size_t index) const {
+    std::string shape = "unknown shape";
+    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
+      shape = GetNodeShape(rexpr->checked_type_, index);
+    }
+    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
+    //   shape = GetNodeShape(ttn->fields[index]);
+    // }
+    return shape;
+  }
+
   const RelayNodeInfo* node_;
 };
 
@@ -106,6 +154,8 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
     }
   }
 
+  Expr GetExpr() const { return node_->ref_; }
+
  private:
   const IndexedGraph<Expr>::Node* node_;
   std::vector<const tvm::ir::EdgeInfo*> inputs_;
@@ -113,6 +163,9 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
   std::deque<RelayEdgeInfo> input_instances;
   std::deque<RelayEdgeInfo> output_instances;
 };
+
+std::string RelayEdgeInfo::GetType() const { return GetNodeType(node_->GetExpr(), 0); }
+std::string RelayEdgeInfo::GetShape() const { return GetNodeShape(node_->GetExpr(), 0); }
 
 class GraphVisualizer {
  public:
@@ -154,53 +207,6 @@ class GraphVisualizer {
     }
 
     tvm::ir::VisualizeGraph(node_info_list, output_path);
-  }
-
-  std::string GetNodeType(const Type& checked_type, size_t index) const {
-    std::string type = "unknown type";
-    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
-      // tensor_type->shape;
-      type = DLDataType2String(tensor_type->dtype);
-    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
-      type = GetNodeType(ttn->fields[index], 0);
-    }
-    return type;
-  }
-
-  std::string GetNodeShape(const Type& checked_type, size_t index) const {
-    std::string shape = "unknown shape";
-    if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
-      std::vector<std::string> axes;
-      for (auto e : tensor_type->shape) {
-        axes.push_back(tvm::TextPrinter(false, nullptr).PrintFinal(e).str());
-      }
-      shape = "[" + tvm::support::Join(axes, ",") + "]";
-    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
-      shape = GetNodeShape(ttn->fields[index], 0);
-    }
-    return shape;
-  }
-
-  std::string GetNodeType(const Expr& expr, size_t index) const {
-    std::string type = "unknown type";
-    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-      type = GetNodeType(rexpr->checked_type_, index);
-    }
-    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
-    //   type = GetNodeType(ttn->fields[index]);
-    // }
-    return type;
-  }
-
-  std::string GetNodeShape(const Expr& expr, size_t index) const {
-    std::string shape = "unknown shape";
-    if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-      shape = GetNodeShape(rexpr->checked_type_, index);
-    }
-    // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
-    //   shape = GetNodeShape(ttn->fields[index]);
-    // }
-    return shape;
   }
 
  private:
