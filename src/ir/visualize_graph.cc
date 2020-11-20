@@ -21,11 +21,12 @@
  * \file visualize_graph.cc
  */
 
+#include <tvm/ir/visualize.h>
+
 #include <fstream>
 
-#include "../support/utils.h"
 #include "../printer/text_printer.h"
-#include <tvm/ir/visualize.h>
+#include "../support/utils.h"
 
 namespace tvm {
 namespace ir {
@@ -119,13 +120,12 @@ namespace ir {
 class GraphVisualizer {
  public:
   void Visualize(const std::vector<NodeInfo>& node_info, std::string output_path) {
-
     std::unordered_map<const NodeInfo*, HeightMap> height_maps;
 
     for (const NodeInfo& node : node_info) {
-        height_maps[&node] = HeightMap();
+      height_maps[&node] = HeightMap();
     }
-    const NodeInfo& result_node = node_info[node_info.size()-1];
+    const NodeInfo& result_node = node_info[node_info.size() - 1];
     height_maps[&result_node] = HeightMap({&result_node});
 
     for (auto it = node_info.rbegin(); it != node_info.rend(); ++it) {
@@ -140,7 +140,7 @@ class GraphVisualizer {
 
     size_t fake_node_ctr = 0;
     for (const NodeInfo& node : node_info) {
-        add_node_arguments(node, height_maps, fake_node_ctr);
+      add_node_arguments(&node, height_maps, fake_node_ctr);
     }
 
     render(output_path);
@@ -149,7 +149,7 @@ class GraphVisualizer {
   const size_t max_jump_distance = 20;
 
   class HeightMap {
-  public:
+   public:
     HeightMap() {}
     HeightMap(std::set<const void*> initials) {
       for (auto& n : initials) {
@@ -175,11 +175,11 @@ class GraphVisualizer {
       return result;
     }
 
-  private:
+   private:
     std::unordered_map<const void*, int64_t> heights_;
   };
 
-  static std::string label_edge(const EdgeInfo& edge, int64_t jump_distance) {
+  static std::string label_edge(const EdgeInfo* edge, int64_t jump_distance) {
     std::stringstream ss;
     // for (Input<Node> input : output.get_target_inputs()) {
     //   if (input.get_node() == dst.get()) {
@@ -202,48 +202,49 @@ class GraphVisualizer {
   // VisualizeTree(const string& file_name, node_modifiers_t nm, bool dot_only)
   //     : m_name{file_name}, m_node_modifiers{nm}, m_dot_only(dot_only) {}
 
-  void add_node_arguments(const NodeInfo& node,
+  void add_node_arguments(const NodeInfo* node,
                           std::unordered_map<const NodeInfo*, HeightMap>& height_maps,
                           size_t& fake_node_ctr) {
-    for (const EdgeInfo& input_value : node.GetInputs()) {
-      const NodeInfo& arg = input_value.GetSourceNode();
-      size_t jump_distance = height_maps[&input_value.GetSourceNode()].max_jump_to(height_maps[&node]);
-      if (arg.GetName() == "constant" || arg.GetName() == "var") {
+    for (const EdgeInfo* input_value : node->GetInputs()) {
+      const NodeInfo* arg = input_value->GetInfo();
+      size_t jump_distance =
+          height_maps[input_value->GetInfo()].max_jump_to(height_maps[node]);
+      if (arg->GetName() == "constant" || arg->GetName() == "var") {
         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
-        auto color = (arg.GetName() == "constant" ? "blue" : "green3");
+        auto color = (arg->GetName() == "constant" ? "blue" : "green3");
         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
-             << "\" fillcolor=\"white\" label=\"" << arg.GetName() << "\"]\n";
-        m_ss << "    " << clone_name << " -> " << node.GetUniqueName()
+             << "\" fillcolor=\"white\" label=\"" << arg->GetName() << "\"]\n";
+        m_ss << "    " << clone_name << " -> " << node->GetUniqueName()
              << label_edge(input_value, jump_distance) << "\n";
         fake_node_ctr++;
       } else if (jump_distance > max_jump_distance) {
-        m_ss << add_attributes(input_value.GetSourceNode());
+        m_ss << add_attributes(input_value->GetInfo());
         m_ss << add_attributes(node);
         auto recv_node_name = "RECV_" + std::to_string(fake_node_ctr);
         auto send_node_name = "SEND_" + std::to_string(fake_node_ctr);
         m_ss << "    " << recv_node_name
              << "[shape=\"box\" style=\"solid,filled\" "
                 "fillcolor=\"#ffcccc\" label=\"Receive["
-             << arg.GetUniqueName() << "]\"]\n";
+             << arg->GetUniqueName() << "]\"]\n";
         m_ss << "    " << send_node_name
              << "[shape=\"box\" style=\"solid,filled\" "
                 "fillcolor=\"#ccffcc\" label=\"Send["
-             << node.GetUniqueName() << "]\"]\n";
-        m_ss << "    " << arg.GetUniqueName() << " -> " << send_node_name
+             << node->GetUniqueName() << "]\"]\n";
+        m_ss << "    " << arg->GetUniqueName() << " -> " << send_node_name
              << label_edge(input_value, jump_distance) << "\n";
-        m_ss << "    " << recv_node_name << " -> " << node.GetUniqueName()
+        m_ss << "    " << recv_node_name << " -> " << node->GetUniqueName()
              << label_edge(input_value, jump_distance) << "\n";
         fake_node_ctr++;
       } else {
-        m_ss << add_attributes(input_value.GetSourceNode());
+        m_ss << add_attributes(input_value->GetInfo());
         m_ss << add_attributes(node);
-        m_ss << "    " << arg.GetUniqueName() << " -> " << node.GetUniqueName()
+        m_ss << "    " << arg->GetUniqueName() << " -> " << node->GetUniqueName()
              << label_edge(input_value, jump_distance) << "\n";
       }
     }
   }
 
-  std::string add_attributes(const NodeInfo& node) {
+  std::string add_attributes(const NodeInfo* node) {
     std::string rc;
     // if (m_nodes_with_attributes.find(node) == m_nodes_with_attributes.end()) {
     //   m_nodes_with_attributes.insert(node);
@@ -279,7 +280,7 @@ class GraphVisualizer {
   //   return ss.str();
   // }
 
-  std::string get_attributes(const NodeInfo& node) {
+  std::string get_attributes(const NodeInfo* node) {
     std::vector<std::string> attributes;
     attributes.push_back("shape=box");
 
@@ -287,49 +288,49 @@ class GraphVisualizer {
     //   attributes.push_back("color=crimson");
     //   attributes.push_back("penwidth=1.5");
     // } else {
-      attributes.push_back("color=black");
+    attributes.push_back("color=black");
     // }
 
     // Construct the label attribute
     std::stringstream label;
 
     label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
-            "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
-          << node.GetName() << "</td></tr>";
+             "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
+          << node->GetName() << "</td></tr>";
     size_t table_index = 0;
     size_t tuple_index = 0;
-    // if (const TupleGetItemNode* tgi = node.ref_.as<TupleGetItemNode>()) {
+    // if (const TupleGetItemNode* tgi = node->ref_.as<TupleGetItemNode>()) {
     //   tuple_index = tgi->index;
     // }
     const std::string td_start = "<td><font point-size=\"10\" face=\"courier\">";
     const std::string td_end = "</font></td>";
     std::vector<std::string> rows;
     std::vector<std::string> row_compare;
-    for (const EdgeInfo& input : node.GetInputs()) {
+    for (const EdgeInfo* input : node->GetInputs()) {
       std::stringstream row_ss;
       std::stringstream row_compare_ss;
       row_ss << "<tr>";
       row_ss << td_start << "I[" << table_index++ << "]" << td_end;
-      row_compare_ss << td_start << input.GetType() << td_end;
-      row_compare_ss << td_start << input.GetShape() << td_end;
+      row_compare_ss << td_start << input->GetType() << td_end;
+      row_compare_ss << td_start << input->GetShape() << td_end;
       row_ss << row_compare_ss.str() << "</tr>";
       rows.push_back(row_ss.str());
       row_compare.push_back("I" + row_compare_ss.str());
     }
     table_index = 0;
     // Array<Type> types;
-    // if (const TupleTypeNode* tuple_node = node.ref_->checked_type_.as<TupleTypeNode>()) {
+    // if (const TupleTypeNode* tuple_node = node->ref_->checked_type_.as<TupleTypeNode>()) {
     //   types = tuple_node->fields;
     // } else {
-    //   types.push_back(node.ref_->checked_type_);
+    //   types.push_back(node->ref_->checked_type_);
     // }
-    for (const EdgeInfo& output : node.GetOutputs()) {
+    for (const EdgeInfo* output : node->GetOutputs()) {
       std::stringstream row_ss;
       std::stringstream row_compare_ss;
       row_ss << "<tr>";
       row_ss << td_start << "O[" << table_index++ << "]" << td_end;
-      row_compare_ss << td_start << output.GetType() << td_end;
-      row_compare_ss << td_start << output.GetShape() << td_end;
+      row_compare_ss << td_start << output->GetType() << td_end;
+      row_compare_ss << td_start << output->GetShape() << td_end;
       row_ss << row_compare_ss.str() << "</tr>";
       rows.push_back(row_ss.str());
       row_compare.push_back("O" + row_compare_ss.str());
@@ -383,7 +384,7 @@ class GraphVisualizer {
     // }
 
     std::stringstream ss;
-    ss << "    " << node.GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
+    ss << "    " << node->GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
 
     return ss.str();
   }

@@ -28,37 +28,32 @@ namespace ir {
 
 class NodeInfo;
 
-class EdgeInfo
-{
-public:
+class EdgeInfo {
+ public:
+  virtual ~EdgeInfo() {}
   virtual std::string GetType() const = 0;
   virtual std::string GetShape() const = 0;
-  virtual const NodeInfo& GetSourceNode() const = 0;
-  virtual const NodeInfo& GetTargetNode() const = 0;
-  virtual size_t GetSourceIndex() const = 0;
-  virtual size_t GetTargetIndex() const = 0;
+  virtual size_t GetIndex() const = 0;
+  virtual const NodeInfo* GetInfo() const = 0;
 };
 
-class NodeInfo
-{
-public:
-  NodeInfo() {
+class NodeInfo {
+ public:
+  explicit NodeInfo() {
     static size_t next_id = 0;
     unique_name_ = "node_" + std::to_string(next_id++);
   }
+  virtual ~NodeInfo() {}
   virtual std::string GetName() const = 0;
-  virtual std::vector<EdgeInfo> GetInputs() const = 0;
-  virtual std::vector<EdgeInfo> GetOutputs() const = 0;
+  virtual std::vector<const EdgeInfo*> GetInputs() const = 0;
+  virtual std::vector<const EdgeInfo*> GetOutputs() const = 0;
+  virtual std::string GetUniqueName() const { return unique_name_; }
 
-  std::string GetUniqueName() const {
-    return unique_name_;
-  }
-
-private:
+ private:
   std::string unique_name_;
 };
 
-} // namespace ir
-} // namespace tvm
+}  // namespace ir
+}  // namespace tvm
 
-#endif // TVM_IR_VISUALIZE_H
+#endif  // TVM_IR_VISUALIZE_H

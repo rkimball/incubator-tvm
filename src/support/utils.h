@@ -169,19 +169,16 @@ inline size_t HashCombine(size_t key, size_t value) {
  * \return the combined result.
  */
 template <typename T>
-std::string Join(const T& v, const std::string& sep = ", ")
-{
-    std::ostringstream ss;
-    size_t count = 0;
-    for (const auto& x : v)
-    {
-        if (count++ > 0)
-        {
-            ss << sep;
-        }
-        ss << x;
+std::string Join(const T& v, const std::string& sep = ", ") {
+  std::ostringstream ss;
+  size_t count = 0;
+  for (const auto& x : v) {
+    if (count++ > 0) {
+      ss << sep;
     }
-    return ss.str();
+    ss << x;
+  }
+  return ss.str();
 }
 
 }  // namespace support

@@ -21,11 +21,11 @@
  * \file visualize_graph.cc
  */
 
-#include <fstream>
-
-#include "../../relay/ir/indexed_graph.h"
 #include <tvm/arith/analyzer.h>
+#include <tvm/runtime/container.h>
 #include <tvm/runtime/device_api.h>
+#include <tvm/runtime/ndarray.h>
+#include <tvm/runtime/object.h>
 #include <tvm/runtime/registry.h>
 #include <tvm/target/target_info.h>
 #include <tvm/te/operation.h>
@@ -37,11 +37,11 @@
 #include <tvm/tir/stmt_functor.h>
 #include <tvm/tir/transform.h>
 
-#include <tvm/runtime/container.h>
-#include <tvm/runtime/ndarray.h>
-#include <tvm/runtime/object.h>
-#include "../../support/utils.h"
+#include <fstream>
+
 #include "../../printer/text_printer.h"
+#include "../../relay/ir/indexed_graph.h"
+#include "../../support/utils.h"
 
 // #include "pattern_utils.h"
 
@@ -137,7 +137,6 @@ namespace tir {
 // class GraphVisualizer {
 //  public:
 //   explicit GraphVisualizer(IRModule module) : module_(module) {}
-
 
 //   void Visualize(const PrimExpr& expr, std::string output_path) {
 
@@ -245,7 +244,8 @@ namespace tir {
 //       } else if (arg.as<ConstantNode>() || arg.as<VarNode>()) {
 //         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
 //         auto color = (arg.as<ConstantNode>() ? "blue" : "green3");
-//         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" << color
+//         m_ss << "    " << clone_name << "[shape=\"box\" style=\"dashed,filled\" color=\"" <<
+//         color
 //              << "\" fillcolor=\"white\" label=\"" << GetNodeName(arg) << "\"]\n";
 //         m_ss << "    " << clone_name << " -> " << GetUniqueId(node.ref_)
 //              << label_edge(input_value, &node, jump_distance) << "\n";
@@ -420,7 +420,8 @@ namespace tir {
 //     // }
 
 //     std::stringstream ss;
-//     ss << "    " << GetUniqueId(node.ref_) << " [" << tvm::support::Join(attributes, " ") << "]\n";
+//     ss << "    " << GetUniqueId(node.ref_) << " [" << tvm::support::Join(attributes, " ") <<
+//     "]\n";
 
 //     return ss.str();
 //   }
@@ -579,13 +580,12 @@ void VisualizeGraph(const PrimFunc& expr, const IRModule& mod, std::string outpu
 namespace transform {
 
 Pass VisualizeGraph(std::string output_path) {
-  auto pass_func =
-      [=](PrimFunc f, IRModule m, PassContext pc) {
-        // return Downcast<Function>(VisualizeGraph(f, m));
-        // run visualize
-        tvm::tir::VisualizeGraph(f, m, output_path);
-        return f;
-      };
+  auto pass_func = [=](PrimFunc f, IRModule m, PassContext pc) {
+    // return Downcast<Function>(VisualizeGraph(f, m));
+    // run visualize
+    tvm::tir::VisualizeGraph(f, m, output_path);
+    return f;
+  };
   return CreatePrimFuncPass(pass_func, 2, "VisualizeGraph", {});
 }
 

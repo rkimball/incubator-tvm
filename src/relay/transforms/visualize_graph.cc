@@ -21,8 +21,7 @@
  * \file visualize_graph.cc
  */
 
-#include <fstream>
-
+#include <tvm/ir/visualize.h>
 #include <tvm/relay/analysis.h>
 #include <tvm/relay/attrs/transform.h>
 #include <tvm/relay/expr_functor.h>
@@ -33,10 +32,12 @@
 #include <tvm/runtime/container.h>
 #include <tvm/runtime/ndarray.h>
 #include <tvm/runtime/object.h>
-#include "../ir/indexed_graph.h"
-#include "../../support/utils.h"
-#include "../../printer/text_printer.h"
 
+#include <fstream>
+
+#include "../../printer/text_printer.h"
+#include "../../support/utils.h"
+#include "../ir/indexed_graph.h"
 #include "pattern_utils.h"
 
 namespace tvm {
@@ -128,7 +129,65 @@ namespace relay {
 //
 #pragma GCC diagnostic pop
 
-class GraphVisualizer : public MixedModeVisitor {
+class RelayNodeInfo;
+
+class RelayEdgeInfo : public tvm::ir::EdgeInfo {
+ public:
+  RelayEdgeInfo(const RelayNodeInfo* node)
+      : node_(node) {}
+
+  std::string GetType() const override { return "type"; }
+  std::string GetShape() const override { return "shape"; }
+  size_t GetIndex() const override { return 0; }
+  const tvm::ir::NodeInfo* GetInfo() const override { return (const tvm::ir::NodeInfo*)node_; }
+
+ private:
+  const RelayNodeInfo* node_;
+};
+
+class RelayNodeInfo : public tvm::ir::NodeInfo {
+ public:
+  RelayNodeInfo(const IndexedGraph<Expr>::Node* node, std::map<const Expr*, RelayNodeInfo> node_map) : node_(node) {
+    for (auto input : node->inputs_) {
+      const relay::Expr* expr = &input->ref_;
+      RelayNodeInfo& rni = node_map[expr];
+      inputs_.push_back((tvm::ir::EdgeInfo)RelayEdgeInfo(&rni));
+    }
+  }
+  std::string GetName() const override {
+    Expr expr = node_->ref_;
+    std::string node_name = "unknown";
+    if (const CallNode* call_node = expr.as<CallNode>()) {
+      if (const OpNode* op_node = call_node->op.as<OpNode>()) {
+        node_name = op_node->name;
+      }
+    } else if (const OpNode* op_node = expr.as<OpNode>()) {
+      node_name = "op " + op_node->name;
+    } else if (expr.as<ConstantNode>()) {
+      node_name = "constant";
+    } else if (expr.as<VarNode>()) {
+      node_name = "variable";
+    } else if (expr.as<GlobalVarNode>()) {
+      node_name = "global";
+    } else if (expr.as<FunctionNode>()) {
+      node_name = "function";
+    } else if (const TupleGetItemNode* tgi = expr.as<TupleGetItemNode>()) {
+      node_name = "tuple get item " + std::to_string(tgi->index);
+    } else {
+      std::cout << "unknown " << expr << std::endl;
+    }
+    return node_name;
+  }
+  std::vector<const tvm::ir::EdgeInfo*> GetInputs() const override { return inputs_; }
+  std::vector<const tvm::ir::EdgeInfo*> GetOutputs() const override { return outputs_; }
+
+ private:
+  const IndexedGraph<Expr>::Node* node_;
+  std::vector<const tvm::ir::EdgeInfo*> inputs_;
+  std::vector<const tvm::ir::EdgeInfo*> outputs_;
+};
+
+class GraphVisualizer {
  public:
   explicit GraphVisualizer(IRModule module) : module_(module) {}
 
@@ -149,47 +208,27 @@ class GraphVisualizer : public MixedModeVisitor {
       expr = function->body;
     }
 
-    IndexedGraph<Expr> indexed_graph = CreateIndexedGraph(expr);
-    // First populate the node name map so that outputs are valid
-    for (auto node : indexed_graph.topological_order_) {
-      node_name_map_[node->ref_.get()] = NextUniqueId(node->ref_.get());
+    IndexedGraph<Expr> relay_graph = CreateIndexedGraph(expr);
+    std::map<const Expr*, RelayNodeInfo> node_map;
+    for (auto relay_node : relay_graph.topological_order_) {
+      node_map[&relay_node->ref_] = RelayNodeInfo(relay_node.get());
     }
 
-    std::unordered_map<const void*, HeightMap> height_maps;
 
-    auto nodes = indexed_graph.topological_order_;
-    for (auto node : nodes) {
-        height_maps[node.get()] = HeightMap();
-    }
-    auto result_node = nodes[nodes.size()-1];
-    height_maps[result_node.get()] = HeightMap({result_node.get()});
-
-    for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-      const IndexedGraph<Expr>::Node& node = **it;
-      for (const IndexedGraph<Expr>::Node* output : node.outputs_) {
-        for (const IndexedGraph<Expr>::Node* input : output->inputs_) {
-          // auto target_node = input.get_node();
-          height_maps[&node.ref_].absorb(height_maps[&input->ref_]);
-        }
-      }
-    }
-
-    size_t fake_node_ctr = 0;
-    for (auto node : indexed_graph.topological_order_) {
-      if (!node->ref_.as<OpNode>()){
-        add_node_arguments(*node, height_maps, fake_node_ctr);
-      }
+    std::vector<RelayNodeInfo> node_info;
+    for (auto relay_node : relay_graph.topological_order_) {
+      node_info.emplace_back(*relay_node);
+      tvm::ir::NodeInfo& node = node_info.back();
+      node_map[&relay_node->ref_] = &node;
     }
 
     render(output_path);
   }
 
-  using MixedModeVisitor::VisitExpr_;
-
   const size_t max_jump_distance = 20;
 
   class HeightMap {
-  public:
+   public:
     HeightMap() {}
     HeightMap(std::set<const void*> initials) {
       for (auto& n : initials) {
@@ -215,13 +254,12 @@ class GraphVisualizer : public MixedModeVisitor {
       return result;
     }
 
-  private:
+   private:
     std::unordered_map<const void*, int64_t> heights_;
   };
 
   static std::string label_edge(const IndexedGraph<Expr>::Node* source,
-                                const IndexedGraph<Expr>::Node* target,
-                                int64_t jump_distance) {
+                                const IndexedGraph<Expr>::Node* target, int64_t jump_distance) {
     std::stringstream ss;
     // for (Input<Node> input : output.get_target_inputs()) {
     //   if (input.get_node() == dst.get()) {
@@ -272,16 +310,16 @@ class GraphVisualizer : public MixedModeVisitor {
         m_ss << "    " << send_node_name
              << "[shape=\"box\" style=\"solid,filled\" "
                 "fillcolor=\"#ccffcc\" label=\"Send["
-             <<GetUniqueId(node.ref_) << "]\"]\n";
+             << GetUniqueId(node.ref_) << "]\"]\n";
         m_ss << "    " << GetUniqueId(arg) << " -> " << send_node_name
              << label_edge(input_value, &node, jump_distance) << "\n";
-        m_ss << "    " << recv_node_name << " -> " <<GetUniqueId(node.ref_)
+        m_ss << "    " << recv_node_name << " -> " << GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
         fake_node_ctr++;
       } else {
         m_ss << add_attributes(*input_value);
         m_ss << add_attributes(node);
-        m_ss << "    " << GetUniqueId(arg) << " -> " <<GetUniqueId(node.ref_)
+        m_ss << "    " << GetUniqueId(arg) << " -> " << GetUniqueId(node.ref_)
              << label_edge(input_value, &node, jump_distance) << "\n";
       }
     }
@@ -331,14 +369,14 @@ class GraphVisualizer : public MixedModeVisitor {
     //   attributes.push_back("color=crimson");
     //   attributes.push_back("penwidth=1.5");
     // } else {
-      attributes.push_back("color=black");
+    attributes.push_back("color=black");
     // }
 
     // Construct the label attribute
     std::stringstream label;
 
     label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
-            "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
+             "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
           << GetNodeName(node.ref_) << "</td></tr>";
     size_t table_index = 0;
     size_t tuple_index = 0;
@@ -471,8 +509,7 @@ class GraphVisualizer : public MixedModeVisitor {
     if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
       // tensor_type->shape;
       type = DLDataType2String(tensor_type->dtype);
-    }
-    else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
       type = GetNodeType(ttn->fields[index], 0);
     }
     return type;
@@ -486,8 +523,7 @@ class GraphVisualizer : public MixedModeVisitor {
         axes.push_back(tvm::TextPrinter(false, nullptr).PrintFinal(e).str());
       }
       shape = "[" + tvm::support::Join(axes, ",") + "]";
-    }
-    else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
+    } else if (const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
       shape = GetNodeShape(ttn->fields[index], 0);
     }
     return shape;
@@ -550,8 +586,8 @@ class GraphVisualizer : public MixedModeVisitor {
 
   std::string GetNodeName(const Expr& op) {
     std::string node_name = "unknown";
-    if (const CallNode* call_node = op.as<CallNode>()){
-      if (const OpNode* op_node = call_node->op.as<OpNode>()){
+    if (const CallNode* call_node = op.as<CallNode>()) {
+      if (const OpNode* op_node = call_node->op.as<OpNode>()) {
         node_name = op_node->name;
       }
     } else if (const OpNode* op_node = op.as<OpNode>()) {
