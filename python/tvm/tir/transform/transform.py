@@ -536,3 +536,18 @@ def HoistIfThenElse(variant=None):
         return _ffi_api.HoistIfThenElseBasic()
     elif variant is None:
         return _ffi_api.HoistIfThenElse()
+
+
+def VisualizeGraph(output_path):
+    """Lower attached storage access information on device.
+
+    Returns
+    -------
+    fpass : tvm.transform.Pass
+        The result pass
+
+    Note
+    ----
+    Run this pass after all storage access analysis finish.
+    """
+    return _ffi_api.VisualizeGraph(output_path)

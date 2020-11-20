@@ -169,7 +169,6 @@ def lower(sch, args, name="main", binds=None, simple_mode=False):
     # Phase 1
     pass_list += [
         tvm.tir.transform.InjectPrefetch(),
-        # tvm.tir.transform.VisualizeGraph(),
         tvm.tir.transform.StorageFlatten(64, instrument_bound_checkers),
         tvm.tir.transform.BF16Legalize(),
         tvm.tir.transform.NarrowDataType(32),
@@ -199,6 +198,7 @@ def lower(sch, args, name="main", binds=None, simple_mode=False):
     pass_list += [tvm.tir.transform.RewriteUnsafeSelect()]
     pass_list += [tvm.tir.transform.HoistIfThenElse()]
     pass_list += lower_phase3
+    pass_list += [tvm.tir.transform.VisualizeGraph("tir_graph.pdf")]
 
     # Instrument BoundCheckers
     if instrument_bound_checkers:

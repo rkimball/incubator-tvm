@@ -15,4 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 """Namespace for driver APIs"""
-from .build_module import lower, build
+#TODO(rkimball,csullivan): REMOVE the form_irmodule export before PR
+from .build_module import lower, build, form_irmodule
