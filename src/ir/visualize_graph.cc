@@ -255,32 +255,6 @@ class GraphVisualizer {
     return rc;
   }
 
-  // static std::string pretty_partial_shape(const PartialShape& shape) {
-  //   std::stringstream ss;
-
-  //   if (shape.rank().is_dynamic()) {
-  //     ss << "?";
-  //   } else {
-  //     bool first = true;
-
-  //     ss << "[";
-  //     for (size_t i = 0; i < shape.rank().get_length(); i++) {
-  //       if (!first) {
-  //         ss << ",";
-  //       }
-  //       if (shape[i].is_dynamic()) {
-  //         ss << "?";
-  //       } else {
-  //         ss << shape[i].get_length();
-  //       }
-  //       first = false;
-  //     }
-  //     ss << "]";
-  //   }
-
-  //   return ss.str();
-  // }
-
   std::string get_attributes(const NodeInfo* node) {
   std::vector<std::string> attributes;
     attributes.push_back("shape=box");
@@ -391,14 +365,6 @@ class GraphVisualizer {
     return ss.str();
   }
 
-  // std::string get_node_name(std::shared_ptr<Node> node) {
-  //   std::string rc = node->get_friendly_name();
-  //   if (node->get_friendly_name() != node->get_name()) {
-  //     rc += "\\n" + node->get_name();
-  //   }
-  //   return rc;
-  // }
-
   void render(std::string output_path) const {
     // Need a real temporary here
     std::string dot_file = output_path + ".dot";
@@ -422,123 +388,11 @@ class GraphVisualizer {
     }
   }
 
-  // std::string GetNodeType(const Type& checked_type, size_t index) const {
-  //   std::string type = "unknown type";
-  //   if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
-  //     // tensor_type->shape;
-  //     type = DLDataType2String(tensor_type->dtype);
-  //   }
-  //   else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
-  //     type = GetNodeType(ttn->fields[index], 0);
-  //   }
-  //   return type;
-  // }
-
-  // std::string GetNodeShape(const Type& checked_type, size_t index) const {
-  //   std::string shape = "unknown shape";
-  //   if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
-  //     std::vector<std::string> axes;
-  //     for (auto e : tensor_type->shape) {
-  //       axes.push_back(tvm::TextPrinter(false, nullptr).PrintFinal(e).str());
-  //     }
-  //     shape = "[" + tvm::support::Join(axes, ",") + "]";
-  //   }
-  //   else if(const TupleTypeNode* ttn = checked_type.as<TupleTypeNode>()) {
-  //     shape = GetNodeShape(ttn->fields[index], 0);
-  //   }
-  //   return shape;
-  // }
-
-  // std::string GetNodeType(const Expr& expr, size_t index) const {
-  //   std::string type = "unknown type";
-  //   if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-  //     type = GetNodeType(rexpr->checked_type_, index);
-  //   }
-  //   // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
-  //   //   type = GetNodeType(ttn->fields[index]);
-  //   // }
-  //   return type;
-  // }
-
-  // std::string GetNodeShape(const Expr& expr, size_t index) const {
-  //   std::string shape = "unknown shape";
-  //   if (const RelayExprNode* rexpr = expr.as<RelayExprNode>()) {
-  //     shape = GetNodeShape(rexpr->checked_type_, index);
-  //   }
-  //   // else if(const TupleTypeNode* ttn = expr.as<TupleTypeNode>()) {
-  //   //   shape = GetNodeShape(ttn->fields[index]);
-  //   // }
-  //   return shape;
-  // }
-
  private:
-  // Module
-  IRModule module_;
   std::stringstream m_ss;
-
-  // Map the address of each node to a unique name
-  std::map<const void*, std::string> node_name_map_;
-  size_t next_id_ = 0;
-
-  // // Convert value to expression.
-  // Expr ObjectToExpr(const ObjectRef& value) {
-  //   if (value->IsInstance<runtime::NDArray::ContainerType>()) {
-  //     auto nd_array = Downcast<runtime::NDArray>(value);
-  //     return Constant(nd_array);
-  //   } else if (const auto* val = value.as<runtime::ADTObj>()) {
-  //     runtime::ADT adt = GetRef<runtime::ADT>(val);
-  //     Array<Expr> fields;
-  //     for (size_t i = 0; i < adt.size(); ++i) {
-  //       fields.push_back(ObjectToExpr(adt[i]));
-  //     }
-  //     return Tuple(fields);
-  //   } else {
-  //     LOG(FATAL) << "Cannot handle " << value->GetTypeKey();
-  //     return Expr();
-  //   }
-  // }
-
-  std::string NextUniqueId(const void* op) {
-    std::string name = "node_" + std::to_string(next_id_++);
-    node_name_map_[op] = name;
-    return name;
-  }
-
-  // std::string GetNodeName(const Expr& op) {
-  //   std::string node_name = "unknown";
-  //   if (const CallNode* call_node = op.as<CallNode>()){
-  //     if (const OpNode* op_node = call_node->op.as<OpNode>()){
-  //       node_name = op_node->name;
-  //     }
-  //   } else if (const OpNode* op_node = op.as<OpNode>()) {
-  //     node_name = "op " + op_node->name;
-  //   } else if (op.as<ConstantNode>()) {
-  //     node_name = "constant";
-  //   } else if (op.as<VarNode>()) {
-  //     node_name = "variable";
-  //   } else if (op.as<GlobalVarNode>()) {
-  //     node_name = "global";
-  //   } else if (op.as<FunctionNode>()) {
-  //     node_name = "function";
-  //   } else if (const TupleGetItemNode* tgi = op.as<TupleGetItemNode>()) {
-  //     node_name = "tuple get item " + std::to_string(tgi->index);
-  //   } else {
-  //     std::cout << "unknown " << op << std::endl;
-  //   }
-  //   return node_name;
-  // }
-
-  // std::string GetUniqueName(const Expr& op) {
-  //   auto it = node_name_map_.find(op.get());
-  //   if (it == node_name_map_.end()) {
-  //     std::cout << __FILE__ << " " << __LINE__ << " bad" << std::endl;
-  //   }
-  //   return it->second;
-  // }
 };
 
 void VisualizeGraph(const std::vector<NodeInfo*>& node_info, std::string output_path) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   GraphVisualizer().Visualize(node_info, output_path);
 }
 

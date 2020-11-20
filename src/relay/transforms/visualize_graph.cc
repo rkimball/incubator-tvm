@@ -143,11 +143,17 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
   void PopulateIO(std::map<const Expr*, std::shared_ptr<RelayNodeInfo>>& node_map) {
     for (auto input : node_->inputs_) {
       if (input->ref_.as<OpNode>()) { continue; }
+      if (input->ref_->checked_type_.as<TupleTypeNode>()) {
+        // TODO: do something here
+      }
       RelayEdgeInfo rei(node_map[&input->ref_].get());
       input_instances.push_back(rei);
       inputs_.push_back(&input_instances[input_instances.size()-1]);
     }
     for (auto output : node_->outputs_) {
+      if (output->ref_->checked_type_.as<TupleTypeNode>()) {
+        // TODO: do something here
+       }
       RelayEdgeInfo rei(node_map[&output->ref_].get());
       output_instances.push_back(rei);
       outputs_.push_back(&output_instances[output_instances.size()-1]);
