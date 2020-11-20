@@ -121,7 +121,6 @@ class GraphVisualizer {
  public:
   void Visualize(const std::vector<NodeInfo*>& node_info, std::string output_path) {
     std::unordered_map<const NodeInfo*, HeightMap> height_maps;
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     for (const NodeInfo* node : node_info) {
       height_maps[node] = HeightMap();
@@ -143,10 +142,8 @@ class GraphVisualizer {
     for (const NodeInfo* node : node_info) {
       add_node_arguments(node, height_maps, fake_node_ctr);
     }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     render(output_path);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
 
   const size_t max_jump_distance = 20;
@@ -298,7 +295,6 @@ class GraphVisualizer {
     // Construct the label attribute
     std::stringstream label;
 
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     label << "label=<<table border=\"0\" cellborder=\"0\" cellpadding=\"0\" "
              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
           << node->GetName() << "</td></tr>";
@@ -390,8 +386,7 @@ class GraphVisualizer {
     // }
 
     std::stringstream ss;
-    // ss << "    " << node->GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
-    ss << "    " << node->GetUniqueName() << "\n";
+    ss << "    " << node->GetUniqueName() << " [" << tvm::support::Join(attributes, " ") << "]\n";
 
     return ss.str();
   }
@@ -408,7 +403,6 @@ class GraphVisualizer {
     // Need a real temporary here
     std::string dot_file = output_path + ".dot";
     std::string output_format = "pdf";
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     std::ofstream out(dot_file);
     if (out) {
@@ -420,17 +414,12 @@ class GraphVisualizer {
       std::stringstream ss;
       ss << "dot -T" << output_format << " " << dot_file << " -o" << output_path;
       auto cmd = ss.str();
-  std::cout << __FILE__ << " " << __LINE__ << " " << cmd << std::endl;
 
       auto stream = tvm::support::TVMPOpen(cmd.c_str(), "r");
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
       if (stream) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
         tvm::support::TVMPClose(stream);
       }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
     }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
 
   // std::string GetNodeType(const Type& checked_type, size_t index) const {

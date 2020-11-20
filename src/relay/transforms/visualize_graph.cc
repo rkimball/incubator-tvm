@@ -135,7 +135,6 @@ class RelayEdgeInfo : public tvm::ir::EdgeInfo {
  public:
   RelayEdgeInfo(const RelayNodeInfo* node)
       : node_(node) {
-  std::cout << __FILE__ << " " << __LINE__ << " " << (void*)node << std::endl;
       }
 
   std::string GetType() const override { return "type"; }
