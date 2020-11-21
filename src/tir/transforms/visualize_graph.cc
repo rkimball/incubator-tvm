@@ -48,6 +48,169 @@
 namespace tvm {
 namespace tir {
 
+
+
+tvm::relay::IndexedGraph<PrimExpr> CreateIndexedGraph(const PrimExpr& expr) {
+  using NodePtr = std::shared_ptr<relay::IndexedGraph<PrimExpr>::Node>;
+  /*! \brief Creator Creates an IndexedGraph and determintes Topological order */
+  class Creator : public tvm::tir::ExprVisitor {
+   public:
+    relay::IndexedGraph<PrimExpr> CreateGraph(const PrimExpr& expr) {
+      VisitExpr(expr);
+      graph_.node_map_[expr]->is_external_ = true;
+      return std::move(graph_);
+    }
+
+   protected:
+    void VisitExpr(const PrimExpr& expr) override {
+      ExprVisitor::VisitExpr(expr);
+      auto node = std::make_shared<relay::IndexedGraph<PrimExpr>::Node>(expr, index_++);
+      graph_.node_map_[expr] = node;
+      graph_.topological_order_.push_back(node);
+    }
+    relay::IndexedGraph<PrimExpr> graph_;
+    size_t index_ = 0;
+  };
+  // /*! \brief Annotator takes an IndexedGraph, fills it's forward outputs, and does dominator tree
+  //  * analysis.
+  //  *
+  //  *  Annotator use ExprFunctor to visit nodes, but iterates over them in pre-determined
+  //  * topological order instead of recursing.
+  //  */
+  // class Annotator : public ExprFunctor<void(const Expr&, NodePtr)> {
+  //  public:
+  //   Annotator(const relay::IndexedGraph<Expr>& graph) : graph_(graph) {}
+  //   relay::IndexedGraph<Expr> Annotate() {
+  //     // Visit all of the nodes in topological order to get forward outputs
+  //     for (const auto& node : graph_.topological_order_) {
+  //       ExprFunctor::VisitExpr(node->ref_, nullptr);
+  //     }
+  //     // do the dominator analysis
+  //     graph_.PostDom();
+  //     return std::move(graph_);
+  //   }
+
+  //   /*! Default visitation pushes the parent to the child's ouputs and the child to the parent's
+  //    * inputs*/
+  //   void VisitExpr(const Expr& expr, NodePtr parent) override {
+  //     auto current = graph_.node_map_[expr];
+  //     if (parent) {
+  //       current->outputs_.push_back(parent.get());
+  //       parent->inputs_.push_back(current.get());
+  //     }
+  //   }
+
+  //  protected:
+  //   relay::IndexedGraph<Expr> graph_;
+  //   void VisitExpr_(const VarNode* op, NodePtr parent) override {
+  //     if (op->type_annotation.defined()) {
+  //       this->VisitType(op->type_annotation);
+  //     }
+  //   }
+
+  //   void VisitExpr_(const GlobalVarNode* op, NodePtr parent) override {}
+
+  //   void VisitExpr_(const ConstantNode* op, NodePtr parent) override {}
+
+  //   void VisitExpr_(const TupleNode* op, NodePtr parent) override {
+  //     for (auto field : op->fields) {
+  //       this->VisitExpr(field, graph_.node_map_[GetRef<Expr>(op)]);
+  //     }
+  //   }
+
+  //   void VisitExpr_(const FunctionNode* op, NodePtr parent) override {
+  //     for (auto param : op->params) {
+  //       this->VisitExpr(param, graph_.node_map_[GetRef<Expr>(op)]);
+  //     }
+
+  //     this->VisitExpr(op->body, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const CallNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->op, graph_.node_map_[GetRef<Expr>(op)]);
+
+  //     for (auto ty_arg : op->type_args) {
+  //       this->VisitType(ty_arg);
+  //     }
+
+  //     for (auto arg : op->args) {
+  //       this->VisitExpr(arg, graph_.node_map_[GetRef<Expr>(op)]);
+  //     }
+  //   }
+
+  //   void VisitExpr_(const LetNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->value, graph_.node_map_[GetRef<Expr>(op)]);
+  //     this->VisitExpr(op->var, graph_.node_map_[GetRef<Expr>(op)]);
+  //     this->VisitExpr(op->body, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const IfNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->cond, graph_.node_map_[GetRef<Expr>(op)]);
+  //     this->VisitExpr(op->true_branch, graph_.node_map_[GetRef<Expr>(op)]);
+  //     this->VisitExpr(op->false_branch, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const OpNode* op, NodePtr parent) override { return; }
+
+  //   void VisitExpr_(const TupleGetItemNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->tuple, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const RefCreateNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->value, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const RefReadNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->ref, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const RefWriteNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->ref, graph_.node_map_[GetRef<Expr>(op)]);
+  //     this->VisitExpr(op->value, graph_.node_map_[GetRef<Expr>(op)]);
+  //   }
+
+  //   void VisitExpr_(const ConstructorNode* op, NodePtr parent) override {
+  //     for (const Type& t : op->inputs) {
+  //       this->VisitType(t);
+  //     }
+  //     this->VisitType(op->belong_to);
+  //   }
+
+  //   void VisitExpr_(const MatchNode* op, NodePtr parent) override {
+  //     this->VisitExpr(op->data, graph_.node_map_[GetRef<Expr>(op)]);
+  //     for (const Clause& c : op->clauses) {
+  //       this->VisitClause(c, graph_.node_map_[GetRef<Expr>(op)]);
+  //     }
+  //   }
+
+  //   void VisitClause(const Clause& op, NodePtr parent) {
+  //     this->VisitPattern(op->lhs);
+  //     this->VisitExpr(op->rhs, parent);
+  //   }
+
+  //   void VisitPattern(const Pattern& p) { return; }
+
+  //   void VisitType(const Type& t) { return; }
+  // };
+  // return Annotator(Creator().CreateGraph(expr)).Annotate();
+  return Creator().CreateGraph(expr);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class TIRVisualizer {
  public:
   explicit TIRVisualizer(IRModule module) : module_(module) {}
@@ -209,14 +372,14 @@ namespace transform {
 
 Pass VisualizeGraph(std::string output_path) {
   auto pass_func = [=](PrimFunc f, IRModule m, PassContext pc) {
-  auto gv = TIRVisualizer(mod);
-  gv.Visualize(expr, output_path);
+    auto gv = TIRVisualizer(m);
+    gv.Visualize(f, output_path);
     return f;
   };
   return CreatePrimFuncPass(pass_func, 2, "tir.VisualizeGraph", {});
 }
 
-TVM_REGISTER_GLOBAL("tir.transform.VisualizeGraph").set_body_typed(tvm::tir::transform::VisualizeGraph);
+TVM_REGISTER_GLOBAL("tir.transform.VisualizeGraph").set_body_typed(VisualizeGraph);
 
 }  // namespace transform
 }  // namespace tir

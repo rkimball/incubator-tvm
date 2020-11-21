@@ -346,7 +346,7 @@ TVM_DLL Pass PointerValueTypeRewrite();
  */
 TVM_DLL Pass HoistIfThenElse();
 
-TVM_DLL Pass VisualizeGraph();
+TVM_DLL Pass VisualizeGraph(std::string output_path);
 
 }  // namespace transform
 }  // namespace tir
