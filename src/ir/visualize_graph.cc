@@ -129,7 +129,7 @@ class GraphVisualizer {
     height_maps[result_node] = HeightMap({result_node});
 
     for (auto it = node_info.rbegin(); it != node_info.rend(); ++it) {
-      const NodeInfo* node = *it;
+      // const NodeInfo* node = *it;
       // for (const IndexedGraph<Expr>::Node* output : node.outputs_) {
       //   for (const IndexedGraph<Expr>::Node* input : output->inputs_) {
       //     // auto target_node = input.get_node();
@@ -273,7 +273,7 @@ class GraphVisualizer {
              "style=\"\"><tr><td align=\"center\" colspan=\"5\">"
           << node->GetName() << "</td></tr>";
     size_t table_index = 0;
-    size_t tuple_index = 0;
+    // size_t tuple_index = 0;
     // if (const TupleGetItemNode* tgi = node->ref_.as<TupleGetItemNode>()) {
     //   tuple_index = tgi->index;
     // }
@@ -386,6 +386,8 @@ class GraphVisualizer {
         tvm::support::TVMPClose(stream);
       }
     }
+    out.close();
+    remove(dot_file.c_str());
   }
 
  private:
