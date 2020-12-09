@@ -817,6 +817,21 @@ def Defunctionalization(func, mod):
     return _ffi_api.Defunctionalization(func, mod)
 
 
+def VisualizeGraph(path):
+    """
+    Generates a PDF of the module. Currently supports relay.
+
+    Parameters
+    ----------
+    path: The path to the saved PDF file
+
+    Returns
+    -------
+    None
+    """
+    return _ffi_api.VisualizeGraph(path)
+
+
 def to_cps(func, mod=None):
     """
     Turn expression into CPS expression.
