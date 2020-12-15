@@ -440,6 +440,13 @@ TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> ta
  */
 TVM_DLL Pass VisualizeGraph(std::string output_path);
 
+/*!
+ * \brief Annotate ops for heterogeneous execution.
+ *
+ * \return The pass.
+ */
+TVM_DLL Pass AnnotateCompiler();
+
 }  // namespace transform
 
 /*!

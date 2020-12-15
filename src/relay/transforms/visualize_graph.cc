@@ -47,9 +47,7 @@ class RelayNodeInfo;
 
 class RelayEdgeInfo : public tvm::ir::EdgeInfo {
  public:
-  RelayEdgeInfo(const RelayNodeInfo* node)
-      : node_(node) {
-      }
+  RelayEdgeInfo(const RelayNodeInfo* node) : node_(node) {}
 
   std::string GetType() const override;
   std::string GetShape() const override;
@@ -57,7 +55,6 @@ class RelayEdgeInfo : public tvm::ir::EdgeInfo {
   const tvm::ir::NodeInfo* GetInfo() const override { return (const tvm::ir::NodeInfo*)node_; }
 
  private:
-
   std::string GetNodeType(const Type& checked_type, size_t index) const {
     std::string type = "unknown type";
     if (const TensorTypeNode* tensor_type = checked_type.as<TensorTypeNode>()) {
@@ -110,8 +107,7 @@ class RelayEdgeInfo : public tvm::ir::EdgeInfo {
 
 class RelayNodeInfo : public tvm::ir::NodeInfo {
  public:
-  RelayNodeInfo(const IndexedGraph<Expr>::Node* node) : node_(node) {
-  }
+  RelayNodeInfo(const IndexedGraph<Expr>::Node* node) : node_(node) {}
   RelayNodeInfo(const RelayNodeInfo&) = default;
   std::string GetName() const override {
     Expr expr = node_->ref_;
@@ -119,6 +115,8 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
     if (const CallNode* call_node = expr.as<CallNode>()) {
       if (const OpNode* op_node = call_node->op.as<OpNode>()) {
         node_name = op_node->name;
+      } else {
+        node_name = "call";
       }
     } else if (const OpNode* op_node = expr.as<OpNode>()) {
       node_name = "op " + op_node->name;
@@ -132,8 +130,6 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
       node_name = "function";
     } else if (const TupleGetItemNode* tgi = expr.as<TupleGetItemNode>()) {
       node_name = "tuple get item " + std::to_string(tgi->index);
-    } else {
-      std::cout << "unknown " << expr << std::endl;
     }
     return node_name;
   }
@@ -142,21 +138,23 @@ class RelayNodeInfo : public tvm::ir::NodeInfo {
 
   void PopulateIO(std::map<const Expr*, std::shared_ptr<RelayNodeInfo>>& node_map) {
     for (auto input : node_->inputs_) {
-      if (input->ref_.as<OpNode>()) { continue; }
+      if (input->ref_.as<OpNode>() || input->ref_.as<FunctionNode>()) {
+        continue;
+      }
       if (input->ref_->checked_type_.as<TupleTypeNode>()) {
         // TODO: do something here
       }
       RelayEdgeInfo rei(node_map[&input->ref_].get());
       input_instances.push_back(rei);
-      inputs_.push_back(&input_instances[input_instances.size()-1]);
+      inputs_.push_back(&input_instances[input_instances.size() - 1]);
     }
     for (auto output : node_->outputs_) {
       if (output->ref_->checked_type_.as<TupleTypeNode>()) {
         // TODO: do something here
-       }
+      }
       RelayEdgeInfo rei(node_map[&output->ref_].get());
       output_instances.push_back(rei);
-      outputs_.push_back(&output_instances[output_instances.size()-1]);
+      outputs_.push_back(&output_instances[output_instances.size() - 1]);
     }
   }
 
@@ -199,11 +197,11 @@ class GraphVisualizer {
     for (auto relay_node : relay_graph.topological_order_) {
     }
 
-
-
     std::vector<tvm::ir::NodeInfo*> node_info_list;
     for (auto relay_node : relay_graph.topological_order_) {
-      if (relay_node->ref_.as<OpNode>()) { continue; }
+      if (relay_node->ref_.as<OpNode>()) {
+        continue;
+      }
       auto rni = std::make_shared<RelayNodeInfo>(relay_node.get());
       node_map[&relay_node->ref_] = rni;
       node_info_list.push_back(rni.get());
@@ -249,7 +247,7 @@ class GraphVisualizer {
   }
 
   std::string GetNodeName(const Expr& op) {
-    std::string node_name = "unknown";
+    std::string node_name = AsText(op);
     if (const CallNode* call_node = op.as<CallNode>()) {
       if (const OpNode* op_node = call_node->op.as<OpNode>()) {
         node_name = op_node->name;

@@ -545,9 +545,16 @@ def VisualizeGraph(output_path):
     -------
     fpass : tvm.transform.Pass
         The result pass
-
-    Note
-    ----
-    Run this pass after all storage access analysis finish.
     """
     return _ffi_api.VisualizeGraph(output_path)
+
+
+def AnnotateCompiler():
+    """Lower attached storage access information on device.
+
+    Returns
+    -------
+    fpass : tvm.transform.Pass
+        The result pass
+    """
+    return _ffi_api.AnnotateCompiler()

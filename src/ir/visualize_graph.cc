@@ -208,8 +208,7 @@ class GraphVisualizer {
     for (const EdgeInfo* input_value : node->GetInputs()) {
       CHECK(input_value);
       const NodeInfo* arg = input_value->GetInfo();
-      size_t jump_distance =
-          height_maps[input_value->GetInfo()].max_jump_to(height_maps[node]);
+      size_t jump_distance = height_maps[input_value->GetInfo()].max_jump_to(height_maps[node]);
       if (arg->GetName() == "constant" || arg->GetName() == "var") {
         auto clone_name = "CLONE_" + std::to_string(fake_node_ctr);
         auto color = (arg->GetName() == "constant" ? "blue" : "green3");
@@ -256,7 +255,7 @@ class GraphVisualizer {
   }
 
   std::string get_attributes(const NodeInfo* node) {
-  std::vector<std::string> attributes;
+    std::vector<std::string> attributes;
     attributes.push_back("shape=box");
 
     // if (node->is_output()) {

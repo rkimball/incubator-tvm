@@ -832,6 +832,18 @@ def VisualizeGraph(path):
     return _ffi_api.VisualizeGraph(path)
 
 
+def AnnotateCompiler():
+    """
+    Annotate a module with compiler_begin and compiler_end for partitioning and
+    heterogeneous execution.
+
+    Returns
+    -------
+    None
+    """
+    return _ffi_api.AnnotateCompiler()
+
+
 def to_cps(func, mod=None):
     """
     Turn expression into CPS expression.
