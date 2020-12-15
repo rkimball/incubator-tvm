@@ -33,6 +33,7 @@
 #include <tvm/runtime/object.h>
 
 #include <fstream>
+#include <unordered_map>
 
 #include "../../printer/text_printer.h"
 #include "../../support/utils.h"
@@ -61,13 +62,27 @@ class CompilerAnnotator : public MixedModeMutator {
 
     if (const FunctionNode* function = expr.as<FunctionNode>()) {
       expr = function->body;
+      // for (Var var : function->params) {
+      //   placement_[var] = "default";
+      // }
     }
+
+    // for (Expr arg : expr.args) {
+    //   auto it = placement_.find(arg);
+    //   if (it != placement_.end()) {
+    //     std::cout << __FILE__ << " " << __LINE__ << " " << it->second << std::endl;
+    //   } else {
+    //     std::cout << __FILE__ << " " << __LINE__ << " arg not found" << std::endl;
+    //   }
+    // }
+
 
     VisitExpr(expr);
   }
 
  private:
   IRModule module_;
+  std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> placement_;
 
   // void VisitLeaf(const Expr& expr) override {
   //   std::cout << "leaf" << std::endl;
@@ -81,7 +96,24 @@ class CompilerAnnotator : public MixedModeMutator {
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
     if (const OpNode* op_node = pre->op.as<OpNode>()) {
       std::string node_name = op_node->name;
-      std::cout << __FILE__ << " " << __LINE__ << " " << node_name << std::endl;
+      std::string placement = "default";
+      if (node_name == "multiply") {
+        placement = "test_target";
+      }
+      placement_[GetRef<Expr>(pre)] = placement;
+      std::cout << __FILE__ << " " << __LINE__ << " " << node_name << ", placement=" << placement << std::endl;
+
+      // Iterate over the inputs and check their placements. If they are placed differently
+      // than this node we need to insert compiler_begin and compiler_end annotation
+      bool change_placement = false;
+      for (Expr arg : pre->args) {
+        auto it = placement_.find(arg);
+        if (it != placement_.end()) {
+          std::cout << __FILE__ << " " << __LINE__ << " " << it->second << std::endl;
+        } else {
+          std::cout << __FILE__ << " " << __LINE__ << " arg not found" << std::endl;
+        }
+      }
     }
     return post;
   }
