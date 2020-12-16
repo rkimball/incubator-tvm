@@ -165,8 +165,7 @@ namespace transform {
 Pass AnnotateCompiler() {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        AnnotateCompiler(f, m);
-        return f;
+        return Downcast<Function>(AnnotateCompiler(f, m));
       };
   return CreateFunctionPass(pass_func, 2, "AnnotateCompiler", {});
 }
