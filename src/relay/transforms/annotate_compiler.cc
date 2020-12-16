@@ -31,6 +31,7 @@
 #include <tvm/runtime/container.h>
 #include <tvm/runtime/ndarray.h>
 #include <tvm/runtime/object.h>
+#include <tvm/relay/attrs/annotation.h>
 
 #include <fstream>
 #include <unordered_map>
@@ -94,28 +95,27 @@ class CompilerAnnotator : public MixedModeMutator {
   }
 
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
-    if (const OpNode* op_node = pre->op.as<OpNode>()) {
+    Expr rc = post;
+    const CallNode* call_node = post.as<CallNode>();
+    if (const OpNode* op_node = call_node->op.as<OpNode>()) {
       std::string node_name = op_node->name;
       std::string placement = "default";
       if (node_name == "multiply") {
         placement = "test_target";
       }
-      placement_[GetRef<Expr>(pre)] = placement;
+      placement_[GetRef<Expr>(call_node)] = placement;
       std::cout << __FILE__ << " " << __LINE__ << " " << node_name << ", placement=" << placement << std::endl;
 
-      // Iterate over the inputs and check their placements. If they are placed differently
-      // than this node we need to insert compiler_begin and compiler_end annotation
-      bool change_placement = false;
-      for (Expr arg : pre->args) {
-        auto it = placement_.find(arg);
-        if (it != placement_.end()) {
-          std::cout << __FILE__ << " " << __LINE__ << " " << it->second << std::endl;
-        } else {
-          std::cout << __FILE__ << " " << __LINE__ << " arg not found" << std::endl;
-        }
+      Array<Expr> wrapped_args;
+      for (Expr arg : call_node->args) {
+        wrapped_args.push_back(MakeCompilerBegin(arg, placement));
       }
+
+      Expr new_call = MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
+      new_call->checked_type_ = call_node->checked_type_;
+      return std::move(new_call);
     }
-    return post;
+    return rc;
   }
 
   Expr Rewrite_(const TupleGetItemNode* pre, const Expr& post) override {
@@ -140,11 +140,24 @@ class CompilerAnnotator : public MixedModeMutator {
       return Expr();
     }
   }
+
+  Expr MakeCompilerBegin(Expr expr, std::string compiler) {
+      auto attrs = make_object<CompilerAttrs>();
+      attrs->compiler = compiler;
+      static const Op& op = Op::Get("annotation.compiler_begin");
+      return Call(op, {expr}, Attrs(attrs), {});
+    }
+
+  Expr MakeCompilerEnd(Expr expr, std::string compiler) {
+      auto attrs = make_object<CompilerAttrs>();
+      attrs->compiler = compiler;
+      static const Op& op = Op::Get("annotation.compiler_end");
+      return Call(op, {expr}, Attrs(attrs), {});
+    }
 };
 
-void AnnotateCompiler(const Expr& expr, const IRModule& mod) {
-  auto pass = CompilerAnnotator(mod);
-  pass.DoAnnotation(expr);
+Expr AnnotateCompiler(const Expr& expr, const IRModule& mod) {
+  return CompilerAnnotator(mod).Mutate(expr);
 }
 
 namespace transform {
