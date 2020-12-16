@@ -126,11 +126,7 @@ def test_extern_dnnl():
 
     def test_annotate():
         mod = annotated(dtype, ishape, w1shape)
-        relay.transform.VisualizeGraph("t1.pdf")(mod)
-
         mod = transform.AnnotateTarget("dnnl")(mod)
-        relay.transform.VisualizeGraph("t2.pdf")(mod)
-
         mod = relay.transform.InferType()(mod)
         ref_mod = expected(dtype, ishape, w1shape)
         ref_mod = relay.transform.InferType()(ref_mod)
