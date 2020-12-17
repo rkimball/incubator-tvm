@@ -58,36 +58,9 @@ class CompilerAnnotator : public MixedModeMutator {
     }
   }
 
-  void DoAnnotation(const Expr& expr_) {
-    Expr expr = InferType(expr_);
-
-    if (const FunctionNode* function = expr.as<FunctionNode>()) {
-      expr = function->body;
-      // for (Var var : function->params) {
-      //   placement_[var] = "default";
-      // }
-    }
-
-    // for (Expr arg : expr.args) {
-    //   auto it = placement_.find(arg);
-    //   if (it != placement_.end()) {
-    //     std::cout << __FILE__ << " " << __LINE__ << " " << it->second << std::endl;
-    //   } else {
-    //     std::cout << __FILE__ << " " << __LINE__ << " arg not found" << std::endl;
-    //   }
-    // }
-
-
-    VisitExpr(expr);
-  }
-
  private:
   IRModule module_;
   std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> placement_;
-
-  // void VisitLeaf(const Expr& expr) override {
-  //   std::cout << "leaf" << std::endl;
-  // }
 
   Expr Rewrite_(const TupleNode* pre, const Expr& post) override {
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
