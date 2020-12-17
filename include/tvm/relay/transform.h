@@ -47,6 +47,8 @@ using PassContext = tvm::transform::PassContext;
 using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
+using FTVMGetPlacement =  runtime::TypedPackedFunc<runtime::String(const Expr& expr)>;
+
 /*
  * \brief Create a function pass.
  *
@@ -445,7 +447,7 @@ TVM_DLL Pass VisualizeGraph(std::string output_path);
  *
  * \return The pass.
  */
-TVM_DLL Pass AnnotateCompiler();
+TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement);
 
 }  // namespace transform
 

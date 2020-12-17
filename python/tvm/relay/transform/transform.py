@@ -832,7 +832,7 @@ def VisualizeGraph(path):
     return _ffi_api.VisualizeGraph(path)
 
 
-def AnnotateCompiler():
+def AnnotateCompiler(get_placement):
     """
     Annotate a module with compiler_begin and compiler_end for partitioning and
     heterogeneous execution.
@@ -841,7 +841,7 @@ def AnnotateCompiler():
     -------
     None
     """
-    return _ffi_api.AnnotateCompiler()
+    return _ffi_api.AnnotateCompiler(get_placement)
 
 
 def to_cps(func, mod=None):

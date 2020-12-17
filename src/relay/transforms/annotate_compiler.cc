@@ -46,7 +46,7 @@ namespace relay {
 
 class CompilerAnnotator : public MixedModeMutator {
  public:
-  explicit CompilerAnnotator(IRModule module) : module_(module) {}
+  explicit CompilerAnnotator(IRModule module, transform::FTVMGetPlacement get_placement) : module_(module), get_placement_(get_placement) {}
 
   Expr InferType(const Expr& expr) {
     auto mod = IRModule::FromExpr(expr);
@@ -60,10 +60,9 @@ class CompilerAnnotator : public MixedModeMutator {
 
  private:
   IRModule module_;
-  std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> placement_;
+  transform::FTVMGetPlacement get_placement_;
 
   Expr Rewrite_(const TupleNode* pre, const Expr& post) override {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     return post;
   }
 
@@ -71,13 +70,7 @@ class CompilerAnnotator : public MixedModeMutator {
     Expr rc = post;
     const CallNode* call_node = post.as<CallNode>();
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
-      std::string node_name = op_node->name;
-      std::string placement = "default";
-      if (node_name == "multiply") {
-        placement = "test_target";
-      }
-      placement_[GetRef<Expr>(call_node)] = placement;
-      std::cout << __FILE__ << " " << __LINE__ << " " << node_name << ", placement=" << placement << std::endl;
+      std::string placement = get_placement_(GetRef<Expr>(call_node));
 
       Array<Expr> wrapped_args;
       for (Expr arg : call_node->args) {
@@ -86,13 +79,12 @@ class CompilerAnnotator : public MixedModeMutator {
 
       Expr new_call = MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
       new_call->checked_type_ = call_node->checked_type_;
-      return std::move(new_call);
+      rc = new_call;
     }
     return rc;
   }
 
   Expr Rewrite_(const TupleGetItemNode* pre, const Expr& post) override {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     return post;
   }
 
@@ -129,16 +121,16 @@ class CompilerAnnotator : public MixedModeMutator {
     }
 };
 
-Expr AnnotateCompiler(const Expr& expr, const IRModule& mod) {
-  return CompilerAnnotator(mod).Mutate(expr);
+Expr AnnotateCompiler(const Expr& expr, const IRModule& mod, transform::FTVMGetPlacement get_placement) {
+  return CompilerAnnotator(mod, get_placement).Mutate(expr);
 }
 
 namespace transform {
 
-Pass AnnotateCompiler() {
+Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        return Downcast<Function>(AnnotateCompiler(f, m));
+        return Downcast<Function>(AnnotateCompiler(f, m, get_placement));
       };
   return CreateFunctionPass(pass_func, 2, "AnnotateCompiler", {});
 }

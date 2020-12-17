@@ -549,7 +549,7 @@ def VisualizeGraph(output_path):
     return _ffi_api.VisualizeGraph(output_path)
 
 
-def AnnotateCompiler():
+def AnnotateCompiler(get_placement):
     """Lower attached storage access information on device.
 
     Returns
@@ -557,4 +557,4 @@ def AnnotateCompiler():
     fpass : tvm.transform.Pass
         The result pass
     """
-    return _ffi_api.AnnotateCompiler()
+    return _ffi_api.AnnotateCompiler(get_placement)
