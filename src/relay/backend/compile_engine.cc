@@ -634,6 +634,7 @@ class CompileEngineImpl : public CompileEngineNode {
   }
 
   Array<tvm::runtime::Module> LowerExternalFunctions() {
+    std::cout << "Hello from LowerExternalFunctions\n";
     Array<tvm::runtime::Module> ret;
     std::unordered_map<std::string, std::string> cached_symbol;
     std::vector<CCacheKey> cached_ext_funcs;
@@ -701,6 +702,7 @@ class CompileEngineImpl : public CompileEngineNode {
  private:
   // implement lowered func
   CCacheValue LowerInternal(const CCacheKey& key) {
+    std::cout << "Hello from LowerInternal\n";
     std::lock_guard<std::mutex> lock(mutex_);
     CCacheValue value;
     auto it = cache_.find(key);
@@ -720,6 +722,7 @@ class CompileEngineImpl : public CompileEngineNode {
     // No need to lower external functions for now. We will invoke the external
     // codegen tool once and lower all functions together.
     if (key->source_func->GetAttr<String>(attr::kCompiler).defined()) {
+      std::cout << __FILE__ << " " << __LINE__ << "\n";
       auto cache_node = make_object<CachedFuncNode>();
       const auto name_node = key->source_func->GetAttr<String>(tvm::attr::kGlobalSymbol);
       ICHECK(name_node.defined()) << "External function has not been attached a name yet.";
@@ -753,8 +756,10 @@ class CompileEngineImpl : public CompileEngineNode {
     }
     // lower the function
     if (const auto* f = runtime::Registry::Get("relay.backend.lower")) {
+      std::cout << __FILE__ << " " << __LINE__ << "\n";
       cache_node->funcs = (*f)(cfunc->schedule, all_args, cache_node->func_name, key->source_func);
     } else {
+      std::cout << __FILE__ << " " << __LINE__ << "\n";
       using tvm::transform::PassContext;
       With<PassContext> fresh_pass_ctx_scope(PassContext::Create());
 
