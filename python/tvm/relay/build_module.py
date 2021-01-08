@@ -46,10 +46,12 @@ def _update_target(target):
     tgts = {}
     if isinstance(target, (str, Target)):
         dev_type = tvm_expr.IntImm("int32", _nd.context(str(target)).device_type)
+        print("dev_type =", dev_type, ", target =", target)
         tgts[dev_type] = Target(target)
     elif isinstance(target, dict):
         for dev, tgt in target.items():
             dev_type = tvm_expr.IntImm("int32", _nd.context(dev).device_type)
+            print("dev_type =", dev_type, ", target =", target)
             tgts[dev_type] = Target(tgt)
     else:
         raise TypeError(
@@ -57,6 +59,7 @@ def _update_target(target):
             + "tvm.target.Target, but received "
             + "{}".format(type(target))
         )
+    print(tgts)
     return tgts
 
 
