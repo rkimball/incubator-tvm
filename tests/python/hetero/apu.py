@@ -9,6 +9,7 @@ from tvm.relay.expr import Call, TupleGetItem, Var, Constant, Tuple
 from tvm.ir import Op
 from tvm.contrib import utils
 import tvm.contrib.graph_runtime as runtime
+import argparse
 
 # def make_add_pattern():
 #     """Create a pattern to match x + y
@@ -137,13 +138,14 @@ if __name__ == "__main__":
             print("Must specify build_type")
             sys.exit(-1)
     else:
+        target = {"llvm":"llvm -mcpu=znver2", "vulkan":"vulkan"}
 
     # target = {"llvm":"llvm -mcpu=znver2", "vulkan":"vulkan"}
     # target[cpu_context] = "llvm -mcpu=znver2" # windows llvm
     # target[vulkan_context] = "vulkan"
 
-    target = "llvm"
-    context = cpu
+    # target = "llvm"
+    # context = cpu
 
     with relay.build_config(opt_level=3):
         lib = relay.build(mod,
