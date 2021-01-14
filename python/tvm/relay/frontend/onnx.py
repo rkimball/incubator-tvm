@@ -356,11 +356,11 @@ def autopad(data, strides, kernel_shape, dilations, ndim, pad_type="constant", d
     Perform autopadding with dynamic input shapes
     """
     # get attributes as constants
-    strides = _op.const(np.array(strides), dtype="int64")
+    strides = _op.const(np.array(strides).astype("int64"), dtype="int64")
     dilated_kernel_shape = _op.const(
         np.array(
             [(kernel - 1) * dilation + 1 for kernel, dilation in zip(kernel_shape, dilations)]
-        ),
+        ).astype("int64"),
         dtype="int64",
     )
     shape = _op.strided_slice(_op.shape_of(data, dtype="int64"), [2], [ndim])
@@ -379,7 +379,7 @@ def autopad(data, strides, kernel_shape, dilations, ndim, pad_type="constant", d
 
     total_pad = _op.where(_op.equal(mod, zero), left, right)
     if deconv:
-        total_pad = _op.const(np.array(kernel_shape), dtype="int64") - one - total_pad
+        total_pad = _op.const(np.array(kernel_shape).astype("int64"), dtype="int64") - one - total_pad
 
     # split total padding into before and after
     pad_before = _op.floor_divide(total_pad, two)
