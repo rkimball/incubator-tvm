@@ -120,7 +120,8 @@ if __name__ == "__main__":
 
     # this is for running on windows
     # target = "vulkan -mtriple=x86_64-pc-win32"
-    target_host = "llvm -mtriple=x86_64-linux-win32"
+    # target_host = "llvm -mtriple=x86_64-linux-win32"
+    target_host = "llvm"
 
     if args.remote:
         remote = autotvm.measure.request_remote(device, host, port, timeout=1000)
@@ -144,25 +145,25 @@ if __name__ == "__main__":
     # target[cpu_context] = "llvm -mcpu=znver2" # windows llvm
     # target[vulkan_context] = "vulkan"
 
-    # target = "llvm"
-    # context = cpu
+    target = "llvm"
+    context = tvm.cpu()
 
     with relay.build_config(opt_level=3):
         lib = relay.build(mod,
                         target=target,
                         target_host=target_host)
 
-    temp = utils.tempdir()
-    lib.export_library(temp.relpath("graphlib.tar"))
-    # lib.get_source()
-    remote.upload(temp.relpath("graphlib.tar"))
-    rlib = remote.load_module("graphlib.tar")
+    # temp = utils.tempdir()
+    # lib.export_library(temp.relpath("graphlib.tar"))
+    # # lib.get_source()
+    # remote.upload(temp.relpath("graphlib.tar"))
+    # rlib = remote.load_module("graphlib.tar")
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
     C = tvm.nd.array(np.array([[10, 11, 12], [13, 14, 15]], dtype="float32"), context)
 
-    module = runtime.GraphModule(rlib["default"](context))
+    module = runtime.GraphModule(lib["default"](context))
     # print(module.get_source())
     module.set_input(0, A)
     module.set_input(1, B)
