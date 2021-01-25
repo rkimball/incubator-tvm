@@ -305,6 +305,7 @@ runtime::Module build(const Map<Target, IRModule>& inputs, const Target& target_
 
 // Build for heterogeneous execution when target is a string.
 runtime::Module build(const Map<String, IRModule>& inputs, const Target& target_host) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   Map<Target, IRModule> updated_input;
   for (const auto& it : inputs) {
     auto target = Target(it.first);

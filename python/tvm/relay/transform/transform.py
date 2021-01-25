@@ -829,6 +829,17 @@ def AnnotateCompiler(get_placement):
     return _ffi_api.AnnotateCompiler(get_placement)
 
 
+def ExternalFunctionToInternal():
+    """
+    Remove Compiler attribute from Function, turning it from and external to an internal Function.
+
+    Returns
+    -------
+    None
+    """
+    return _ffi_api.ExternalFunctionToInternal()
+
+
 def to_cps(func, mod=None):
     """
     Turn expression into CPS expression.

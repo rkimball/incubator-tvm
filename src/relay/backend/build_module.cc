@@ -235,6 +235,7 @@ class RelayBuildModule : public runtime::ModuleNode {
    * \param target_host Host target device
    */
   void Build(IRModule mod, const TargetsMap& targets, const tvm::Target& target_host) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     targets_ = targets;
     target_host_ = target_host;
     BuildRelay(mod, params_);
@@ -254,6 +255,7 @@ class RelayBuildModule : public runtime::ModuleNode {
    */
   IRModule Optimize(IRModule relay_module, const TargetsMap& targets,
                     const std::unordered_map<std::string, runtime::NDArray>& params) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     ICHECK(relay_module.defined()) << "The IRModule must be defined for the Relay compiler.";
 
     if (params.size()) {
@@ -330,6 +332,7 @@ class RelayBuildModule : public runtime::ModuleNode {
     // Handle heterogeneous compilation.
     transform::PassContext pass_ctx = PassContext::Current();
     if (targets_.size() > 1) {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       Optional<Integer> opt_fallback_dev =
           pass_ctx->GetConfig("relay.fallback_device_type", Integer(static_cast<int>(kDLCPU)));
       auto fallback_dev = opt_fallback_dev.value();
@@ -412,6 +415,8 @@ class RelayBuildModule : public runtime::ModuleNode {
    * \return updated_module The updated module after device annotation.
    */
   IRModule RunDeviceAnnotationPass(const IRModule& relay_module, int fallback_device) {
+    // std::cout << __FILE__ << " " << __LINE__ << " " << relay_module << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << fallback_device << std::endl;
     UpdateHeterogeneousInputs(fallback_device);
     auto rewrite = transform::RewriteAnnotatedOps(fallback_device);
     auto updated_module = rewrite(relay_module);
@@ -460,20 +465,24 @@ class RelayBuildModule : public runtime::ModuleNode {
    */
   void BuildRelay(IRModule relay_module,
                   const std::unordered_map<std::string, tvm::runtime::NDArray>& params) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     // Relay IRModule -> IRModule optimizations.
     relay_module = Optimize(relay_module, targets_, params);
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));
 
     // Generate code for the updated function.
-    graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
+    graph_codegen_ = std::make_unique<GraphCodegen>();
     graph_codegen_->Init(nullptr, targets_);
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     graph_codegen_->Codegen(func);
+    std::cout << __FILE__ << " " << __LINE__ << " ****************************************" << std::endl;
 
     ret_.graph_json = graph_codegen_->GetJSON();
     ret_.params = graph_codegen_->GetParams();
 
     auto lowered_funcs = graph_codegen_->GetIRModule();
+    std::cout << __FILE__ << " " << __LINE__ << " " << lowered_funcs.size() << std::endl;
 
     Target target_host = GetTargetHost();
     // If no target_host has been set, we choose a default one, which is

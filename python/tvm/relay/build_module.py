@@ -167,6 +167,7 @@ class BuildModule(object):
             The parameters of the final graph.
         """
         target = _update_target(target)
+        print("10", target)
 
         # Setup the params.
         if params:
@@ -253,10 +254,13 @@ def build(mod, target=None, target_host=None, params=None, mod_name="default"):
             DeprecationWarning,
         )
 
+    print("1", target)
     target = _update_target(target)
+    print("2", target)
 
     if isinstance(target_host, (str, Target)):
         target_host = Target(target_host)
+        print("3", target_host)
     elif target_host:
         raise ValueError("target host must be the type of str, " + "tvm.target.Target, or None")
 
@@ -268,9 +272,13 @@ def build(mod, target=None, target_host=None, params=None, mod_name="default"):
         tophub_context = autotvm.utils.EmptyContext()
 
     with tophub_context:
+        print("4")
         bld_mod = BuildModule()
+        print("5")
         graph_json, mod, params = bld_mod.build(mod, target, target_host, params)
+        print("6")
         mod = _graph_runtime_factory.GraphRuntimeFactoryModule(graph_json, mod, mod_name, params)
+        print("7")
         return mod
 
 
