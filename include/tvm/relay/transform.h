@@ -444,6 +444,13 @@ TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> ta
  */
 TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement get_placement);
 
+/*!
+ * \brief Convert an external Function to internal.
+ *
+ * \return The pass.
+ */
+TVM_DLL Pass ExternalFunctionToInternal();
+
 }  // namespace transform
 
 /*!
