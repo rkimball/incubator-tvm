@@ -46,49 +46,42 @@ namespace relay {
 
 class FunctionInternalizer : public MixedModeMutator {
  public:
-  explicit FunctionInternalizer(IRModule module)
-      : module_(module) {}
+  using MixedModeMutator::VisitExpr_;
+  explicit FunctionInternalizer(IRModule module) : module_(module) {}
+
+  Expr VisitExpr_(const FunctionNode* func_node) override {
+    if (func_node->attrs.defined() && func_node->attrs->dict.count(attr::kCompiler) != 0) {
+      return Function(func_node->params, func_node->body, func_node->ret_type,
+                      func_node->type_params, DictAttrs(), func_node->span);
+    } else {
+      return ExprMutator::VisitExpr_(func_node);
+    }
+  }
 
  private:
   IRModule module_;
-
-  Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
-
-  Expr Rewrite_(const CallNode* pre, const Expr& post) override {
-    std::cout << __FILE__ << " " << __LINE__ << " **************** " << std::endl;
-    const CallNode* post_node = post.as<CallNode>();
-    if (const OpNode* op_node = post_node->op.as<OpNode>()) {
-      std::cout << __FILE__ << " " << __LINE__ << " **************** " << op_node->name << std::endl;
-    }
-    if (auto* func_node = post_node->op.as<FunctionNode>()) {
-      std::cout << __FILE__ << " " << __LINE__ << " **************** FunctionNode" << std::endl;
-    } else {
-      std::cout << __FILE__ << " " << __LINE__ << " **************** not a FunctionNode" << std::endl;
-    }
-    return post;
-  }
-
-  Expr Rewrite_(const TupleGetItemNode* pre, const Expr& post) override { return post; }
 };
-
-// Expr ExternalFunctionToInternal(const Expr& expr, const IRModule& mod) {
-//     std::cout << __FILE__ << " " << __LINE__ << " ###################" << std::endl;
-//   return FunctionInternalizer(mod).Mutate(expr);
-// }
 
 namespace transform {
 
 Pass ExternalFunctionToInternal() {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        // return Downcast<Function>(ExternalFunctionToInternal(f, m));
-        return Downcast<Function>(FunctionInternalizer(m).Mutate(f));
+        auto out = Downcast<Function>(FunctionInternalizer(m).Mutate(f));
+        std::cout << "-----------------------------------------------" << std::endl;
+        std::cout << "ExternalFunctionToInternal" << std::endl;
+        std::cout << "orig" << std::endl;
+        std::cout << AsText(f, false) << std::endl;
+        std::cout << "new" << std::endl;
+        std::cout << AsText(out, false) << std::endl;
+        std::cout << "-----------------------------------------------" << std::endl;
+        return out;
       };
   return CreateFunctionPass(pass_func, 2, "ExternalFunctionToInternal", {});
 }
 
-TVM_REGISTER_GLOBAL("relay._transform.ExternalFunctionToInternal").set_body_typed(ExternalFunctionToInternal);
-
+TVM_REGISTER_GLOBAL("relay._transform.ExternalFunctionToInternal")
+    .set_body_typed(ExternalFunctionToInternal);
 }  // namespace transform
 }  // namespace relay
 }  // namespace tvm

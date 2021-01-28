@@ -56,7 +56,6 @@ bool MixedModeVisitor::CheckVisited(const Expr& expr) {
 }
 
 void MixedModeVisitor::VisitExpr(const Expr& expr) {
-  std::cout << __FILE__ << " " << __LINE__ << " " << expr << std::endl;
   auto fcheck_visited = [this](const Expr& expr) { return this->CheckVisited(expr); };
   auto fvisit_leaf = [this](const Expr& expr) { return this->VisitLeaf(expr); };
   if (visit_counter_[expr.get()] < visit_limit_) {

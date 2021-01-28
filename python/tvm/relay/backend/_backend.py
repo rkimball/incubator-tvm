@@ -46,7 +46,6 @@ def lower(sch, inputs, func_name, source_func):
     import traceback
 
     try:
-        print("*********************** relay.backend.lower", func_name)
         f = tvm.driver.lower(sch, inputs, name=func_name)
         # logging.debug("lower function %s", func_name)
         # logging.debug("%s", _build.lower(sch, inputs, simple_mode=True))
