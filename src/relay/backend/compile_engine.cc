@@ -634,7 +634,6 @@ class CompileEngineImpl : public CompileEngineNode {
   }
 
   Array<tvm::runtime::Module> LowerExternalFunctions() {
-    std::cout << "Hello from LowerExternalFunctions\n";
     Array<tvm::runtime::Module> ret;
     std::unordered_map<std::string, std::string> cached_symbol;
     std::vector<CCacheKey> cached_ext_funcs;
