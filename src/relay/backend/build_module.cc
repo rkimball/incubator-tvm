@@ -466,7 +466,7 @@ class RelayBuildModule : public runtime::ModuleNode {
     auto func = Downcast<Function>(relay_module->Lookup("main"));
 
     // Generate code for the updated function.
-    graph_codegen_ = std::make_unique<GraphCodegen>();
+    graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
     graph_codegen_->Init(nullptr, targets_);
     graph_codegen_->Codegen(func);
 
