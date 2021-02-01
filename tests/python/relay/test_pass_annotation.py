@@ -34,7 +34,6 @@ def _trace(module, metadata, _):
 def check_graph_runtime(
     target, ref_res, device, func, params, config, opt_level, expected_index=None
 ):
-    print("1***************", params)
     with tvm.transform.PassContext(opt_level=opt_level, config=config):
         graph, lib, new_params = relay.build(func, target, params=params)
         contexts = [tvm.cpu(0), tvm.context(device)]
@@ -430,12 +429,10 @@ def run_fusible_network(dev, tgt):
         check_annotated_graph(annotated_func, expected_func)
         opt_level = 1
         config = {"relay.fallback_device_type": fallback_device.device_type}
-        print("2***************", params)
         check_graph_runtime(
             target, ref_res, device, annotated_func, params, config, opt_level, expected_index
         )
         opt_level = 2
-        print("3***************", params)
         check_vm_runtime(
             target, ref_res, device, annotated_func, params, config, opt_level, expected_index
         )

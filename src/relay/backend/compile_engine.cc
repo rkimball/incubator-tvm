@@ -721,7 +721,6 @@ class CompileEngineImpl : public CompileEngineNode {
     // codegen tool once and lower all functions together.
     if (key->source_func->GetAttr<String>(attr::kCompiler).defined()) {
       auto cache_node = make_object<CachedFuncNode>();
-      std::string compiler = key->source_func->GetAttr<String>(attr::kCompiler).value().c_str();
       const auto name_node = key->source_func->GetAttr<String>(tvm::attr::kGlobalSymbol);
       ICHECK(name_node.defined()) << "External function has not been attached a name yet.";
       cache_node->func_name = std::string(name_node.value());

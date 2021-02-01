@@ -21,29 +21,25 @@ from tvm.relay import transform
 #  [2106. 2268. 2430.]]
 
 
-def run_opt_pass(expr, passes):
-    passes = passes if isinstance(passes, list) else [passes]
-    mod = tvm.IRModule.from_expr(expr)
-    seq = tvm.transform.Sequential(passes)
-    with tvm.transform.PassContext(opt_level=3):
-        mod = seq(mod)
-    return mod["main"]
-
-
 def get_annotated_model(cpu_ctx, dev_ctx):
     a = relay.var("a", shape=(2, 3))
     b = relay.var("b", shape=(2, 3))
     c = relay.var("c", shape=(2, 3))
-    add1 = relay.annotation.on_device(relay.add(a, b), cpu_ctx)
-    add2 = relay.annotation.on_device(relay.add(a, b), cpu_ctx)
+    add1 = relay.add(a, b)
+    add2 = relay.add(a, b)
     mul1 = relay.annotation.on_device(relay.multiply(add1, add2), dev_ctx)
     mul2 = relay.annotation.on_device(relay.multiply(mul1, c), dev_ctx)
     mul3 = relay.annotation.on_device(relay.multiply(mul1, c), dev_ctx)
-    add3 = relay.annotation.on_device(relay.add(mul2, mul3), cpu_ctx)
+    add3 = relay.add(mul2, mul3)
     func = relay.Function([a, b, c], add3)
-    func = run_opt_pass(func, transform.RewriteAnnotatedOps(cpu_ctx.device_type))
+
     mod = tvm.IRModule()
     mod["main"] = func
+
+    # This pass will apply the on_device annotations from graph creation and insert
+    # device_copy ops, splitting the graph into subgraphs to be run on the specified
+    # devices.
+    mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
     return mod
 
 
