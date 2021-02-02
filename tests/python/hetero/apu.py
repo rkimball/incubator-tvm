@@ -1,5 +1,8 @@
 import tvm
 import numpy as np
+import os
+import wget
+import onnx
 from tvm import relay, tir, autotvm
 from tvm.relay import transform
 
@@ -63,5 +66,27 @@ def test_local_gpu_cpu():
     print(result)
 
 
+def test_onnx_resnet50():
+    model_path = os.path.join("../../models", "resnet50_v1.onnx")
+    url = "https://zenodo.org/record/2592612/files/resnet50_v1.onnx"
+    iname = "input_tensor:0"
+    ishape = (1, 3, 224, 224)
+    dtype = "float32"
+
+    if not os.path.exists(model_path):
+        wget.download(url, out=model_path)
+
+    shape_dict = {iname: ishape}
+    dtype_dict = {iname: dtype}
+    onnx_model = onnx.load(model_path)
+    # Import into Relay
+    mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
+
+    print(mod)
+
+    # return mod, params, shape_dict, dtype_dict
+
+
 if __name__ == "__main__":
-    test_local_gpu_cpu()
+    # test_local_gpu_cpu()
+    test_onnx_resnet50()
