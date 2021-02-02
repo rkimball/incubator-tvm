@@ -43,11 +43,12 @@ def get_annotated_model(cpu_ctx, dev_ctx):
     return mod
 
 
-def test_local_cuda_cpu():
+def test_local_gpu_cpu():
+    gpu_target = "vulkan"
     cpu_ctx = tvm.context("cpu")
-    dev_ctx = tvm.context("cuda")
+    dev_ctx = tvm.context(gpu_target)
     mod = get_annotated_model(cpu_ctx, dev_ctx)
-    target = {"cpu": "llvm", "cuda": "cuda"}
+    target = {"cpu": "llvm", gpu_target: gpu_target}
 
     A = np.array([[1, 2, 3], [4, 5, 6]]).astype("float32")
     B = np.array([[8, 7, 6], [5, 4, 3]]).astype("float32")
@@ -63,4 +64,4 @@ def test_local_cuda_cpu():
 
 
 if __name__ == "__main__":
-    test_local_cuda_cpu()
+    test_local_gpu_cpu()
