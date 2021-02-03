@@ -42,6 +42,20 @@ def get_annotated_model(cpu_ctx, dev_ctx):
     mod["main"] = func
     print("1 ******************\n", mod)
 
+    def get_placement(expr):
+        """This method is called for each Call node in the graph. Return the targeted
+        compiler for each Op or "default"
+        """
+        print("doing placement")
+        target_ops = ["multiply"]
+        placement = -1
+        if isinstance(expr, Call):
+            if isinstance(expr.op, Op):
+                print(expr.op.name)
+                if expr.op.name in target_ops:
+                    placement = dev_ctx.device_type
+        return placement
+
     # This pass will apply the on_device annotations from graph creation and insert
     # device_copy ops, splitting the graph into subgraphs to be run on the specified
     # devices.
@@ -53,7 +67,7 @@ def get_annotated_model(cpu_ctx, dev_ctx):
 
 
 def test_local_gpu_cpu():
-    gpu_target = "vulkan"
+    gpu_target = "cuda"
     cpu_ctx = tvm.context("cpu")
     dev_ctx = tvm.context(gpu_target)
     mod = get_annotated_model(cpu_ctx, dev_ctx)
@@ -70,22 +84,6 @@ def test_local_gpu_cpu():
     result = vm.invoke("main", A, B, C)
 
     print(result)
-
-
-def get_placement(expr):
-    """This method is called for each Call node in the graph. Return the targeted
-    compiler for each Op or "default"
-    """
-    target_1 = "default"
-    target_2 = "cuda"
-    target_ops = ["multiply"]
-    placement = target_1
-    if isinstance(expr, Call):
-        if isinstance(expr.op, Op):
-            print(expr.op.name)
-            if expr.op.name in target_ops:
-                placement = target_2
-    return placement
 
 
 def test_onnx_resnet50():
@@ -105,6 +103,23 @@ def test_onnx_resnet50():
     mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
 
     # print(mod)
+
+    gpu_target = "cuda"
+    cpu_ctx = tvm.context("cpu")
+    dev_ctx = tvm.context(gpu_target)
+
+    def get_placement(expr):
+        """This method is called for each Call node in the graph. Return the targeted
+        compiler for each Op or "default"
+        """
+        target_ops = ["multiply"]
+        placement = target_1
+        if isinstance(expr, Call):
+            if isinstance(expr.op, Op):
+                print(expr.op.name)
+                if expr.op.name in target_ops:
+                    placement = target_2
+        return placement
 
     mod = relay.transform.AnnotateCompiler(get_placement)(mod)
     mod = relay.transform.MergeCompilerRegions()(mod)

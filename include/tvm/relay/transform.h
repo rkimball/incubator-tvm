@@ -47,7 +47,12 @@ using PassContext = tvm::transform::PassContext;
 using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
-using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr)>;
+/*
+ * \brief Function to get the device placement for an op.
+ *
+ * \return The context.device_type to be used for op expr
+ */
+using FTVMGetPlacement = runtime::TypedPackedFunc<int(const Expr& expr)>;
 
 /*
  * \brief Create a function pass.
