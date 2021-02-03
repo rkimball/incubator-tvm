@@ -45,7 +45,8 @@ namespace tvm {
 namespace relay {
 
 // Before
-// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32]) -> Tensor[(2, 3), float32] {
+// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32])
+// -> Tensor[(2, 3), float32] {
 //   %0 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
 //   %1 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
 //   %2 = multiply(%0, %1) /* ty=Tensor[(2, 3), float32] */;
@@ -55,7 +56,8 @@ namespace relay {
 // }
 //
 // After:
-// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32]) {
+// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32])
+// {
 //   %0 = add(%a, %b);
 //   %1 = add(%a, %b);
 //   %2 = multiply(%0, %1);
@@ -92,9 +94,9 @@ class CompilerAnnotator : public MixedModeMutator {
     Expr rc = post;
     const CallNode* call_node = post.as<CallNode>();
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
-        int device_type = get_placement_(GetRef<Expr>(call_node));
-        if (device_type > 0) {
-          rc = relay::op::annotation::on_device(post, device_type);
+      int device_type = get_placement_(GetRef<Expr>(call_node));
+      if (device_type > 0) {
+        rc = relay::op::annotation::on_device(post, device_type);
       }
     }
     return rc;

@@ -123,7 +123,6 @@ def test_onnx_resnet50():
     # mod = relay.transform.PartitionGraph()(mod)
     print(mod)
 
-
     # return mod, params, shape_dict, dtype_dict
 
 

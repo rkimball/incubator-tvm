@@ -38,14 +38,14 @@ namespace relay {
 
 namespace op {
 namespace annotation {
-  Expr on_device(Expr data, int device_type) {
-    auto attrs = make_object<OnDeviceAttrs>();
-    attrs->device_type = device_type;
-    static const Op& op = Op::Get("on_device");
-    return Call(op, {data}, Attrs(attrs), {});
-  }
-} // namespace annotation
-} // namespace op
+Expr on_device(Expr data, int device_type) {
+  auto attrs = make_object<OnDeviceAttrs>();
+  attrs->device_type = device_type;
+  static const Op& op = Op::Get("on_device");
+  return Call(op, {data}, Attrs(attrs), {});
+}
+}  // namespace annotation
+}  // namespace op
 
 // relay.annotation.on_device
 TVM_REGISTER_NODE_TYPE(OnDeviceAttrs);

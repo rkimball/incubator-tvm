@@ -48,6 +48,7 @@ def run_opt_pass(expr, passes):
         mod = seq(mod)
     return mod["main"]
 
+
 def annotated(cpu_ctx, dev_ctx):
     x = relay.var("x", shape=(1, 10))
     y = relay.var("y", shape=(10, 10))
@@ -61,6 +62,7 @@ def annotated(cpu_ctx, dev_ctx):
     func = relay.Function([x, y], _exp)
     func = run_opt_pass(func, transform.RewriteAnnotatedOps(dev_ctx.device_type))
     return func
+
 
 def run_fusible_network(dev, tgt):
     R""" The network is as following:
@@ -103,10 +105,7 @@ def run_fusible_network(dev, tgt):
         # tvm.testing.assert_allclose(res.asnumpy(), ref_res, rtol=1e-5, atol=1e-5)
 
 
-
 if __name__ == "__main__":
     dev = "cuda"
     tgt = "cuda"
     run_fusible_network(dev, tgt)
-
-

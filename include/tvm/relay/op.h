@@ -38,10 +38,9 @@ using OpNode = tvm::OpNode;
 
 namespace op {
 namespace annotation {
-  Expr on_device(Expr data, int device_type);
-} // namespace annotation
-} // namespace op
-
+Expr on_device(Expr data, int device_type);
+}  // namespace annotation
+}  // namespace op
 
 }  // namespace relay
 }  // namespace tvm
