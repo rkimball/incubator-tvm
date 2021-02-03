@@ -40,13 +40,11 @@ def get_annotated_model(cpu_ctx, dev_ctx):
 
     mod = tvm.IRModule()
     mod["main"] = func
-    print("1 ******************\n", mod)
 
     def get_placement(expr):
         """This method is called for each Call node in the graph. Return the targeted
         compiler for each Op or "default"
         """
-        print("doing placement")
         target_ops = ["multiply"]
         placement = -1
         if isinstance(expr, Call):
@@ -60,9 +58,7 @@ def get_annotated_model(cpu_ctx, dev_ctx):
     # device_copy ops, splitting the graph into subgraphs to be run on the specified
     # devices.
     mod = relay.transform.AnnotateCompiler(get_placement)(mod)
-    print("2 ******************\n", mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
-    print("3 ******************\n", mod)
     return mod
 
 
@@ -113,17 +109,18 @@ def test_onnx_resnet50():
         compiler for each Op or "default"
         """
         target_ops = ["multiply"]
-        placement = target_1
+        placement = -1
         if isinstance(expr, Call):
             if isinstance(expr.op, Op):
                 print(expr.op.name)
                 if expr.op.name in target_ops:
-                    placement = target_2
+                    placement = dev_ctx.device_type
         return placement
 
     mod = relay.transform.AnnotateCompiler(get_placement)(mod)
-    mod = relay.transform.MergeCompilerRegions()(mod)
-    mod = relay.transform.PartitionGraph()(mod)
+    mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
+    # mod = relay.transform.MergeCompilerRegions()(mod)
+    # mod = relay.transform.PartitionGraph()(mod)
     print(mod)
 
 

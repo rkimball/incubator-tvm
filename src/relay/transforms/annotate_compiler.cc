@@ -94,12 +94,7 @@ class CompilerAnnotator : public MixedModeMutator {
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
         int device_type = get_placement_(GetRef<Expr>(call_node));
         if (device_type > 0) {
-          std::cout << "wrap op " << op_node->name << std::endl;
-
-          auto attrs = make_object<OnDeviceAttrs>();
-          attrs->device_type = device_type;
-          static const Op& op = Op::Get("on_device");
-          rc = Call(op, {post}, Attrs(attrs), {});
+          rc = relay::op::annotation::on_device(post, device_type);
       }
     }
     return rc;
