@@ -44,6 +44,29 @@
 namespace tvm {
 namespace relay {
 
+// Before
+// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32]) -> Tensor[(2, 3), float32] {
+//   %0 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
+//   %1 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
+//   %2 = multiply(%0, %1) /* ty=Tensor[(2, 3), float32] */;
+//   %3 = multiply(%2, %c) /* ty=Tensor[(2, 3), float32] */;
+//   %4 = multiply(%2, %c) /* ty=Tensor[(2, 3), float32] */;
+//   add(%3, %4) /* ty=Tensor[(2, 3), float32] */
+// }
+//
+// After:
+// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32]) {
+//   %0 = add(%a, %b);
+//   %1 = add(%a, %b);
+//   %2 = multiply(%0, %1);
+//   %3 = on_device(%2, meta[relay.attrs.OnDeviceAttrs][0]);
+//   %4 = multiply(%3, %c);
+//   %5 = on_device(%4, meta[relay.attrs.OnDeviceAttrs][1]);
+//   %6 = multiply(%3, %c);
+//   %7 = on_device(%6, meta[relay.attrs.OnDeviceAttrs][2]);
+//   add(%5, %7)
+// }
+
 class CompilerAnnotator : public MixedModeMutator {
  public:
   explicit CompilerAnnotator(IRModule module, transform::FTVMGetPlacement get_placement)
@@ -70,16 +93,35 @@ class CompilerAnnotator : public MixedModeMutator {
     const CallNode* call_node = post.as<CallNode>();
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
       std::string placement = get_placement_(GetRef<Expr>(call_node));
+      if (placement != "default" && placement != "")
+      {
+        std::cout << "wrap op " << op_node->name << std::endl;
 
-      Array<Expr> wrapped_args;
-      for (Expr arg : call_node->args) {
-        wrapped_args.push_back(MakeCompilerBegin(arg, placement));
+        int device_type = 1;
+        auto attrs = make_object<OnDeviceAttrs>();
+        attrs->device_type = device_type;
+        static const Op& op = Op::Get("on_device");
+        return Call(op, {post}, Attrs(attrs), {});
+
+
+        // static const Op& op = Op::Get("annotation.on_device");
+
+        // Expr ret = tvm::relay::Call(*op_node, call_node->args, call_node->attrs)
+        // ret = tvm::relay::annotation::on_device(post, self.ext_ctx)
+
+        // return ret;
+
       }
 
-      Expr new_call =
-          MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
-      new_call->checked_type_ = call_node->checked_type_;
-      rc = new_call;
+      // Array<Expr> wrapped_args;
+      // for (Expr arg : call_node->args) {
+      //   wrapped_args.push_back(MakeCompilerBegin(arg, placement));
+      // }
+
+      // Expr new_call =
+      //     MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
+      // new_call->checked_type_ = call_node->checked_type_;
+      // rc = new_call;
     }
     return rc;
   }
