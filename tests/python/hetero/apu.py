@@ -108,24 +108,21 @@ def test_onnx_resnet50():
         """This method is called for each Call node in the graph. Return the targeted
         compiler for each Op or "default"
         """
-        target_ops = ["multiply"]
+        target_ops = ["nn.conv2d", "nn.bias_add", "nn.relu"]
         placement = -1
         if isinstance(expr, Call):
             if isinstance(expr.op, Op):
-                print(expr.op.name)
                 if expr.op.name in target_ops:
                     placement = dev_ctx.device_type
         return placement
 
     mod = relay.transform.AnnotateCompiler(get_placement)(mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
-    # mod = relay.transform.MergeCompilerRegions()(mod)
-    # mod = relay.transform.PartitionGraph()(mod)
     print(mod)
 
     # return mod, params, shape_dict, dtype_dict
 
 
 if __name__ == "__main__":
-    test_local_gpu_cpu()
-    # test_onnx_resnet50()
+    # test_local_gpu_cpu()
+    test_onnx_resnet50()
