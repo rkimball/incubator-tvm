@@ -214,7 +214,7 @@ def test_local_cpu():
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), ctx)
     C = tvm.nd.array(np.array([[10, 11, 12], [13, 14, 15]], dtype="float32"), ctx)
 
-    ex = tvm.relay.create_executor(kind = "vm", mod=mod, ctx=ctx, target=target)
+    ex = tvm.relay.create_executor(kind="vm", mod=mod, ctx=ctx, target=target)
     result = ex.evaluate()(A, B, C)
     print(result)
 
