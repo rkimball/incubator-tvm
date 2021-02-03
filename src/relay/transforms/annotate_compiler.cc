@@ -92,36 +92,15 @@ class CompilerAnnotator : public MixedModeMutator {
     Expr rc = post;
     const CallNode* call_node = post.as<CallNode>();
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
-      std::string placement = get_placement_(GetRef<Expr>(call_node));
-      if (placement != "default" && placement != "")
-      {
-        std::cout << "wrap op " << op_node->name << std::endl;
+        int device_type = get_placement_(GetRef<Expr>(call_node));
+        if (device_type > 0) {
+          std::cout << "wrap op " << op_node->name << std::endl;
 
-        int device_type = 1;
-        auto attrs = make_object<OnDeviceAttrs>();
-        attrs->device_type = device_type;
-        static const Op& op = Op::Get("on_device");
-        return Call(op, {post}, Attrs(attrs), {});
-
-
-        // static const Op& op = Op::Get("annotation.on_device");
-
-        // Expr ret = tvm::relay::Call(*op_node, call_node->args, call_node->attrs)
-        // ret = tvm::relay::annotation::on_device(post, self.ext_ctx)
-
-        // return ret;
-
+          auto attrs = make_object<OnDeviceAttrs>();
+          attrs->device_type = device_type;
+          static const Op& op = Op::Get("on_device");
+          rc = Call(op, {post}, Attrs(attrs), {});
       }
-
-      // Array<Expr> wrapped_args;
-      // for (Expr arg : call_node->args) {
-      //   wrapped_args.push_back(MakeCompilerBegin(arg, placement));
-      // }
-
-      // Expr new_call =
-      //     MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
-      // new_call->checked_type_ = call_node->checked_type_;
-      // rc = new_call;
     }
     return rc;
   }
