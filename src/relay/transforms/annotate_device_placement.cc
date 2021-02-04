@@ -69,9 +69,9 @@ namespace relay {
 //   add(%5, %7)
 // }
 
-class CompilerAnnotator : public MixedModeMutator {
+class DeviceAnnotator : public MixedModeMutator {
  public:
-  explicit CompilerAnnotator(IRModule module, transform::FTVMGetPlacement get_placement)
+  explicit DeviceAnnotator(IRModule module, transform::FTVMGetPlacement get_placement)
       : module_(module), get_placement_(get_placement) {}
 
   Expr InferType(const Expr& expr) {
@@ -137,22 +137,22 @@ class CompilerAnnotator : public MixedModeMutator {
   }
 };
 
-Expr AnnotateCompiler(const Expr& expr, const IRModule& mod,
+Expr AnnotateDevicePlacement(const Expr& expr, const IRModule& mod,
                       transform::FTVMGetPlacement get_placement) {
-  return CompilerAnnotator(mod, get_placement).Mutate(expr);
+  return DeviceAnnotator(mod, get_placement).Mutate(expr);
 }
 
 namespace transform {
 
-Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
+Pass AnnotateDevicePlacement(FTVMGetPlacement get_placement) {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        return Downcast<Function>(AnnotateCompiler(f, m, get_placement));
+        return Downcast<Function>(AnnotateDevicePlacement(f, m, get_placement));
       };
-  return CreateFunctionPass(pass_func, 2, "AnnotateCompiler", {});
+  return CreateFunctionPass(pass_func, 2, "AnnotateDevicePlacement", {});
 }
 
-TVM_REGISTER_GLOBAL("relay._transform.AnnotateCompiler").set_body_typed(AnnotateCompiler);
+TVM_REGISTER_GLOBAL("relay._transform.AnnotateDevicePlacement").set_body_typed(AnnotateDevicePlacement);
 
 }  // namespace transform
 }  // namespace relay

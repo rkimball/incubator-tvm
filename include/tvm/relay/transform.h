@@ -441,20 +441,13 @@ TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> ta
 /*!
  * \brief Annotate ops for heterogeneous execution.
  *
- * \param get_placement a packed function of type String(Expr) which determines the
- *        placement of each Expr. The returned String is the target compiler to use
- *        for Expr.
+ * \param get_placement a packed function of type int(Expr) which determines the
+ *        placement of each Expr. The returned int is the target device_type to use
+ *        for Expr or -1 for default placement.
  *
  * \return The pass.
  */
-TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement get_placement);
-
-/*!
- * \brief Convert an external Function to internal.
- *
- * \return The pass.
- */
-TVM_DLL Pass ExternalFunctionToInternal();
+TVM_DLL Pass AnnotateDevicePlacement(FTVMGetPlacement get_placement);
 
 }  // namespace transform
 
