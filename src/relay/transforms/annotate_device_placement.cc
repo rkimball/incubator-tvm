@@ -138,7 +138,7 @@ class DeviceAnnotator : public MixedModeMutator {
 };
 
 Expr AnnotateDevicePlacement(const Expr& expr, const IRModule& mod,
-                      transform::FTVMGetPlacement get_placement) {
+                             transform::FTVMGetPlacement get_placement) {
   return DeviceAnnotator(mod, get_placement).Mutate(expr);
 }
 
@@ -152,7 +152,8 @@ Pass AnnotateDevicePlacement(FTVMGetPlacement get_placement) {
   return CreateFunctionPass(pass_func, 2, "AnnotateDevicePlacement", {});
 }
 
-TVM_REGISTER_GLOBAL("relay._transform.AnnotateDevicePlacement").set_body_typed(AnnotateDevicePlacement);
+TVM_REGISTER_GLOBAL("relay._transform.AnnotateDevicePlacement")
+    .set_body_typed(AnnotateDevicePlacement);
 
 }  // namespace transform
 }  // namespace relay
