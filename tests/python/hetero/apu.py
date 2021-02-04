@@ -96,17 +96,18 @@ def test_onnx_resnet50():
     dtype_dict = {iname: dtype}
     onnx_model = onnx.load(model_path)
     # Import into Relay
-    mod, params = relay.frontend.from_onnx(onnx_model, shape_dict)
+    mod, params = relay.frontend.from_onnx(onnx_model, shape_dict, freeze_params=True)
 
     # print(mod)
 
     gpu_target = "cuda"
     cpu_ctx = tvm.context("cpu")
     dev_ctx = tvm.context(gpu_target)
+    target = {"cpu": "llvm", gpu_target: gpu_target}
 
     def get_placement(expr):
         """This method is called for each Call node in the graph. Return the targeted
-        compiler for each Op or "default"
+        device_type for each Op or -1
         """
         target_ops = ["nn.conv2d", "nn.bias_add", "nn.relu"]
         placement = -1
@@ -120,7 +121,23 @@ def test_onnx_resnet50():
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
     print(mod)
 
-    # return mod, params, shape_dict, dtype_dict
+    exe = relay.vm.compile(mod, target)
+    ctx = [cpu_ctx, dev_ctx]
+    vm = tvm.runtime.vm.VirtualMachine(exe, ctx)
+
+    # Generate input tensors
+    np.random.seed(0)
+    input_dict = {}
+    for iname, ishape in shape_dict.items():
+        dtype = dtype_dict[iname]
+        np_data = (100 * np.random.uniform(size=ishape)).astype(dtype)
+        data_tvm = tvm.nd.array(np_data, ctx=cpu_ctx)
+        print("input name", iname)
+        input_dict[iname] = data_tvm
+        # vm.set_input(iname, tvm.nd.array(data_tvm))
+
+    vm.set_input("main", **input_dict)
+    result = vm.invoke("main")
 
 
 if __name__ == "__main__":
