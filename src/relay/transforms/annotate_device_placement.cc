@@ -18,7 +18,10 @@
  */
 
 /*!
- * \file visualize_graph.cc
+ * \file annotate_device_placement.cc
+ * \brief Annotate Expr with on_device indicating the device_type to use per op.
+ * Once the ops are annotated running the RewriteAnnotatedOps pass inserts device_copy ops
+ * to copy tensors to the correct device.
  */
 
 #include <tvm/relay/analysis.h>
