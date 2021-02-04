@@ -54,7 +54,6 @@ def compile_cuda(code, target="ptx", arch=None, options=None, path_target=None):
     cubin : bytearray
         The bytearray of the cubin
     """
-    print("************** compile_cuda")
     temp = utils.tempdir()
     if target not in ["cubin", "ptx", "fatbin"]:
         raise ValueError("target must be in cubin, ptx, fatbin")

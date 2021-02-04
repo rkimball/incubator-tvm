@@ -3,30 +3,31 @@ import numpy as np
 import os
 import wget
 import onnx
+import time
 from tvm import relay, tir, autotvm
 from tvm.relay import transform
 from tvm.relay.expr import Call, TupleGetItem, Var, Constant, Tuple
 from tvm.ir import Op
 
-#        a  b  a  b
-#         \/    \/
-#         add  add
-#          \   /
-#           \ /
-#           mul
-#           /  \
-#       c  / c  |
-#        \/   \/
-#        mul  mul
-#         \   /
-#          \ /
-#          add
 
 # [[1620. 1782. 1944.]
 #  [2106. 2268. 2430.]]
 
 
 def get_annotated_model(cpu_ctx, dev_ctx):
+    #        a  b  a  b
+    #         \/    \/
+    #         add  add
+    #          \   /
+    #           \ /
+    #           mul
+    #           /  \
+    #       c  / c  |
+    #        \/   \/
+    #        mul  mul
+    #         \   /
+    #          \ /
+    #          add
     a = relay.var("a", shape=(2, 3))
     b = relay.var("b", shape=(2, 3))
     c = relay.var("c", shape=(2, 3))
@@ -98,8 +99,6 @@ def test_onnx_resnet50():
     # Import into Relay
     mod, params = relay.frontend.from_onnx(onnx_model, shape_dict, freeze_params=True)
 
-    # print(mod)
-
     gpu_target = "cuda"
     cpu_ctx = tvm.context("cpu")
     dev_ctx = tvm.context(gpu_target)
@@ -119,7 +118,6 @@ def test_onnx_resnet50():
 
     mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
-    print(mod)
 
     exe = relay.vm.compile(mod, target)
     ctx = [cpu_ctx, dev_ctx]
@@ -137,9 +135,11 @@ def test_onnx_resnet50():
         # vm.set_input(iname, tvm.nd.array(data_tvm))
 
     vm.set_input("main", **input_dict)
+    time_start = time.perf_counter()
     result = vm.invoke("main")
-
+    time_end = time.perf_counter()
+    print(f"Iteration time {time_end - time_start:0.2f} seconds")
 
 if __name__ == "__main__":
-    # test_local_gpu_cpu()
-    test_onnx_resnet50()
+    test_local_gpu_cpu()
+    # test_onnx_resnet50()
