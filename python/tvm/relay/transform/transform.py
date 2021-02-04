@@ -817,7 +817,7 @@ def Defunctionalization(func, mod):
     return _ffi_api.Defunctionalization(func, mod)
 
 
-def AnnotateCompiler(get_placement):
+def AnnotateDevicePlacement(get_placement):
     """
     Annotate a module with compiler_begin and compiler_end for partitioning and
     heterogeneous execution.
@@ -826,18 +826,7 @@ def AnnotateCompiler(get_placement):
     -------
     None
     """
-    return _ffi_api.AnnotateCompiler(get_placement)
-
-
-def ExternalFunctionToInternal():
-    """
-    Remove Compiler attribute from Function, turning it from and external to an internal Function.
-
-    Returns
-    -------
-    None
-    """
-    return _ffi_api.ExternalFunctionToInternal()
+    return _ffi_api.AnnotateDevicePlacement(get_placement)
 
 
 def to_cps(func, mod=None):

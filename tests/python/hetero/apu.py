@@ -57,7 +57,7 @@ def get_annotated_model(cpu_ctx, dev_ctx):
     # This pass will apply the on_device annotations from graph creation and insert
     # device_copy ops, splitting the graph into subgraphs to be run on the specified
     # devices.
-    mod = relay.transform.AnnotateCompiler(get_placement)(mod)
+    mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
     return mod
 
@@ -117,7 +117,7 @@ def test_onnx_resnet50():
                     placement = dev_ctx.device_type
         return placement
 
-    mod = relay.transform.AnnotateCompiler(get_placement)(mod)
+    mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
     print(mod)
 

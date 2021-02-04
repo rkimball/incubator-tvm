@@ -242,7 +242,7 @@ def test_local_cpu():
 #     mod = get_model()
 #     print(mod)
 
-#     # mod = relay.transform.AnnotateCompiler(get_placement)(mod)
+#     # mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
 #     # mod = relay.transform.MergeCompilerRegions()(mod)
 #     # mod = relay.transform.PartitionGraph()(mod)
 #     # print(mod)
@@ -306,7 +306,7 @@ def test_local_cpu():
 #     mod = get_model()
 #     print(mod)
 
-#     # mod = relay.transform.AnnotateCompiler(get_placement)(mod)
+#     # mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
 #     # mod = relay.transform.MergeCompilerRegions()(mod)
 #     # mod = relay.transform.PartitionGraph()(mod)
 #     # print(mod)
