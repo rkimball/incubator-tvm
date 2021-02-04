@@ -44,51 +44,14 @@
 namespace tvm {
 namespace relay {
 
-// Before
-// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32])
-// -> Tensor[(2, 3), float32] {
-//   %0 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
-//   %1 = add(%a, %b) /* ty=Tensor[(2, 3), float32] */;
-//   %2 = multiply(%0, %1) /* ty=Tensor[(2, 3), float32] */;
-//   %3 = multiply(%2, %c) /* ty=Tensor[(2, 3), float32] */;
-//   %4 = multiply(%2, %c) /* ty=Tensor[(2, 3), float32] */;
-//   add(%3, %4) /* ty=Tensor[(2, 3), float32] */
-// }
-//
-// After:
-// def @main(%a: Tensor[(2, 3), float32], %b: Tensor[(2, 3), float32], %c: Tensor[(2, 3), float32])
-// {
-//   %0 = add(%a, %b);
-//   %1 = add(%a, %b);
-//   %2 = multiply(%0, %1);
-//   %3 = on_device(%2, meta[relay.attrs.OnDeviceAttrs][0]);
-//   %4 = multiply(%3, %c);
-//   %5 = on_device(%4, meta[relay.attrs.OnDeviceAttrs][1]);
-//   %6 = multiply(%3, %c);
-//   %7 = on_device(%6, meta[relay.attrs.OnDeviceAttrs][2]);
-//   add(%5, %7)
-// }
-
 class DeviceAnnotator : public MixedModeMutator {
  public:
   explicit DeviceAnnotator(IRModule module, transform::FTVMGetPlacement get_placement)
       : module_(module), get_placement_(get_placement) {}
 
-  Expr InferType(const Expr& expr) {
-    auto mod = IRModule::FromExpr(expr);
-    mod = transform::InferType()(mod);
-    if (expr.as<FunctionNode>()) {
-      return mod->Lookup("main");
-    } else {
-      return mod->Lookup("main").as<FunctionNode>()->body;
-    }
-  }
-
  private:
   IRModule module_;
   transform::FTVMGetPlacement get_placement_;
-
-  Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
 
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
     Expr rc = post;
@@ -103,38 +66,7 @@ class DeviceAnnotator : public MixedModeMutator {
   }
 
   Expr Rewrite_(const TupleGetItemNode* pre, const Expr& post) override { return post; }
-
-  // Convert value to expression.
-  Expr ObjectToExpr(const ObjectRef& value) {
-    if (value->IsInstance<runtime::NDArray::ContainerType>()) {
-      auto nd_array = Downcast<runtime::NDArray>(value);
-      return Constant(nd_array);
-    } else if (const auto* val = value.as<runtime::ADTObj>()) {
-      runtime::ADT adt = GetRef<runtime::ADT>(val);
-      Array<Expr> fields;
-      for (size_t i = 0; i < adt.size(); ++i) {
-        fields.push_back(ObjectToExpr(adt[i]));
-      }
-      return Tuple(fields);
-    } else {
-      LOG(FATAL) << "Cannot handle " << value->GetTypeKey();
-      return Expr();
-    }
-  }
-
-  Expr MakeCompilerBegin(Expr expr, std::string compiler) {
-    auto attrs = make_object<CompilerAttrs>();
-    attrs->compiler = compiler;
-    static const Op& op = Op::Get("annotation.compiler_begin");
-    return Call(op, {expr}, Attrs(attrs), {});
-  }
-
-  Expr MakeCompilerEnd(Expr expr, std::string compiler) {
-    auto attrs = make_object<CompilerAttrs>();
-    attrs->compiler = compiler;
-    static const Op& op = Op::Get("annotation.compiler_end");
-    return Call(op, {expr}, Attrs(attrs), {});
-  }
+  Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
 };
 
 Expr AnnotateDevicePlacement(const Expr& expr, const IRModule& mod,
