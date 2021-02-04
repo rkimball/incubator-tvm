@@ -24,25 +24,9 @@
  * to copy tensors to the correct device.
  */
 
-#include <tvm/relay/analysis.h>
-#include <tvm/relay/attrs/annotation.h>
 #include <tvm/relay/attrs/transform.h>
 #include <tvm/relay/expr_functor.h>
-#include <tvm/relay/interpreter.h>
-#include <tvm/relay/op.h>
-#include <tvm/relay/op_attr_types.h>
 #include <tvm/relay/transform.h>
-#include <tvm/runtime/container.h>
-#include <tvm/runtime/ndarray.h>
-#include <tvm/runtime/object.h>
-
-#include <fstream>
-#include <unordered_map>
-
-#include "../../printer/text_printer.h"
-#include "../../support/utils.h"
-#include "../ir/indexed_graph.h"
-#include "pattern_utils.h"
 
 namespace tvm {
 namespace relay {
