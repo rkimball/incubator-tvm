@@ -50,7 +50,6 @@ def get_annotated_model(cpu_ctx, dev_ctx):
         placement = -1
         if isinstance(expr, Call):
             if isinstance(expr.op, Op):
-                print(expr.op.name)
                 if expr.op.name in target_ops:
                     placement = dev_ctx.device_type
         return placement
@@ -58,8 +57,11 @@ def get_annotated_model(cpu_ctx, dev_ctx):
     # This pass will apply the on_device annotations from graph creation and insert
     # device_copy ops, splitting the graph into subgraphs to be run on the specified
     # devices.
+    print("************** Source graph\n", mod)
     mod = relay.transform.AnnotateDevicePlacement(get_placement)(mod)
+    print("************** Placement annotated graph\n", mod)
     mod = relay.transform.RewriteAnnotatedOps(cpu_ctx.device_type)(mod)
+    print("************** Placement applied and device_copy added by running RewriteAnnotatedOps\n", mod)
     return mod
 
 
@@ -74,7 +76,6 @@ def test_local_gpu_cpu():
     B = np.array([[8, 7, 6], [5, 4, 3]]).astype("float32")
     C = np.array([[10, 11, 12], [13, 14, 15]]).astype("float32")
 
-    print(mod)
     exe = relay.vm.compile(mod, target)
     ctx = [cpu_ctx, dev_ctx]
     vm = tvm.runtime.vm.VirtualMachine(exe, ctx)
