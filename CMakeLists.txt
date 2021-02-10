@@ -233,6 +233,7 @@ file(GLOB_RECURSE COMPILER_SRCS
     src/parser/*.cc
     src/printer/*.cc
     src/support/*.cc
+    src/rpc/*.cc
     )
 
 file(GLOB CODEGEN_SRCS
