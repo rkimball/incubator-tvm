@@ -95,6 +95,24 @@ inline bool ValidateIP(std::string ip) {
   return is_ipv4 || is_ipv6;
 }
 
+inline bool SockaddrInfo(const struct sockaddr* sa, std::string& host, int& port) {
+  char buffer[16];
+  std::string result = "unknown socket AF";
+  switch (sa->sa_family) {
+    case AF_INET:
+      host = inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), buffer, sizeof(buffer));
+      break;
+
+    case AF_INET6:
+      host = inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), buffer, sizeof(buffer));
+      break;
+    default:
+      return false;
+  }
+  port = ((struct sockaddr_in*)sa)->sin_port;
+  return true;
+}
+
 /*!
  * \brief Common data structure for network address.
  */
@@ -235,6 +253,17 @@ class Socket {
 #endif
   }
   /*!
+   * \brief set this socket to use non-blocking mode
+   * \param non_block whether set it to be non-block, if it is false
+   *        it will set it back to block mode
+   */
+  void SetReuseAddress(bool enable = true) {
+    int opt = (enable ? 1 : 0);
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) < 0) {
+      Socket::Error("SetReuseAddress");
+    }
+  }
+  /*!
    * \brief bind the socket to an address
    * \param addr The address to be binded
    */
@@ -259,8 +288,6 @@ class Socket {
                (addr.addr.ss_family == AF_INET6 ? sizeof(sockaddr_in6) : sizeof(sockaddr_in))) ==
           0) {
         return port;
-      } else {
-        LOG(WARNING) << "Bind failed to " << host << ":" << port;
       }
 #if defined(_WIN32)
       if (WSAGetLastError() != WSAEADDRINUSE) {
@@ -303,6 +330,15 @@ class Socket {
       sockfd = INVALID_SOCKET;
     } else {
       Error("Socket::Close double close the socket or close without create");
+    }
+  }
+  void Shutdown() {
+    if (sockfd != INVALID_SOCKET) {
+#ifdef _WIN32
+      shutdown(sockfd, SD_BOTH);
+#else
+      shutdown(sockfd, SHUT_RDWR);
+#endif
     }
   }
   /*!
@@ -540,6 +576,13 @@ class TCPSocket : public Socket {
     data.resize(datalen);
     ICHECK_EQ(RecvAll(&data[0], datalen), datalen);
     return data;
+  }
+
+  bool GetPeerAddress(std::string& host, int& port) {
+    struct sockaddr peer_addr;
+    socklen_t addr_length = sizeof(peer_addr);
+    getpeername(sockfd, &peer_addr, &addr_length);
+    return SockaddrInfo(&peer_addr, host, port);
   }
 };
 
