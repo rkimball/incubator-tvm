@@ -15,29 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import logging
 import multiprocessing
-import time
 import tvm
-from tvm import te
-from test_autotvm_common import DummyRunner, bad_matmul, get_sample_task
+from test_autotvm_common import DummyRunner, get_sample_task
 from tvm import autotvm
-from tvm.autotvm.measure.measure import MeasureErrorNo, MeasureResult
 
 multiprocessing.set_start_method("spawn", force=True)
 
-task, _ = get_sample_task()
+def do_test():
+    task, _ = get_sample_task()
 
-measure_option = autotvm.measure_option(builder=autotvm.LocalBuilder(), runner=DummyRunner())
+    measure_option = autotvm.measure_option(builder=autotvm.LocalBuilder(), runner=DummyRunner())
 
-logging.info("%s", task.config_space)
-
-for tuner_class in [
-    autotvm.tuner.RandomTuner,
-    autotvm.tuner.GridSearchTuner,
-    autotvm.tuner.GATuner,
-    autotvm.tuner.XGBTuner,
-]:
-    tuner = tuner_class(task)
+    tuner = autotvm.tuner.RandomTuner(task)
     tuner.tune(n_trial=10, measure_option=measure_option)
-    # assert tuner.best_flops > 1
+
+# if __name__ == '__main__':
+do_test()
