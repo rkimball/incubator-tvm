@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 """Test local executor"""
+import pytest
 import time
 
 from tvm.autotvm.measure import LocalExecutor, executor
-from tvm.testing import identity_after, timeout_job, fast, slow
+from tvm.testing import timeout_job, fast, slow
 
 
 def test_local_measure_async():
@@ -46,8 +47,8 @@ def test_timeout():
     f1 = ex.submit(timeout_job, timeout)
     while not f1.done():
         pass
-    res = f1.result()
-    assert isinstance(res, executor.TimeoutError)
+    with pytest.raises(TimeoutError):
+        f1.result()
 
 
 if __name__ == "__main__":
