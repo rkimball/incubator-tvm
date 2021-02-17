@@ -740,6 +740,21 @@ def identity_after(x, sleep):
     return x
 
 
+def fast(n):
+    return n * (n + 1) // 2
+
+
+def slow(n):
+    r = 0
+    for i in range(0, n + 1):
+        r += i
+    return r
+
+
+def timeout_job(n):
+    time.sleep(n * 1.5)
+
+
 def terminate_self():
     """Testing function to terminate the process."""
     sys.exit(-1)

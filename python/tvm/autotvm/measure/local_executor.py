@@ -19,7 +19,7 @@
 import signal
 
 from multiprocessing import Process, Queue
-# from tvm.contrib.popen_pool import PopenWorker, PopenPoolExecutor
+from tvm.contrib.popen_pool import PopenPoolExecutor
 
 try:
     from queue import Empty
@@ -141,23 +141,26 @@ class LocalExecutor(executor.Executor):
     def __init__(self, timeout=None, do_fork=True):
         self.timeout = timeout or executor.Executor.DEFAULT_TIMEOUT
         self.do_fork = do_fork
+        print("\ntimeout", self.timeout)
+        self.pool = PopenPoolExecutor(max_workers=2, timeout=self.timeout)
 
-        if self.do_fork:
-            if not psutil:
-                raise RuntimeError(
-                    "Python package psutil is missing. " "please try `pip install psutil`"
-                )
+        # if self.do_fork:
+        #     if not psutil:
+        #         raise RuntimeError(
+        #             "Python package psutil is missing. " "please try `pip install psutil`"
+        #         )
 
     def submit(self, func, *args, **kwargs):
+        # if not self.do_fork:
+        #     print("****************** submit no fork")
+        #     return LocalFutureNoFork(func(*args, **kwargs))
+
+        # queue = Queue(2)  # Size of 2 to avoid a race condition with size 1.
+        # process = Process(target=call_with_timeout, args=(queue, self.timeout, func, args, kwargs))
+
+        # process.start()
+        # return LocalFuture(process, queue)
+
         print("****************** submit")
-        if not self.do_fork:
-            return LocalFutureNoFork(func(*args, **kwargs))
-
-        queue = Queue(2)  # Size of 2 to avoid a race condition with size 1.
-        process = Process(target=call_with_timeout, args=(queue, self.timeout, func, args, kwargs))
-
-        process.start()
-        return LocalFuture(process, queue)
-
-        # pool = PopenPoolExecutor(max_workers=2, timeout=self.timeout)
-        # return pool.submit(func, args, kwargs)
+        print(args)
+        return self.pool.submit(func, *args, **kwargs)
