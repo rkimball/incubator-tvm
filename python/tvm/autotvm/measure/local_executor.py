@@ -19,6 +19,7 @@
 import signal
 
 from multiprocessing import Process, Queue
+# from tvm.contrib.popen_pool import PopenWorker, PopenPoolExecutor
 
 try:
     from queue import Empty
@@ -91,7 +92,7 @@ class LocalFuture(executor.Future):
         self._done = self._done or not self._queue.empty()
         return self._done
 
-    def get(self, timeout=None):
+    def result(self, timeout=None):
         try:
             res = self._queue.get(block=True, timeout=timeout)
         except Empty:
@@ -120,7 +121,7 @@ class LocalFutureNoFork(executor.Future):
     def done(self):
         return True
 
-    def get(self, timeout=None):
+    def result(self, timeout=None):
         return self._result
 
 
@@ -148,10 +149,15 @@ class LocalExecutor(executor.Executor):
                 )
 
     def submit(self, func, *args, **kwargs):
+        print("****************** submit")
         if not self.do_fork:
             return LocalFutureNoFork(func(*args, **kwargs))
 
         queue = Queue(2)  # Size of 2 to avoid a race condition with size 1.
         process = Process(target=call_with_timeout, args=(queue, self.timeout, func, args, kwargs))
+
         process.start()
         return LocalFuture(process, queue)
+
+        # pool = PopenPoolExecutor(max_workers=2, timeout=self.timeout)
+        # return pool.submit(func, args, kwargs)

@@ -110,7 +110,7 @@ class LocalBuilder(Builder):
                 futures.append(ret)
 
             for future in futures:
-                res = future.get()
+                res = future.result()
 
                 if isinstance(res, Exception):
                     # timeout or fleet error, return MeasureResult directly

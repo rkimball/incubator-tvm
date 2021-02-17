@@ -45,7 +45,7 @@ def test_local_measure_async():
         if t1 != 0 and t2 != 0:
             break
     assert t2 < t1, "Expected fast async job to finish first!"
-    assert f1.get() == f2.get()
+    assert f1.result() == f2.result()
 
 
 def timeout_job(n):
@@ -60,7 +60,7 @@ def test_timeout():
     f1 = ex.submit(timeout_job, timeout)
     while not f1.done():
         pass
-    res = f1.get()
+    res = f1.result()
     assert isinstance(res, executor.TimeoutError)
 
 

@@ -147,6 +147,7 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
         ping_period : float, optional
             ping tracker every k seconds if no connection is accepted.
         """
+        print("_accept_conn")
         old_keyset = set()
         # Report resource to tracker
         if tracker_conn:
@@ -257,6 +258,7 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
 
 
 def _connect_proxy_loop(addr, key, load_library):
+    print("_connect_proxy_loop")
     key = "server:" + key
     retry_count = 0
     max_retry = 5
