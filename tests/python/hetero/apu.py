@@ -104,49 +104,49 @@ def test_local_cuda():
     print(result)
 
 
-@tvm._ffi.register_func("relay.ext.cuda")
-def cuda_ext_compiler(ref):
-    """Create a CUDA runtime from the provided Relay expression"""
+# @tvm._ffi.register_func("relay.ext.cuda")
+# def cuda_ext_compiler(ref):
+#     """Create a CUDA runtime from the provided Relay expression"""
 
-    print("apy.py 111: &&&&&&&&&&&&&&&&&&&& in relay.ext.cuda")
-    assert isinstance(ref, tvm.relay.function.Function)
+#     print("apy.py 111: &&&&&&&&&&&&&&&&&&&& in relay.ext.cuda")
+#     assert isinstance(ref, tvm.relay.function.Function)
 
-    out_tensor_names = []
-    name = str(ref.attrs.global_symbol)
+#     out_tensor_names = []
+#     name = str(ref.attrs.global_symbol)
 
-    # print("ref.attrs", ref.attrs)
-    # if "Compiler" in ref.attrs:
-    #     ref.attrs.pop("Compiler")
-    # print("ref.attrs post pop", ref.attrs)
+#     # print("ref.attrs", ref.attrs)
+#     # if "Compiler" in ref.attrs:
+#     #     ref.attrs.pop("Compiler")
+#     # print("ref.attrs post pop", ref.attrs)
 
-    # Rewrite the function
-    # TVM_DLL Function(tvm::Array<Var> params, Expr body, Type ret_type, tvm::Array<TypeVar> ty_params,
-    #                  tvm::DictAttrs attrs = NullValue<DictAttrs>(), Span span = Span());
-    # new_ref = tvm.relay.function.Function(ref.params, ref.body, ref.ret_type, ref.type_params, ref.attrs, ref.span)
-    # attrs = ref.attrs
-    # new_attrs = dict()
-    # for key, val in ref.attrs.items():
-    #     print(key, val)
-    #     if key != "Compiler":
-    #         new_attrs[key] = val
+#     # Rewrite the function
+#     # TVM_DLL Function(tvm::Array<Var> params, Expr body, Type ret_type, tvm::Array<TypeVar> ty_params,
+#     #                  tvm::DictAttrs attrs = NullValue<DictAttrs>(), Span span = Span());
+#     # new_ref = tvm.relay.function.Function(ref.params, ref.body, ref.ret_type, ref.type_params, ref.attrs, ref.span)
+#     # attrs = ref.attrs
+#     # new_attrs = dict()
+#     # for key, val in ref.attrs.items():
+#     #     print(key, val)
+#     #     if key != "Compiler":
+#     #         new_attrs[key] = val
 
-    # # attrs.pop("Compiler")
-    # print(new_attrs)
-    # # print("*****")
-    # new_ref = ref.with_attr(new_attrs)
-    # # print("*****")
-    # # new_ref = ref
+#     # # attrs.pop("Compiler")
+#     # print(new_attrs)
+#     # # print("*****")
+#     # new_ref = ref.with_attr(new_attrs)
+#     # # print("*****")
+#     # # new_ref = ref
 
-    mod = tvm.IRModule()
-    mod["main"] = ref
-    mod = relay.transform.ExternalFunctionToInternal()(mod)
-    print("module 1#######################", mod)
+#     mod = tvm.IRModule()
+#     mod["main"] = ref
+#     mod = relay.transform.ExternalFunctionToInternal()(mod)
+#     print("module 1#######################", mod)
 
-    # print("cuda ext module", mod)
-    # pass_context = tvm.get_global_func("transform.GetCurrentPassContext")()
-    # lib = relay.build(mod, target="cuda")
-    # print(lib)
-    # return lib
+#     # print("cuda ext module", mod)
+#     # pass_context = tvm.get_global_func("transform.GetCurrentPassContext")()
+#     # lib = relay.build(mod, target="cuda")
+#     # print(lib)
+#     # return lib
 
 
 def test_local_cuda_cpu():

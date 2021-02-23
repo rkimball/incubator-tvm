@@ -616,8 +616,6 @@ class CompileEngineImpl : public CompileEngineNode {
 
   // For now, build one module per function.
   PackedFunc JIT(const CCacheKey& key) final {
-    std::cout << __FILE__ << " " << __LINE__ << " " << key->target << "\n";
-
     CCacheValue value = LowerInternal(key);
     if (value->packed_func != nullptr) return value->packed_func;
     // build the function.
@@ -636,7 +634,6 @@ class CompileEngineImpl : public CompileEngineNode {
   }
 
   Array<tvm::runtime::Module> LowerExternalFunctions() {
-    std::cout << "Hello from LowerExternalFunctions\n";
     Array<tvm::runtime::Module> ret;
     std::unordered_map<std::string, std::string> cached_symbol;
     std::vector<CCacheKey> cached_ext_funcs;
@@ -647,7 +644,6 @@ class CompileEngineImpl : public CompileEngineNode {
         auto code_gen = src_func->GetAttr<String>(attr::kCompiler);
         ICHECK(code_gen.defined()) << "No external codegen is set";
         std::string code_gen_name = code_gen.value();
-        std::cout << __FILE__ << " " << __LINE__ << " " << code_gen_name << std::endl;
         cached_ext_funcs.push_back(it.first);
 
         auto symbol_name = src_func->GetAttr<String>(tvm::attr::kGlobalSymbol);
@@ -705,7 +701,6 @@ class CompileEngineImpl : public CompileEngineNode {
  private:
   // implement lowered func
   CCacheValue LowerInternal(const CCacheKey& key) {
-    std::cout << __FILE__ << " " << __LINE__ << " Hello from LowerInternal\n";
     std::lock_guard<std::mutex> lock(mutex_);
     CCacheValue value;
     auto it = cache_.find(key);
@@ -722,17 +717,12 @@ class CompileEngineImpl : public CompileEngineNode {
     }
     cur_ccache_key_ = key;
 
-    std::cout << __FILE__ << " " << __LINE__ << " " <<  key->source_func << "\n";
-    std::cout << __FILE__ << " " << __LINE__ << " " <<  key->target << "\n";
-
     // No need to lower external functions for now. We will invoke the external
     // codegen tool once and lower all functions together.
     if (key->source_func->GetAttr<String>(attr::kCompiler).defined()) {
       auto cache_node = make_object<CachedFuncNode>();
       std::string compiler = key->source_func->GetAttr<String>(attr::kCompiler).value().c_str();
       const auto name_node = key->source_func->GetAttr<String>(tvm::attr::kGlobalSymbol);
-      std::cout << __FILE__ << " " << __LINE__ << " " << compiler << "\n";
-      std::cout << __FILE__ << " " << __LINE__ << " " << name_node << "\n";
       ICHECK(name_node.defined()) << "External function has not been attached a name yet.";
       cache_node->func_name = std::string(name_node.value());
       cache_node->target = Target("ext_dev");
@@ -743,12 +733,10 @@ class CompileEngineImpl : public CompileEngineNode {
     // Enforce use the target.
     With<Target> target_scope(key->target);
 
-    std::cout << __FILE__ << " " << __LINE__ << " " <<  key->target << "\n";
     ICHECK(!value->cached_func.defined());
     auto cfunc = CreateSchedule(key->source_func, key->target);
     auto cache_node = make_object<CachedFuncNode>(*(cfunc.operator->()));
 
-     std::cout << __FILE__ << " " << __LINE__ << "\n";
    // Skip lowering for device copy node.
     const Expr body = (key->source_func)->body;
     if (const CallNode* call_node = body.as<CallNode>()) {
@@ -758,7 +746,6 @@ class CompileEngineImpl : public CompileEngineNode {
       }
     }
 
-    std::cout << __FILE__ << " " << __LINE__ << "\n";
     cache_node->func_name = GetUniqueName(cache_node->func_name);
     // NOTE: array will copy on write.
     Array<te::Tensor> all_args = cache_node->inputs;
@@ -766,21 +753,16 @@ class CompileEngineImpl : public CompileEngineNode {
       all_args.push_back(arg);
     }
     // lower the function
-    std::cout << __FILE__ << " " << __LINE__ << "\n";
     if (const auto* f = runtime::Registry::Get("relay.backend.lower")) {
-      std::cout << __FILE__ << " " << __LINE__ << "\n";
       cache_node->funcs = (*f)(cfunc->schedule, all_args, cache_node->func_name, key->source_func);
     } else {
-      std::cout << __FILE__ << " " << __LINE__ << "\n";
       using tvm::transform::PassContext;
       With<PassContext> fresh_pass_ctx_scope(PassContext::Create());
 
       std::unordered_map<te::Tensor, tir::Buffer> binds;
       cache_node->funcs = tvm::lower(cfunc->schedule, all_args, cache_node->func_name, binds);
     }
-    std::cout << __FILE__ << " " << __LINE__ << "\n";
     value->cached_func = CachedFunc(cache_node);
-    std::cout << __FILE__ << " " << __LINE__ << "\n";
     return value;
   }
   // implement lowered shape func
