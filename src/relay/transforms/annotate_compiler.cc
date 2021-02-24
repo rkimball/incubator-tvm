@@ -46,8 +46,20 @@ namespace relay {
 
 class CompilerAnnotator : public MixedModeMutator {
  public:
-  explicit CompilerAnnotator(IRModule module, transform::FTVMGetPlacement get_placement)
-      : module_(module), get_placement_(get_placement) {}
+  explicit CompilerAnnotator(IRModule module, const Expr& expr, transform::FTVMGetPlacement get_placement)
+      : module_(module), get_placement_(get_placement), sorted_graph_(CreateIndexedGraph(expr)) {
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+        // sorted_graph_.topological_order_
+        for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node : sorted_graph_.topological_order_) {
+          if (const CallNode* call_node = node->ref_.as<CallNode>()) {
+            if (const OpNode* op_node = call_node->op.as<OpNode>()) {
+              if (op_node->name == "nn.relu") {
+                std::cout << __FILE__ << " " << __LINE__ << " " << op_node->name << " " << node->outputs_.size() << std::endl;
+              }
+            }
+          }
+        }
+      }
 
   Expr InferType(const Expr& expr) {
     auto mod = IRModule::FromExpr(expr);
@@ -62,6 +74,7 @@ class CompilerAnnotator : public MixedModeMutator {
  private:
   IRModule module_;
   transform::FTVMGetPlacement get_placement_;
+  const IndexedGraph<Expr> sorted_graph_;
 
   Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
 
@@ -121,12 +134,14 @@ class CompilerAnnotator : public MixedModeMutator {
 
 Expr AnnotateCompiler(const Expr& expr, const IRModule& mod,
                       transform::FTVMGetPlacement get_placement) {
-  return CompilerAnnotator(mod, get_placement).Mutate(expr);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  return CompilerAnnotator(mod, expr, get_placement).Mutate(expr);
 }
 
 namespace transform {
 
 Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
         return Downcast<Function>(AnnotateCompiler(f, m, get_placement));
