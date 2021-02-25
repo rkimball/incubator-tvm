@@ -151,10 +151,24 @@ def cuda_ext_compiler(ref):
 
 def test_local_cuda_cpu():
     mod = get_model()
-    # print(mod)
+    print("****************************************************************************")
+    print("Source Module")
+    print("****************************************************************************")
+    print(mod)
     mod = relay.transform.AnnotateCompiler(get_placement)(mod)
+    print("****************************************************************************")
+    print("AnnotateCompiler")
+    print("****************************************************************************")
+    print(mod)
     mod = relay.transform.MergeCompilerRegions()(mod)
+    print("****************************************************************************")
+    print("MergeCompilerRegions")
+    print("****************************************************************************")
+    print(mod)
     mod = relay.transform.PartitionGraph()(mod)
+    print("****************************************************************************")
+    print("PartitionGraph")
+    print("****************************************************************************")
     print(mod)
     target_host = "llvm"
     target = "llvm"
