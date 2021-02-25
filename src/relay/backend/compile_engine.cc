@@ -737,7 +737,7 @@ class CompileEngineImpl : public CompileEngineNode {
     auto cfunc = CreateSchedule(key->source_func, key->target);
     auto cache_node = make_object<CachedFuncNode>(*(cfunc.operator->()));
 
-   // Skip lowering for device copy node.
+    // Skip lowering for device copy node.
     const Expr body = (key->source_func)->body;
     if (const CallNode* call_node = body.as<CallNode>()) {
       if (call_node->attrs.as<DeviceCopyAttrs>()) {

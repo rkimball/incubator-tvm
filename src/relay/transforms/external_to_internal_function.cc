@@ -46,8 +46,7 @@ namespace relay {
 
 class FunctionInternalizer : public MixedModeMutator {
  public:
-  explicit FunctionInternalizer(IRModule module)
-      : module_(module) {}
+  explicit FunctionInternalizer(IRModule module) : module_(module) {}
 
  private:
   IRModule module_;
@@ -58,12 +57,14 @@ class FunctionInternalizer : public MixedModeMutator {
     std::cout << __FILE__ << " " << __LINE__ << " **************** " << std::endl;
     const CallNode* post_node = post.as<CallNode>();
     if (const OpNode* op_node = post_node->op.as<OpNode>()) {
-      std::cout << __FILE__ << " " << __LINE__ << " **************** " << op_node->name << std::endl;
+      std::cout << __FILE__ << " " << __LINE__ << " **************** " << op_node->name
+                << std::endl;
     }
     if (auto* func_node = post_node->op.as<FunctionNode>()) {
       std::cout << __FILE__ << " " << __LINE__ << " **************** FunctionNode" << std::endl;
     } else {
-      std::cout << __FILE__ << " " << __LINE__ << " **************** not a FunctionNode" << std::endl;
+      std::cout << __FILE__ << " " << __LINE__ << " **************** not a FunctionNode"
+                << std::endl;
     }
     return post;
   }
@@ -87,7 +88,8 @@ Pass ExternalFunctionToInternal() {
   return CreateFunctionPass(pass_func, 2, "ExternalFunctionToInternal", {});
 }
 
-TVM_REGISTER_GLOBAL("relay._transform.ExternalFunctionToInternal").set_body_typed(ExternalFunctionToInternal);
+TVM_REGISTER_GLOBAL("relay._transform.ExternalFunctionToInternal")
+    .set_body_typed(ExternalFunctionToInternal);
 
 }  // namespace transform
 }  // namespace relay

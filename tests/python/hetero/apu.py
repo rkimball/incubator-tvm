@@ -50,7 +50,7 @@ def get_model():
 
 
 def get_placement(expr):
-    """ This method is called for each Call node in the graph. Return the targeted
+    """This method is called for each Call node in the graph. Return the targeted
     compiler for each Op or "default"
     """
     target_1 = "default"
@@ -63,6 +63,7 @@ def get_placement(expr):
                 placement = target_2
     return placement
 
+
 def test_local_cpu():
     mod = get_model()
     print(mod)
@@ -71,9 +72,7 @@ def test_local_cpu():
     context = tvm.cpu()
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target,
-                        target_host=target_host)
+        lib = relay.build(mod, target=target, target_host=target_host)
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
@@ -83,6 +82,7 @@ def test_local_cpu():
     result = ex.evaluate()(A, B, C)
     print(result)
 
+
 def test_local_cuda():
     mod = get_model()
     print(mod)
@@ -91,9 +91,7 @@ def test_local_cuda():
     context = tvm.context("cuda", 0)
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target,
-                        target_host=target_host)
+        lib = relay.build(mod, target=target, target_host=target_host)
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
@@ -163,9 +161,7 @@ def test_local_cuda_cpu():
     context = tvm.context("cuda", 0)
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target,
-                        target_host=target_host)
+        lib = relay.build(mod, target=target, target_host=target_host)
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
@@ -174,6 +170,7 @@ def test_local_cuda_cpu():
     ex = tvm.relay.create_executor(mod=mod, ctx=context, target=target)
     result = ex.evaluate()(A, B, C)
     print(result)
+
 
 def test_local_vulkan():
     mod = get_model()
@@ -183,9 +180,7 @@ def test_local_vulkan():
     context = tvm.vulkan()
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target,
-                        target_host=target_host)
+        lib = relay.build(mod, target=target, target_host=target_host)
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
@@ -194,6 +189,7 @@ def test_local_vulkan():
     ex = tvm.relay.create_executor(mod=mod, ctx=context, target=target)
     result = ex.evaluate()(A, B, C)
     print(result)
+
 
 def test_local():
     mod = get_model()
@@ -209,7 +205,6 @@ def test_local():
     host = "tracker"
     port = 9191
 
-
     # target_host = "llvm -mtriple=x86_64-linux-win32"
 
     # this is for running on windows
@@ -233,15 +228,13 @@ def test_local():
             print("Must specify build_type")
             sys.exit(-1)
     else:
-        target = {"llvm":"llvm -mcpu=znver2", "vulkan":"vulkan"}
+        target = {"llvm": "llvm -mcpu=znver2", "vulkan": "vulkan"}
 
     target = "llvm"
     context = tvm.cpu()
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target,
-                        target_host=target_host)
+        lib = relay.build(mod, target=target, target_host=target_host)
 
     A = tvm.nd.array(np.array([[1, 2, 3], [4, 5, 6]], dtype="float32"), context)
     B = tvm.nd.array(np.array([[8, 7, 6], [5, 4, 3]], dtype="float32"), context)
@@ -256,12 +249,11 @@ def test_local():
     module.run()
     result = module.get_output(0)
 
-
-
     # ctx = tvm.context("llvm", 0)
     ex = tvm.relay.create_executor(mod=mod, ctx=context, target=target)
     result = ex.evaluate()(A, B, C)
     print(result)
+
 
 def test_remote():
     mod = get_model()
@@ -277,7 +269,6 @@ def test_remote():
     host = "tracker"
     port = 9191
 
-
     # target_host = "llvm -mtriple=x86_64-linux-win32"
 
     # this is for running on windows
@@ -301,7 +292,7 @@ def test_remote():
             print("Must specify build_type")
             sys.exit(-1)
     else:
-        target = {"llvm":"llvm -mcpu=znver2", "vulkan":"vulkan"}
+        target = {"llvm": "llvm -mcpu=znver2", "vulkan": "vulkan"}
 
     # target = {"llvm":"llvm -mcpu=znver2", "vulkan":"vulkan"}
     # target[cpu_context] = "llvm -mcpu=znver2" # windows llvm
@@ -311,8 +302,7 @@ def test_remote():
     context = tvm.vulkan()
 
     with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod,
-                        target=target)
+        lib = relay.build(mod, target=target)
 
     # temp = utils.tempdir()
     # lib.export_library(temp.relpath("graphlib.tar"))
@@ -333,8 +323,6 @@ def test_remote():
     module.run()
     result = module.get_output(0)
 
-
-
     # ctx = tvm.context("llvm", 0)
     ex = tvm.relay.create_executor(mod=mod, ctx=context, target=target)
 
@@ -346,8 +334,7 @@ def test_remote():
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--remote", action="store_true",
-                        help="Use remote RPC.")
+    parser.add_argument("--remote", action="store_true", help="Use remote RPC.")
     args = parser.parse_args()
 
     # parser.add_argument("--tune", action="store_true",
