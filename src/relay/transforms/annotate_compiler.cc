@@ -49,11 +49,18 @@ class CompilerAnnotator : public MixedModeMutator {
   explicit CompilerAnnotator(IRModule module, const Expr& expr, transform::FTVMGetPlacement get_placement)
       : module_(module), get_placement_(get_placement), sorted_graph_(CreateIndexedGraph(expr)) {
         std::cout << __FILE__ << " " << __LINE__ << std::endl;
-        // sorted_graph_.topological_order_
+
+        bool found_divider = false;
         for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node : sorted_graph_.topological_order_) {
           if (const CallNode* call_node = node->ref_.as<CallNode>()) {
             if (const OpNode* op_node = call_node->op.as<OpNode>()) {
               if (op_node->name == "nn.relu") {
+                if (node->outputs_.size() == 5) {
+                  found_divider = true;
+                }
+                if (!found_divider) {
+                  backbone_.push_back(call_node);
+                }
                 std::cout << __FILE__ << " " << __LINE__ << " " << op_node->name << " " << node->outputs_.size() << std::endl;
               }
             }
@@ -75,6 +82,7 @@ class CompilerAnnotator : public MixedModeMutator {
   IRModule module_;
   transform::FTVMGetPlacement get_placement_;
   const IndexedGraph<Expr> sorted_graph_;
+  std::vector<const CallNode*> backbone_;
 
   Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
 

@@ -36,6 +36,23 @@
 namespace tvm {
 namespace relay {
 
+namespace op {
+namespace annotation {
+Expr compiler_begin(Expr expr, String compiler) {
+  auto attrs = make_object<CompilerAttrs>();
+  attrs->compiler = compiler;
+  static const Op& op = Op::Get("annotation.compiler_begin");
+  return Call(op, {expr}, Attrs(attrs), {});
+}
+Expr compiler_end(Expr expr, String compiler) {
+  auto attrs = make_object<CompilerAttrs>();
+  attrs->compiler = compiler;
+  static const Op& op = Op::Get("annotation.compiler_end");
+  return Call(op, {expr}, Attrs(attrs), {});
+}
+}  // namespace annotation
+}  // namespace op
+
 // relay.annotation.on_device
 TVM_REGISTER_NODE_TYPE(OnDeviceAttrs);
 
@@ -193,12 +210,7 @@ Beginning of a region that is handled by a given compiler.
                            });
 
 TVM_REGISTER_GLOBAL("relay.op.annotation._make.compiler_begin")
-    .set_body_typed([](Expr expr, String compiler) {
-      auto attrs = make_object<CompilerAttrs>();
-      attrs->compiler = compiler;
-      static const Op& op = Op::Get("annotation.compiler_begin");
-      return Call(op, {expr}, Attrs(attrs), {});
-    });
+    .set_body_typed(op::annotation::compiler_begin);
 
 RELAY_REGISTER_OP("annotation.compiler_end")
     .describe(R"code(
@@ -218,12 +230,7 @@ End of a region that is handled by a given compiler.
                            });
 
 TVM_REGISTER_GLOBAL("relay.op.annotation._make.compiler_end")
-    .set_body_typed([](Expr expr, String compiler) {
-      auto attrs = make_object<CompilerAttrs>();
-      attrs->compiler = compiler;
-      static const Op& op = Op::Get("annotation.compiler_end");
-      return Call(op, {expr}, Attrs(attrs), {});
-    });
+    .set_body_typed(op::annotation::compiler_end);
 
 }  // namespace relay
 }  // namespace tvm
