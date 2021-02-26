@@ -46,35 +46,24 @@ namespace relay {
 
 class CompilerAnnotator : public MixedModeMutator {
  public:
-  explicit CompilerAnnotator(IRModule module, const Expr& expr, transform::FTVMGetPlacement get_placement)
+  explicit CompilerAnnotator(IRModule module, const Expr& expr,
+                             transform::FTVMGetPlacement get_placement)
       : module_(module), get_placement_(get_placement), sorted_graph_(CreateIndexedGraph(expr)) {
-        std::cout << __FILE__ << " " << __LINE__ << std::endl;
-
-        bool found_divider = false;
-        for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node : sorted_graph_.topological_order_) {
-          if (const CallNode* call_node = node->ref_.as<CallNode>()) {
-            if (const OpNode* op_node = call_node->op.as<OpNode>()) {
-              if (op_node->name == "nn.relu") {
-                if (node->outputs_.size() == 5) {
-                  found_divider = true;
-                }
-                if (!found_divider) {
-                  backbone_.push_back(call_node);
-                }
-                std::cout << __FILE__ << " " << __LINE__ << " " << op_node->name << " " << node->outputs_.size() << std::endl;
-              }
+    bool found_divider = false;
+    for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
+         sorted_graph_.topological_order_) {
+      if (const CallNode* call_node = node->ref_.as<CallNode>()) {
+        if (const OpNode* op_node = call_node->op.as<OpNode>()) {
+          if (op_node->name == "nn.relu") {
+            if (node->outputs_.size() == 5) {
+              found_divider = true;
             }
           }
         }
       }
-
-  Expr InferType(const Expr& expr) {
-    auto mod = IRModule::FromExpr(expr);
-    mod = transform::InferType()(mod);
-    if (expr.as<FunctionNode>()) {
-      return mod->Lookup("main");
-    } else {
-      return mod->Lookup("main").as<FunctionNode>()->body;
+      if (!found_divider) {
+        backbone_.insert(node->ref_);
+      }
     }
   }
 
@@ -82,47 +71,88 @@ class CompilerAnnotator : public MixedModeMutator {
   IRModule module_;
   transform::FTVMGetPlacement get_placement_;
   const IndexedGraph<Expr> sorted_graph_;
-  std::vector<const CallNode*> backbone_;
-
-  Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
+  std::set<Expr> backbone_;
 
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
     Expr rc = post;
     const CallNode* call_node = post.as<CallNode>();
     if (const OpNode* op_node = call_node->op.as<OpNode>()) {
-      std::string placement = get_placement_(GetRef<Expr>(call_node));
+      std::string placement = "default";  // get_placement_(GetRef<Expr>(pre));
 
-      Array<Expr> wrapped_args;
-      for (Expr arg : call_node->args) {
-        wrapped_args.push_back(MakeCompilerBegin(arg, placement));
+      Expr expr = GetRef<Expr>(pre);
+      if (backbone_.find(expr) != backbone_.end()) {
+        placement = "cuda";
       }
 
-      Expr new_call =
-          MakeCompilerEnd(Call(call_node->op, wrapped_args, call_node->attrs), placement);
-      new_call->checked_type_ = call_node->checked_type_;
-      rc = new_call;
+      if (!placement.empty()) {
+        Array<Expr> wrapped_args;
+        for (Expr arg : call_node->args) {
+          wrapped_args.push_back(MakeCompilerBegin(arg, placement));
+        }
+
+        Expr new_call = Call(call_node->op, wrapped_args, call_node->attrs, call_node->type_args);
+        rc = MakeCompilerEnd(new_call, placement);
+        // new_call->checked_type_ = call_node->checked_type_;
+        rc = new_call;
+      }
     }
     return rc;
   }
 
+  Expr Rewrite_(const TupleNode* pre, const Expr& post) override { return post; }
+
   Expr Rewrite_(const TupleGetItemNode* pre, const Expr& post) override { return post; }
 
-  // Convert value to expression.
-  Expr ObjectToExpr(const ObjectRef& value) {
-    if (value->IsInstance<runtime::NDArray::ContainerType>()) {
-      auto nd_array = Downcast<runtime::NDArray>(value);
-      return Constant(nd_array);
-    } else if (const auto* val = value.as<runtime::ADTObj>()) {
-      runtime::ADT adt = GetRef<runtime::ADT>(val);
-      Array<Expr> fields;
-      for (size_t i = 0; i < adt.size(); ++i) {
-        fields.push_back(ObjectToExpr(adt[i]));
-      }
-      return Tuple(fields);
-    } else {
-      LOG(FATAL) << "Cannot handle " << value->GetTypeKey();
-      return Expr();
-    }
+  // Silence warning and inform compiler we are using VisitExpr_ from base class
+  using MixedModeMutator::VisitExpr_;
+
+  Expr VisitExpr_(const VarNode* op) override {
+    // Needs support
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const ConstantNode* op) override {
+    // Needs support
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const GlobalVarNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const OpNode* op) override {
+    // this is called but we can ignore?
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const FunctionNode* op) override {
+    // Needs support
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const LetNode* op) override {
+    // Needs support
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const IfNode* op) override {
+    // Needs support
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const RefCreateNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const RefReadNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const RefWriteNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const ConstructorNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
+  }
+  Expr VisitExpr_(const MatchNode* op) override {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    return ExprMutator::VisitExpr_(op);
   }
 
   Expr MakeCompilerBegin(Expr expr, std::string compiler) {
@@ -142,14 +172,12 @@ class CompilerAnnotator : public MixedModeMutator {
 
 Expr AnnotateCompiler(const Expr& expr, const IRModule& mod,
                       transform::FTVMGetPlacement get_placement) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   return CompilerAnnotator(mod, expr, get_placement).Mutate(expr);
 }
 
 namespace transform {
 
 Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
         return Downcast<Function>(AnnotateCompiler(f, m, get_placement));
