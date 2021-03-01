@@ -46,11 +46,7 @@ class AnnotateTargetRewriter : public ExprRewriter {
  public:
   explicit AnnotateTargetRewriter(Array<runtime::String> targets,
                                   transform::FTVMGetPlacement get_placement)
-      : targets_(std::move(targets)), get_placement_(get_placement) {
-        if (get_placement_ != nullptr) {
-          std::cout << __FILE__ << " " << __LINE__ << std::endl;
-        }
-      }
+      : targets_(std::move(targets)), get_placement_(get_placement) {}
 
  protected:
   /*! \brief The target backends for annotation. */
@@ -177,7 +173,6 @@ class AnnotateTargetRewriter : public ExprRewriter {
 
  public:
   Expr Rewrite_(const CallNode* pre, const Expr& post) override {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     // Supported targets for this node. The order implies the priority.
     std::vector<std::string> supported_targets;
 
@@ -224,9 +219,7 @@ class AnnotateTargetRewriter : public ExprRewriter {
       ICHECK(op.defined());
       const Expr& ex = GetRef<Expr>(pre);
       for (const auto& target : this->targets_) {
-        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         if (get_placement_ != nullptr) {
-          std::cout << __FILE__ << " " << __LINE__ << std::endl;
           // Optional method to check if op is supported, a single callback for all ops. This
           // is usefull for cases where an op's position in the graph is the criteria for
           // placement
@@ -274,7 +267,6 @@ class AnnotateTargetRewriter : public ExprRewriter {
     // the highest priority, but we should preserve all supported targets so that
     // we can make a better decision.
     std::string target = supported_targets[0];
-    std::cout << __FILE__ << " " << __LINE__ << " target=" << target <<std::endl;
 
     // Add annotations to each arg.
     auto target_n_args = AnnotateArgs(post_call->args, target);
@@ -441,10 +433,6 @@ class CallOpsTargetRewriter : public AnnotateTargetRewriter {
 Expr AnnotateTarget(const Expr& expr, const Array<runtime::String>& targets,
                     bool include_non_call_ops,
                     transform::FTVMGetPlacement get_placement = nullptr) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  if (get_placement != nullptr) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  }
   auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(targets, get_placement)
                                 : std::make_unique<CallOpsTargetRewriter>(targets, get_placement);
   return PostOrderRewrite(expr, r.get());
@@ -456,10 +444,6 @@ namespace transform {
 
 Pass AnnotateTarget(const Array<runtime::String>& targets, bool include_non_call_ops,
                     transform::FTVMGetPlacement get_placement = nullptr) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  if (get_placement != nullptr) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  }
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
         return Downcast<Function>(relay::annotate_target::AnnotateTarget(

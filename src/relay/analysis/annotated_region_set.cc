@@ -145,7 +145,6 @@ class AnnotatedRegionSet::Creator : protected MixedModeVisitor {
       ICHECK(!region.defined());
 
       // Create a new region.
-      std::cout << __FILE__ << " " << __LINE__ << " " << target << std::endl;
       region = region_set_->MakeRegion(target);
       region->nodes_.insert(GetRef<Call>(call));
       region->ins_.push_back(GetRef<Call>(call));
