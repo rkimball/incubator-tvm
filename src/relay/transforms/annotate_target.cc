@@ -45,7 +45,7 @@ static const char default_target[] = "default";
 class AnnotateTargetRewriter : public ExprRewriter {
  public:
   explicit AnnotateTargetRewriter(Array<runtime::String> targets,
-                                  transform::FTVMGetPlacement get_placement = nullptr)
+                                  transform::FTVMGetPlacement get_placement)
       : targets_(std::move(targets)), get_placement_(get_placement) {}
 
  protected:
@@ -372,8 +372,9 @@ class AnnotateTargetRewriter : public ExprRewriter {
 // in a program region that will be handled by a specific compiler.
 class CallOpsTargetRewriter : public AnnotateTargetRewriter {
  public:
-  explicit CallOpsTargetRewriter(Array<runtime::String> targets)
-      : AnnotateTargetRewriter(std::move(targets)) {}
+  explicit CallOpsTargetRewriter(Array<runtime::String> targets,
+                                 transform::FTVMGetPlacement get_placement = nullptr)
+      : AnnotateTargetRewriter(std::move(targets), get_placement) {}
 
   std::unique_ptr<Call> RewriteVarCall(const Call& post_call) override {
     Array<Expr> ends;
@@ -430,9 +431,10 @@ class CallOpsTargetRewriter : public AnnotateTargetRewriter {
 };
 
 Expr AnnotateTarget(const Expr& expr, const Array<runtime::String>& targets,
-                    bool include_non_call_ops) {
-  auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(targets)
-                                : std::make_unique<CallOpsTargetRewriter>(targets);
+                    bool include_non_call_ops,
+                    transform::FTVMGetPlacement get_placement = nullptr) {
+  auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(targets, get_placement)
+                                : std::make_unique<CallOpsTargetRewriter>(targets, get_placement);
   return PostOrderRewrite(expr, r.get());
 }
 
@@ -440,11 +442,12 @@ Expr AnnotateTarget(const Expr& expr, const Array<runtime::String>& targets,
 
 namespace transform {
 
-Pass AnnotateTarget(const Array<runtime::String>& targets, bool include_non_call_ops) {
+Pass AnnotateTarget(const Array<runtime::String>& targets, bool include_non_call_ops,
+                    transform::FTVMGetPlacement get_placement = nullptr) {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
       [=](Function f, IRModule m, PassContext pc) {
-        return Downcast<Function>(
-            relay::annotate_target::AnnotateTarget(f, targets, include_non_call_ops));
+        return Downcast<Function>(relay::annotate_target::AnnotateTarget(
+            f, targets, include_non_call_ops, get_placement));
       };
   auto func_pass = CreateFunctionPass(pass_func, 0, "AnnotateTargetFunc", {"InferType"});
   return transform::Sequential({func_pass, InferType()}, "AnnotateTarget");
