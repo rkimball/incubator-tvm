@@ -709,7 +709,7 @@ def PartitionGraph():
     return _ffi_api.PartitionGraph()
 
 
-def AnnotateTarget(targets, include_non_call_ops=True):
+def AnnotateTarget(targets, include_non_call_ops=True, get_placement=None):
     """Annotate ops in an experession with a provied compiler/target and then
     use it for codegen.
 
@@ -729,8 +729,13 @@ def AnnotateTarget(targets, include_non_call_ops=True):
     """
     if isinstance(targets, str):
         targets = [targets]
+    if get_placement is None:
+        print("get_placement is None in AnnotateTarget python wrapper")
+    else:
+        print("get_placement is set to a value in AnnotateTarget python wrapper")
+
     return _ffi_api.AnnotateTarget(
-        [tvm.runtime.container.String(t) for t in targets], include_non_call_ops
+        [tvm.runtime.container.String(t) for t in targets], include_non_call_ops, get_placement
     )
 
 
