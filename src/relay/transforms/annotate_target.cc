@@ -232,7 +232,7 @@ class AnnotateTargetRewriter : public ExprRewriter {
           // placement
           std::string selected_target = get_placement_(ex);
           if (!selected_target.empty()) {
-            supported_targets.push_back(target);
+            supported_targets.push_back(selected_target);
           }
         } else {
           if (!Op::HasAttrMap("target." + std::string(target))) {
@@ -274,6 +274,7 @@ class AnnotateTargetRewriter : public ExprRewriter {
     // the highest priority, but we should preserve all supported targets so that
     // we can make a better decision.
     std::string target = supported_targets[0];
+    std::cout << __FILE__ << " " << __LINE__ << " target=" << target <<std::endl;
 
     // Add annotations to each arg.
     auto target_n_args = AnnotateArgs(post_call->args, target);
