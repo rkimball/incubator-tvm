@@ -108,6 +108,7 @@ class CompilerAnnotator : public MixedModeMutator {
 
   Expr VisitExpr_(const VarNode* op) override {
     // Needs support
+    // if (backbone_.find(expr) != backbone_.end()) {
     return ExprMutator::VisitExpr_(op);
   }
   Expr VisitExpr_(const ConstantNode* op) override {

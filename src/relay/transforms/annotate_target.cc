@@ -44,11 +44,15 @@ static const char default_target[] = "default";
 // region that will be handled by a specific compiler.
 class AnnotateTargetRewriter : public ExprRewriter {
  public:
-  explicit AnnotateTargetRewriter(Array<runtime::String> targets) : targets_(std::move(targets)) {}
+  explicit AnnotateTargetRewriter(Array<runtime::String> targets,
+                                  transform::FTVMGetPlacement get_placement = nullptr)
+      : targets_(std::move(targets)), get_placement_(get_placement) {}
 
  protected:
   /*! \brief The target backends for annotation. */
   Array<runtime::String> targets_;
+  /*! \brief Optional callback to get placment. */
+  transform::FTVMGetPlacement get_placement_;
   /*! \brief Maintain the decision of the target for each op expr. */
   std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> op_expr_to_target_;
 
@@ -213,14 +217,24 @@ class AnnotateTargetRewriter : public ExprRewriter {
       // if it is supported.
       Op op = Downcast<Op>(pre->op);
       ICHECK(op.defined());
+      const Expr& ex = GetRef<Expr>(pre);
       for (const auto& target : this->targets_) {
         if (!Op::HasAttrMap("target." + std::string(target))) {
           continue;
         }
-        auto fannotate = Op::GetAttrMap<FTVMAnnotateTarget>("target." + std::string(target));
-        const Expr& ex = GetRef<Expr>(pre);
-        if (fannotate.count(op) && fannotate[op](ex)) {
-          supported_targets.push_back(target);
+        if (get_placement_ != nullptr) {
+          // Optional method to check if op is supported, a single callback for all ops. This
+          // is usefull for cases where an op's position in the graph is the criteria for
+          // placement
+          std::string selected_target = get_placement_(ex);
+          if (!selected_target.empty()) {
+            supported_targets.push_back(target);
+          }
+        } else {
+          auto fannotate = Op::GetAttrMap<FTVMAnnotateTarget>("target." + std::string(target));
+          if (fannotate.count(op) && fannotate[op](ex)) {
+            supported_targets.push_back(target);
+          }
         }
       }
     } else if (pre->op->IsInstance<FunctionNode>()) {
