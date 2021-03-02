@@ -47,7 +47,7 @@ using PassContext = tvm::transform::PassContext;
 using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
-using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr)>;
+using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
 using FTVMIndexedGraphInfo = runtime::TypedPackedFunc<runtime::String(
     const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
 

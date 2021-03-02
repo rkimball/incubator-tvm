@@ -30,6 +30,7 @@
 #include <tvm/runtime/container.h>
 
 #include "pass_utils.h"
+#include "../ir/indexed_graph.h"
 
 namespace tvm {
 namespace relay {
@@ -44,9 +45,14 @@ static const char default_target[] = "default";
 // region that will be handled by a specific compiler.
 class AnnotateTargetRewriter : public ExprRewriter {
  public:
-  explicit AnnotateTargetRewriter(Array<runtime::String> targets,
+  explicit AnnotateTargetRewriter(const Expr& expr, Array<runtime::String> targets,
                                   transform::FTVMGetPlacement get_placement)
-      : targets_(std::move(targets)), get_placement_(get_placement) {}
+      : targets_(std::move(targets)), get_placement_(get_placement) {
+        for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
+            CreateIndexedGraph(expr).topological_order_) {
+          node_map_[node->ref_] = node;
+        }
+      }
 
  protected:
   /*! \brief The target backends for annotation. */
@@ -55,6 +61,7 @@ class AnnotateTargetRewriter : public ExprRewriter {
   transform::FTVMGetPlacement get_placement_;
   /*! \brief Maintain the decision of the target for each op expr. */
   std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> op_expr_to_target_;
+  std::map<tvm::relay::Expr, std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node>> node_map_;
 
   /*!
    * \brief This function annotates a compiler end and a compiler begin to all arguments.
@@ -223,7 +230,16 @@ class AnnotateTargetRewriter : public ExprRewriter {
           // Optional method to check if op is supported, a single callback for all ops. This
           // is usefull for cases where an op's position in the graph is the criteria for
           // placement
-          std::string selected_target = get_placement_(ex);
+          auto node = node_map_[GetRef<Expr>(pre)];
+          Array<Expr> inputs;
+          Array<Expr> outputs;
+          for (auto i : node->inputs_) {
+            inputs.push_back(i->ref_);
+          }
+          for (auto o : node->outputs_) {
+            outputs.push_back(o->ref_);
+          }
+          std::string selected_target = get_placement_(ex, inputs, outputs);
           if (!selected_target.empty()) {
             supported_targets.push_back(selected_target);
           }
@@ -372,9 +388,9 @@ class AnnotateTargetRewriter : public ExprRewriter {
 // in a program region that will be handled by a specific compiler.
 class CallOpsTargetRewriter : public AnnotateTargetRewriter {
  public:
-  explicit CallOpsTargetRewriter(Array<runtime::String> targets,
+  explicit CallOpsTargetRewriter(const Expr& expr, Array<runtime::String> targets,
                                  transform::FTVMGetPlacement get_placement = nullptr)
-      : AnnotateTargetRewriter(std::move(targets), get_placement) {}
+      : AnnotateTargetRewriter(expr, std::move(targets), get_placement) {}
 
   std::unique_ptr<Call> RewriteVarCall(const Call& post_call) override {
     Array<Expr> ends;
@@ -433,8 +449,8 @@ class CallOpsTargetRewriter : public AnnotateTargetRewriter {
 Expr AnnotateTarget(const Expr& expr, const Array<runtime::String>& targets,
                     bool include_non_call_ops,
                     transform::FTVMGetPlacement get_placement = nullptr) {
-  auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(targets, get_placement)
-                                : std::make_unique<CallOpsTargetRewriter>(targets, get_placement);
+  auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(expr, targets, get_placement)
+                                : std::make_unique<CallOpsTargetRewriter>(expr, targets, get_placement);
   return PostOrderRewrite(expr, r.get());
 }
 

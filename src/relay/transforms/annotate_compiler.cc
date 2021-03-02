@@ -89,9 +89,7 @@ class IndexedGraphIteratorPass : public MixedModeMutator {
     std::cout << __FILE__ << " " << __LINE__ << " " << placement << std::endl;
     if (!placement.empty()) {
       const CallNode* call_node = post.as<CallNode>();
-      setattr(GetRef<Expr>(pre), "device_placement", "cuda")
       Expr new_call = Call(call_node->op, call_node->args, call_node->attrs, call_node->type_args);
-
     }
 
     return post;
