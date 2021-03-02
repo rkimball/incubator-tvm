@@ -830,6 +830,18 @@ def AnnotateCompiler(get_placement):
     return _ffi_api.AnnotateCompiler(get_placement)
 
 
+def IndexedGraphIterator(expr_callback):
+    """
+    Annotate a module with compiler_begin and compiler_end for partitioning and
+    heterogeneous execution.
+
+    Returns
+    -------
+    None
+    """
+    return _ffi_api.IndexedGraphIterator(expr_callback)
+
+
 def ExternalFunctionToInternal():
     """
     Remove Compiler attribute from Function, turning it from and external to an internal Function.

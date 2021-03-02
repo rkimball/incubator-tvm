@@ -44,6 +44,60 @@
 namespace tvm {
 namespace relay {
 
+// void IndexedGraphIterator(const Expr& expr, transform::FTVMIndexedGraphInfo callback) {
+//   for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
+//         CreateIndexedGraph(expr).topological_order_) {
+//     Array<Expr> inputs;
+//     Array<Expr> outputs;
+//     for (auto i : node->inputs_) {
+//       inputs.push_back(i->ref_);
+//     }
+//     for (auto o : node->outputs_) {
+//       outputs.push_back(o->ref_);
+//     }
+//     callback(node->ref_, inputs, outputs);
+//   }
+// }
+
+class IndexedGraphIteratorPass : public MixedModeMutator {
+ public:
+  explicit IndexedGraphIteratorPass(IRModule module, const Expr& expr,
+                             transform::FTVMIndexedGraphInfo callback)
+      : module_(module), callback_(callback) {
+    for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
+         CreateIndexedGraph(expr).topological_order_) {
+      node_map_[node->ref_] = node;
+    }
+  }
+
+ private:
+  IRModule module_;
+  transform::FTVMIndexedGraphInfo callback_;
+  std::map<tvm::relay::Expr, std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node>> node_map_;
+
+  Expr Rewrite_(const CallNode* pre, const Expr& post) override {
+    auto node = node_map_[GetRef<Expr>(pre)];
+    Array<Expr> inputs;
+    Array<Expr> outputs;
+    for (auto i : node->inputs_) {
+      inputs.push_back(i->ref_);
+    }
+    for (auto o : node->outputs_) {
+      outputs.push_back(o->ref_);
+    }
+    std::string placement = callback_(node->ref_, inputs, outputs);
+    std::cout << __FILE__ << " " << __LINE__ << " " << placement << std::endl;
+    if (!placement.empty()) {
+      const CallNode* call_node = post.as<CallNode>();
+      setattr(GetRef<Expr>(pre), "device_placement", "cuda")
+      Expr new_call = Call(call_node->op, call_node->args, call_node->attrs, call_node->type_args);
+
+    }
+
+    return post;
+  }
+};
+
 class CompilerAnnotator : public MixedModeMutator {
  public:
   explicit CompilerAnnotator(IRModule module, const Expr& expr,
@@ -171,12 +225,25 @@ class CompilerAnnotator : public MixedModeMutator {
   }
 };
 
+Expr IndexedGraphIterator(const Expr& expr, const IRModule& mod,
+                          transform::FTVMIndexedGraphInfo callback) {
+  return IndexedGraphIteratorPass(mod, expr, callback).Mutate(expr);
+}
+
 Expr AnnotateCompiler(const Expr& expr, const IRModule& mod,
                       transform::FTVMGetPlacement get_placement) {
   return CompilerAnnotator(mod, expr, get_placement).Mutate(expr);
 }
 
 namespace transform {
+
+Pass IndexedGraphIterator(FTVMIndexedGraphInfo callback) {
+  runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
+      [=](Function f, IRModule m, PassContext pc) {
+        return Downcast<Function>(IndexedGraphIterator(f, m, callback));
+      };
+  return CreateFunctionPass(pass_func, 2, "IndexedGraphIterator", {});
+}
 
 Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
   runtime::TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func =
@@ -186,6 +253,7 @@ Pass AnnotateCompiler(FTVMGetPlacement get_placement) {
   return CreateFunctionPass(pass_func, 2, "AnnotateCompiler", {});
 }
 
+TVM_REGISTER_GLOBAL("relay._transform.IndexedGraphIterator").set_body_typed(IndexedGraphIterator);
 TVM_REGISTER_GLOBAL("relay._transform.AnnotateCompiler").set_body_typed(AnnotateCompiler);
 
 }  // namespace transform

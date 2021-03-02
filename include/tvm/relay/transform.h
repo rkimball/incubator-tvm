@@ -48,6 +48,8 @@ using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
 using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr)>;
+using FTVMIndexedGraphInfo = runtime::TypedPackedFunc<runtime::String(
+    const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
 
 /*
  * \brief Create a function pass.
@@ -450,6 +452,8 @@ TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement get_placement);
  * \return The pass.
  */
 TVM_DLL Pass ExternalFunctionToInternal();
+
+TVM_DLL Pass IndexedGraphIterator(FTVMIndexedGraphInfo callback);
 
 }  // namespace transform
 
