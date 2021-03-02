@@ -48,8 +48,6 @@ using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
 using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
-using FTVMIndexedGraphInfo = runtime::TypedPackedFunc<runtime::String(
-    const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
 
 /*
  * \brief Create a function pass.
@@ -434,26 +432,6 @@ TVM_DLL Pass SimplifyExpr();
  * \return The pass.
  */
 TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> targets);
-
-/*!
- * \brief Annotate ops for heterogeneous execution.
- *
- * \param get_placement a packed function of type String(Expr) which determines the
- *        placement of each Expr. The returned String is the target compiler to use
- *        for Expr.
- *
- * \return The pass.
- */
-TVM_DLL Pass AnnotateCompiler(FTVMGetPlacement get_placement);
-
-/*!
- * \brief Convert an external Function to internal.
- *
- * \return The pass.
- */
-TVM_DLL Pass ExternalFunctionToInternal();
-
-TVM_DLL Pass IndexedGraphIterator(FTVMIndexedGraphInfo callback);
 
 }  // namespace transform
 

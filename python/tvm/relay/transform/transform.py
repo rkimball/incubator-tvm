@@ -818,41 +818,6 @@ def Defunctionalization(func, mod):
     return _ffi_api.Defunctionalization(func, mod)
 
 
-def AnnotateCompiler(get_placement):
-    """
-    Annotate a module with compiler_begin and compiler_end for partitioning and
-    heterogeneous execution.
-
-    Returns
-    -------
-    None
-    """
-    return _ffi_api.AnnotateCompiler(get_placement)
-
-
-def IndexedGraphIterator(expr_callback):
-    """
-    Annotate a module with compiler_begin and compiler_end for partitioning and
-    heterogeneous execution.
-
-    Returns
-    -------
-    None
-    """
-    return _ffi_api.IndexedGraphIterator(expr_callback)
-
-
-def ExternalFunctionToInternal():
-    """
-    Remove Compiler attribute from Function, turning it from and external to an internal Function.
-
-    Returns
-    -------
-    None
-    """
-    return _ffi_api.ExternalFunctionToInternal()
-
-
 def to_cps(func, mod=None):
     """
     Turn expression into CPS expression.

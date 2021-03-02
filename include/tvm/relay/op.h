@@ -36,12 +36,6 @@ using OpNode = tvm::OpNode;
 
 #define RELAY_REGISTER_OP(OpName) TVM_REGISTER_OP(OpName)
 
-namespace op {
-namespace annotation {
-Expr compiler_begin(Expr expr, String compiler);
-Expr compiler_end(Expr expr, String compiler);
-}  // namespace annotation
-}  // namespace op
 }  // namespace relay
 }  // namespace tvm
 #endif  // TVM_RELAY_OP_H_
