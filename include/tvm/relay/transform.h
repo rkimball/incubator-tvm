@@ -47,7 +47,10 @@ using PassContext = tvm::transform::PassContext;
 using PassContextNode = tvm::transform::PassContextNode;
 using Sequential = tvm::transform::Sequential;
 
-using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
+using FTVMGetPlacement = runtime::TypedPackedFunc<runtime::String(
+    const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
+using FTVMGetDevicePlacement = runtime::TypedPackedFunc<int(
+    const Expr& expr, const Array<Expr>& inputs, const Array<Expr>& outputs)>;
 
 /*
  * \brief Create a function pass.
@@ -432,6 +435,9 @@ TVM_DLL Pass SimplifyExpr();
  * \return The pass.
  */
 TVM_DLL Pass ManifestAlloc(Target target_host, Map<tvm::Integer, tvm::Target> targets);
+
+TVM_DLL Pass AnnotateDevicePlacement(FTVMGetDevicePlacement get_placement_callback);
+TVM_DLL Pass ExternalFunctionToInternal();
 
 }  // namespace transform
 

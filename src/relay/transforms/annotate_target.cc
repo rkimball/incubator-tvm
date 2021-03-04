@@ -29,8 +29,8 @@
 #include <tvm/relay/transform.h>
 #include <tvm/runtime/container.h>
 
-#include "pass_utils.h"
 #include "../ir/indexed_graph.h"
+#include "pass_utils.h"
 
 namespace tvm {
 namespace relay {
@@ -48,11 +48,11 @@ class AnnotateTargetRewriter : public ExprRewriter {
   explicit AnnotateTargetRewriter(const Expr& expr, Array<runtime::String> targets,
                                   transform::FTVMGetPlacement get_placement)
       : targets_(std::move(targets)), get_placement_(get_placement) {
-        for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
-            CreateIndexedGraph(expr).topological_order_) {
-          node_map_[node->ref_] = node;
-        }
-      }
+    for (std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node> node :
+         CreateIndexedGraph(expr).topological_order_) {
+      node_map_[node->ref_] = node;
+    }
+  }
 
  protected:
   /*! \brief The target backends for annotation. */
@@ -61,7 +61,8 @@ class AnnotateTargetRewriter : public ExprRewriter {
   transform::FTVMGetPlacement get_placement_;
   /*! \brief Maintain the decision of the target for each op expr. */
   std::unordered_map<Expr, std::string, ObjectPtrHash, ObjectPtrEqual> op_expr_to_target_;
-  std::map<tvm::relay::Expr, std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node>> node_map_;
+  std::map<tvm::relay::Expr, std::shared_ptr<tvm::relay::IndexedGraph<tvm::relay::Expr>::Node>>
+      node_map_;
 
   /*!
    * \brief This function annotates a compiler end and a compiler begin to all arguments.
@@ -449,8 +450,9 @@ class CallOpsTargetRewriter : public AnnotateTargetRewriter {
 Expr AnnotateTarget(const Expr& expr, const Array<runtime::String>& targets,
                     bool include_non_call_ops,
                     transform::FTVMGetPlacement get_placement = nullptr) {
-  auto r = include_non_call_ops ? std::make_unique<AnnotateTargetRewriter>(expr, targets, get_placement)
-                                : std::make_unique<CallOpsTargetRewriter>(expr, targets, get_placement);
+  auto r = include_non_call_ops
+               ? std::make_unique<AnnotateTargetRewriter>(expr, targets, get_placement)
+               : std::make_unique<CallOpsTargetRewriter>(expr, targets, get_placement);
   return PostOrderRewrite(expr, r.get());
 }
 
