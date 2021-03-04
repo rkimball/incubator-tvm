@@ -66,7 +66,6 @@ class DeviceAnnotator : public MixedModeMutator {
     if (call_node->op.as<OpNode>()) {
       // int device_type = get_placement_(GetRef<Expr>(call_node));
       int device_type = get_placement_(post, inputs, outputs);
-      std::cout << __FILE__ << " " << __LINE__ << " " << device_type << std::endl;
       if (device_type > 0) {
         rc = relay::op::annotation::on_device(post, device_type);
       }
