@@ -313,7 +313,7 @@ class RPCRunner(Runner):
                 futures.append(ret)
 
             for future in futures:
-                res = future.get()
+                res = future.result()
                 if isinstance(res, Exception):  # executor error or timeout
                     results.append(
                         MeasureResult(
