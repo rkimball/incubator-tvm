@@ -17,7 +17,7 @@
 # pylint: disable=invalid-name
 """XGBoost as cost model"""
 
-import multiprocessing
+from tvm.contrib.popen_pool import PopenPoolExecutor
 import logging
 import time
 
@@ -161,7 +161,7 @@ class XGBoostCostModel(CostModel):
         _extract_space = space
         _extract_target = target
         _extract_task = task
-        self.pool = multiprocessing.Pool(self.num_threads)
+        self.pool = PopenPoolExecutor(max_workers=self.num_threads)
 
     def _close_pool(self):
         if self.pool:

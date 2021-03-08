@@ -46,6 +46,7 @@ import logging
 import socket
 import threading
 import multiprocessing
+from tvm.contrib.popen_pool import PopenPoolExecutor
 import errno
 import struct
 import json
@@ -66,7 +67,7 @@ logger = logging.getLogger("RPCTracker")
 
 
 class Scheduler(object):
-    """Abstratc interface of scheduler."""
+    """Abstract interface of scheduler."""
 
     def put(self, value):
         """Push a resource into the scheduler.
@@ -292,6 +293,7 @@ class TrackerServerHandler(object):
     """Tracker that tracks the resources."""
 
     def __init__(self, sock, stop_key):
+        print("tracker.py TrackerServerHandler::__init__()")
         self._scheduler_map = {}
         self._sock = sock
         self._sock.setblocking(0)
@@ -305,8 +307,10 @@ class TrackerServerHandler(object):
         self._ioloop.add_handler(self._sock.fileno(), _event_handler, self._ioloop.READ)
 
     def _on_event(self, _):
+        print("tracker.py TrackerServerHandler::_on_event()")
         while True:
             try:
+                print("tracker.py TrackerServerHandler::_on_event() got event")
                 conn, addr = self._sock.accept()
                 TCPEventHandler(self, conn, addr)
             except socket.error as err:
@@ -362,8 +366,13 @@ class TrackerServerHandler(object):
 
 
 def _tracker_server(listen_sock, stop_key):
-    handler = TrackerServerHandler(listen_sock, stop_key)
-    handler.run()
+    print("tracker.py _tracker_server()")
+    # handler = TrackerServerHandler(listen_sock, stop_key)
+    # handler.run()
+
+
+def rkimball_test(one, two):
+    print("tracker.py rkimball_test()")
 
 
 class Tracker(object):
@@ -406,13 +415,20 @@ class Tracker(object):
             raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
         logger.info("bind to %s:%d", host, self.port)
         sock.listen(1)
-        self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
-        self.proc.start()
+        # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
+        self.pool = PopenPoolExecutor(max_workers=2)
+        print("sock", sock)
+        print("stop_key", self.stop_key)
+        # self.pool.submit(_tracker_server, sock, self.stop_key)
+        self.pool.submit(_tracker_server, 1, self.stop_key)
+        # self.pool.submit(rkimball_test, 1, 2)
+        # self.proc.start()
         self.host = host
         # close the socket on this process
         sock.close()
 
     def _stop_tracker(self):
+        print("tracker.py _stop_tracker()")
         sock = socket.socket(base.get_addr_family((self.host, self.port)), socket.SOCK_STREAM)
         sock.connect((self.host, self.port))
         sock.sendall(struct.pack("<i", base.RPC_TRACKER_MAGIC))
@@ -424,6 +440,7 @@ class Tracker(object):
 
     def terminate(self):
         """Terminate the server process"""
+        print("tracker.py terminate()")
         if self.proc:
             if self.proc.is_alive():
                 self._stop_tracker()
