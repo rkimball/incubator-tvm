@@ -179,13 +179,17 @@ class PopenWorker:
         if self._proc is None:
             self._start()
         kwargs = {} if not kwargs else kwargs
-        data = cloudpickle.dumps((fn, args, kwargs, timeout), protocol=pickle.HIGHEST_PROTOCOL)
         try:
+            data = cloudpickle.dumps((fn, args, kwargs, timeout), protocol=pickle.HIGHEST_PROTOCOL)
             self._writer.write(struct.pack("<i", len(data)))
             self._writer.write(data)
             self._writer.flush()
         except IOError:
             pass
+        except TypeError as terr:
+            print(terr)
+        except Exception as err:
+            print(err)
 
     def _child_process_error(self):
         """Raise a child process error."""

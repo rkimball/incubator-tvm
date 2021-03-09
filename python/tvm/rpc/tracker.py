@@ -366,13 +366,8 @@ class TrackerServerHandler(object):
 
 
 def _tracker_server(listen_sock, stop_key):
-    print("tracker.py _tracker_server()")
-    # handler = TrackerServerHandler(listen_sock, stop_key)
-    # handler.run()
-
-
-def rkimball_test(one, two):
-    print("tracker.py rkimball_test()")
+    handler = TrackerServerHandler(listen_sock, stop_key)
+    handler.run()
 
 
 class Tracker(object):
@@ -417,11 +412,7 @@ class Tracker(object):
         sock.listen(1)
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         self.pool = PopenPoolExecutor(max_workers=2)
-        print("sock", sock)
-        print("stop_key", self.stop_key)
-        # self.pool.submit(_tracker_server, sock, self.stop_key)
-        self.pool.submit(_tracker_server, 1, self.stop_key)
-        # self.pool.submit(rkimball_test, 1, 2)
+        self.pool.submit(_tracker_server, sock, self.stop_key)
         # self.proc.start()
         self.host = host
         # close the socket on this process
