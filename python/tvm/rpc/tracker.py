@@ -437,14 +437,14 @@ class Tracker(object):
     def terminate(self):
         """Terminate the server process"""
         print("tracker.py terminate()")
-        if self.proc:
-            if self.proc.is_alive():
-                self._stop_tracker()
-                self.proc.join(1)
-            if self.proc.is_alive():
-                logger.info("Terminating Tracker Server...")
-                self.proc.terminate()
-            self.proc = None
+        # if self.proc:
+        #     if self.proc.is_alive():
+        #         self._stop_tracker()
+        #         self.proc.join(1)
+        #     if self.proc.is_alive():
+        #         logger.info("Terminating Tracker Server...")
+        #         self.proc.terminate()
+        #     self.proc = None
 
     def __del__(self):
         self.terminate()

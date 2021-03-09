@@ -17,11 +17,12 @@
  * under the License.
  */
 
+#include <iostream>
+#include <future>
+
 #include "rpc_tracker.h"
 
 #include <tvm/runtime/registry.h>
-
-#include <iostream>
 
 namespace tvm {
 namespace runtime {
@@ -33,6 +34,108 @@ int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
   std::cout << port_end << std::endl;
   std::cout << silent << std::endl;
   return 42;
+}
+
+void RPCTracker::Start() {
+  listen_sock_.Create();
+  my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
+  LOG(INFO) << "bind to " << host_ << ":" << my_port_;
+  listen_sock_.Listen(1);
+  std::future<void> proc(std::async(std::launch::async, &RPCTracker::ListenLoopProc, this));
+  proc.get();
+  // Close the listen socket
+  listen_sock_.Close();
+}
+
+/*!
+ * \brief ListenLoopProc The listen process.
+ */
+void RPCTracker::ListenLoopProc() {
+//   TrackerClient tracker(tracker_addr_, key_, custom_addr_);
+//   while (true) {
+//     support::TCPSocket conn;
+//     support::SockAddr addr("0.0.0.0", 0);
+//     std::string opts;
+//     try {
+//       // step 1: setup tracker and report to tracker
+//       tracker.TryConnect();
+//       // step 2: wait for in-coming connections
+//       AcceptConnection(&tracker, &conn, &addr, &opts);
+//     } catch (const char* msg) {
+//       LOG(WARNING) << "Socket exception: " << msg;
+//       // close tracker resource
+//       tracker.Close();
+//       continue;
+//     } catch (const std::exception& e) {
+//       // close tracker resource
+//       tracker.Close();
+//       LOG(WARNING) << "Exception standard: " << e.what();
+//       continue;
+//     }
+
+//     int timeout = GetTimeOutFromOpts(opts);
+// #if defined(__linux__) || defined(__ANDROID__)
+//     // step 3: serving
+//     if (timeout != 0) {
+//       const pid_t timer_pid = fork();
+//       if (timer_pid == 0) {
+//         // Timer process
+//         sleep(timeout);
+//         exit(0);
+//       }
+
+//       const pid_t worker_pid = fork();
+//       if (worker_pid == 0) {
+//         // Worker process
+//         ServerLoopProc(conn, addr);
+//         exit(0);
+//       }
+
+//       int status = 0;
+//       const pid_t finished_first = waitPidEintr(&status);
+//       if (finished_first == timer_pid) {
+//         kill(worker_pid, SIGTERM);
+//       } else if (finished_first == worker_pid) {
+//         kill(timer_pid, SIGTERM);
+//       } else {
+//         LOG(INFO) << "Child pid=" << finished_first << " unexpected, but still continue.";
+//       }
+
+//       int status_second = 0;
+//       waitPidEintr(&status_second);
+
+//       // Logging.
+//       if (finished_first == timer_pid) {
+//         LOG(INFO) << "Child pid=" << worker_pid << " killed (timeout = " << timeout
+//                   << "), Process status = " << status_second;
+//       } else if (finished_first == worker_pid) {
+//         LOG(INFO) << "Child pid=" << timer_pid << " killed, Process status = " << status_second;
+//       }
+//     } else {
+//       auto pid = fork();
+//       if (pid == 0) {
+//         ServerLoopProc(conn, addr);
+//         exit(0);
+//       }
+//       // Wait for the result
+//       int status = 0;
+//       wait(&status);
+//       LOG(INFO) << "Child pid=" << pid << " exited, Process status =" << status;
+//     }
+// #elif defined(WIN32)
+//     auto start_time = high_resolution_clock::now();
+//     try {
+//       SpawnRPCChild(conn.sockfd, seconds(timeout));
+//     } catch (const std::exception&) {
+//     }
+//     auto dur = high_resolution_clock::now() - start_time;
+
+//     LOG(INFO) << "Serve Time " << duration_cast<milliseconds>(dur).count() << "ms";
+// #endif
+//     // close from our side.
+//     LOG(INFO) << "Socket Connection Closed";
+//     conn.Close();
+//   }
 }
 
 }  // namespace rpc
