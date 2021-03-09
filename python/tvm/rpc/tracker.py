@@ -293,7 +293,6 @@ class TrackerServerHandler(object):
     """Tracker that tracks the resources."""
 
     def __init__(self, sock, stop_key):
-        print("tracker.py TrackerServerHandler::__init__()")
         self._scheduler_map = {}
         self._sock = sock
         self._sock.setblocking(0)
@@ -307,7 +306,6 @@ class TrackerServerHandler(object):
         self._ioloop.add_handler(self._sock.fileno(), _event_handler, self._ioloop.READ)
 
     def _on_event(self, _):
-        print("tracker.py TrackerServerHandler::_on_event()")
         while True:
             try:
                 print("tracker.py TrackerServerHandler::_on_event() got event")
