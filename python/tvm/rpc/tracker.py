@@ -451,5 +451,4 @@ class Tracker(object):
 def RPCTrackerStart():
     """
     """
-    print("Hello from here")
     return _ffi_api.RPCTrackerStart()

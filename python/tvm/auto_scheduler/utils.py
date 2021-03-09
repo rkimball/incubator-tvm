@@ -305,11 +305,6 @@ def _func_wrapper(que, func, args, kwargs, add_thread_wrapper):
 
 def call_func_with_timeout(timeout, func, args=(), kwargs=None, add_thread_wrapper=False):
     """Call a function with timeout"""
-    print("1*******************************************************************************")
-    print("********************************************************************************")
-    print("********************************************************************************")
-    print("********************************************************************************")
-    exit(1)
     que = multiprocessing.Queue(2)
     process = multiprocessing.Process(
         target=_func_wrapper, args=(que, func, args, kwargs or {}, add_thread_wrapper)
