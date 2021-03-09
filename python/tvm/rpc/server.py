@@ -230,10 +230,6 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
             raise exc
 
         # step 3: serving
-        print("3*******************************************************************************")
-        print("********************************************************************************")
-        print("********************************************************************************")
-        print("********************************************************************************")
         work_path = utils.tempdir()
         logger.info("connection from %s", addr)
         server_proc = multiprocessing.Process(

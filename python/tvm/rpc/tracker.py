@@ -50,6 +50,7 @@ from tvm.contrib.popen_pool import PopenPoolExecutor
 import errno
 import struct
 import json
+import tvm._ffi
 
 try:
     from tornado import ioloop
@@ -62,6 +63,8 @@ except ImportError as error_msg:
 from .._ffi.base import py_str
 from . import base
 from .base import RPC_TRACKER_MAGIC, TrackerCode
+# import tvm.runtime.rpc
+from . import _ffi_api
 
 logger = logging.getLogger("RPCTracker")
 
@@ -408,6 +411,9 @@ class Tracker(object):
             raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
         logger.info("bind to %s:%d", host, self.port)
         sock.listen(1)
+        print("calling tracker start")
+        RPCTrackerStart()
+        print("called tracker start")
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         self.pool = PopenPoolExecutor(max_workers=2)
         self.pool.submit(_tracker_server, sock, self.stop_key)
@@ -441,3 +447,9 @@ class Tracker(object):
 
     def __del__(self):
         self.terminate()
+
+def RPCTrackerStart():
+    """
+    """
+    print("Hello from here")
+    return _ffi_api.RPCTrackerStart()
