@@ -397,31 +397,31 @@ class Tracker(object):
             logger.setLevel(logging.WARN)
 
         sock = socket.socket(base.get_addr_family((host, port)), socket.SOCK_STREAM)
-        self.port = None
-        self.stop_key = base.random_key("tracker")
-        for my_port in range(port, port_end):
-            try:
-                sock.bind((host, my_port))
-                self.port = my_port
-                break
-            except socket.error as sock_err:
-                if sock_err.errno in [98, 48]:
-                    continue
-                raise sock_err
-        if not self.port:
-            raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
-        logger.info("bind to %s:%d", host, self.port)
-        sock.listen(1)
+        # self.port = None
+        # self.stop_key = base.random_key("tracker")
+        # for my_port in range(port, port_end):
+        #     try:
+        #         sock.bind((host, my_port))
+        #         self.port = my_port
+        #         break
+        #     except socket.error as sock_err:
+        #         if sock_err.errno in [98, 48]:
+        #             continue
+        #         raise sock_err
+        # if not self.port:
+        #     raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
+        # logger.info("bind to %s:%d", host, self.port)
+        # sock.listen(1)
         print("calling tracker start")
-        RPCTrackerStart(host, port, port_end, silent)
+        self.port = RPCTrackerStart(host, port, port_end, silent)
         print("called tracker start")
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
-        self.pool = PopenPoolExecutor(max_workers=2)
-        self.pool.submit(_tracker_server, sock, self.stop_key)
+        # self.pool = PopenPoolExecutor(max_workers=2)
+        # self.pool.submit(_tracker_server, sock, self.stop_key)
         # self.proc.start()
         self.host = host
         # close the socket on this process
-        sock.close()
+        # sock.close()
 
     def _stop_tracker(self):
         print("tracker.py _stop_tracker()")
