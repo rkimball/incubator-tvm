@@ -26,7 +26,14 @@
 namespace tvm {
 namespace runtime {
 namespace rpc {
-void RPCTrackerEntry() { std::cout << __FILE__ << " " << __LINE__ << std::endl; }
+int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << host << std::endl;
+  std::cout << port << std::endl;
+  std::cout << port_end << std::endl;
+  std::cout << silent << std::endl;
+  return 42;
+}
 
 }  // namespace rpc
 TVM_REGISTER_GLOBAL("rpc.RPCTrackerStart").set_body_typed(tvm::runtime::rpc::RPCTrackerEntry);

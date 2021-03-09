@@ -63,6 +63,7 @@ except ImportError as error_msg:
 from .._ffi.base import py_str
 from . import base
 from .base import RPC_TRACKER_MAGIC, TrackerCode
+
 # import tvm.runtime.rpc
 from . import _ffi_api
 
@@ -412,7 +413,7 @@ class Tracker(object):
         logger.info("bind to %s:%d", host, self.port)
         sock.listen(1)
         print("calling tracker start")
-        RPCTrackerStart()
+        RPCTrackerStart(host, port, port_end, silent)
         print("called tracker start")
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         self.pool = PopenPoolExecutor(max_workers=2)
@@ -448,7 +449,9 @@ class Tracker(object):
     def __del__(self):
         self.terminate()
 
-def RPCTrackerStart():
-    """
-    """
-    return _ffi_api.RPCTrackerStart()
+
+def RPCTrackerStart(host, port, port_end, silent):
+    """"""
+    rc = _ffi_api.RPCTrackerStart(host, port, port_end, silent)
+    print("call return", rc)
+    return rc

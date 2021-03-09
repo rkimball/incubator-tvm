@@ -28,6 +28,8 @@
 
 #include <tvm/runtime/c_runtime_api.h>
 
+#include <string>
+
 namespace tvm {
 namespace runtime {
 namespace rpc {
@@ -37,8 +39,10 @@ namespace rpc {
  * \param target The target module name.
  * \return Whether runtime is enabled.
  */
-TVM_DLL bool RPCTrackerStart();
-}}}
+TVM_DLL int RPCTrackerEntry(std::string host, int port, int port_end, bool silent);
 
+}  // namespace rpc
+}  // namespace runtime
+}  // namespace tvm
 
-#endif // TVM_RUNTIME_RPC_TRACKER_H_
+#endif  // TVM_RUNTIME_RPC_TRACKER_H_
