@@ -547,10 +547,6 @@ class Proxy(object):
             raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
         logging.info("RPCProxy: client port bind to %s:%d", host, self.port)
         sock.listen(1)
-        print("4*******************************************************************************")
-        print("********************************************************************************")
-        print("********************************************************************************")
-        print("********************************************************************************")
         self.proc = multiprocessing.Process(
             target=_proxy_server,
             args=(
