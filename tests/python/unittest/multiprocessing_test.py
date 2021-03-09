@@ -22,6 +22,7 @@ from tvm import autotvm
 
 multiprocessing.set_start_method("spawn", force=True)
 
+
 def do_test():
     task, _ = get_sample_task()
 
@@ -29,6 +30,7 @@ def do_test():
 
     tuner = autotvm.tuner.RandomTuner(task)
     tuner.tune(n_trial=10, measure_option=measure_option)
+
 
 # if __name__ == '__main__':
 do_test()

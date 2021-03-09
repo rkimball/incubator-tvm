@@ -10,6 +10,7 @@ from tvm.ir import Op
 from tvm.runtime import vm
 
 import deckhand
+
 m = deckhand.load_model("tvm:mlp")
 m.tune()
 
@@ -58,7 +59,6 @@ m.tune()
 # C = np.array([[10, 11, 12], [13, 14, 15]]).astype("float32")
 
 # result = vm.invoke("main", A, B, C)
-
 
 
 # measure_option = autotvm.measure_option(
