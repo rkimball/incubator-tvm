@@ -217,6 +217,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
                 msg = py_str(bytes(self._data[4 : 4 + self._msg_size]))
                 del self._data[: 4 + self._msg_size]
                 self._msg_size = 0
+                print(">>", msg)
                 # pylint: disable=broad-except
                 self.call_handler(json.loads(msg))
             else:
@@ -225,6 +226,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
     def ret_value(self, data):
         """return value to the output"""
         data = json.dumps(data)
+        print("<<", data)
         self.write_message(struct.pack("<i", len(data)), binary=True)
         self.write_message(data.encode("utf-8"), binary=True)
 
@@ -234,9 +236,13 @@ class TCPEventHandler(tornado_util.TCPHandler):
         if code == TrackerCode.PUT:
             key = args[1]
             port, matchkey = args[2]
+            print("key", key)
+            print("port", port)
+            print("matchkey", matchkey)
             self.pending_matchkeys.add(matchkey)
             # got custom address (from rpc server)
             if len(args) >= 4 and args[3] is not None:
+                print("custom address", args[3])
                 value = (self, args[3], port, matchkey)
             else:
                 value = (self, self._addr[0], port, matchkey)
