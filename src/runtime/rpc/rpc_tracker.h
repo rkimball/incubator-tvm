@@ -42,6 +42,31 @@ class RPCTracker {
   static RPCTracker* GetTracker();
   int GetPort() const;
 
+  enum class RPC_CODE : int {
+    // Magic header for RPC data plane
+    RPC_MAGIC = 0xFF271,
+    // magic header for RPC tracker(control plane)
+    RPC_TRACKER_MAGIC = 0x2F271,
+    // sucess response
+    RPC_CODE_SUCCESS = RPC_MAGIC + 0,
+    // duplicate key in proxy
+    RPC_CODE_DUPLICATE = RPC_MAGIC + 1,
+    // cannot found matched key in server
+    RPC_CODE_MISMATCH = RPC_MAGIC + 2
+  };
+
+  enum class TRACKER_CODE : int {
+    FAIL = -1,
+    SUCCESS = 0,
+    PING = 1,
+    STOP = 2,
+    PUT = 3,
+    REQUEST = 4,
+    UPDATE_INFO = 5,
+    SUMMARY = 6,
+    GET_PENDING_MATCHKEYS = 7
+  };
+
  private:
   void ListenLoopEntry();
 

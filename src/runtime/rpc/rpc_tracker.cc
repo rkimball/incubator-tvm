@@ -19,11 +19,13 @@
 
 #include <iostream>
 #include <memory>
+#include <iomanip>
 
 #include "rpc_tracker.h"
 
 #include <tvm/runtime/registry.h>
 #include <tvm/support/logging.h>
+#include <dmlc/json.h>
 
 namespace tvm {
 namespace runtime {
@@ -86,21 +88,72 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
  * \brief ListenLoopProc The listen process.
  */
 void RPCTracker::ListenLoopEntry() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  support::TCPSocket connection = listen_sock_.Accept();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  int packet_length = 0;
-  ICHECK_EQ(connection.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
-  // packet_length = htonl(packet_length);
-  std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
-  std::vector<char> buffer;
-  buffer.reserve(packet_length);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  ICHECK_EQ(connection.RecvAll(buffer.data(), packet_length), packet_length);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  std::string json(buffer.data(), packet_length);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
+  while(true) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    support::TCPSocket connection = listen_sock_.Accept();
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+
+    // Do magic handshake
+    int magic = 0;
+    ICHECK_EQ(connection.RecvAll(&magic, sizeof(magic)), sizeof(magic));
+    // ICHECK_EQ(magic, RPC_CODE::RPC_MAGIC);
+    std::cout << __FILE__ << " " << __LINE__ << " magic=" << magic << std::endl;
+    connection.SendAll(&magic, sizeof(magic));
+
+    int packet_length = 0;
+    ICHECK_EQ(connection.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
+    // packet_length = htonl(packet_length);
+    std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
+    std::vector<char> buffer;
+    buffer.reserve(packet_length);
+    ICHECK_EQ(connection.RecvAll(buffer.data(), packet_length), packet_length);
+    std::string json(buffer.data(), packet_length);
+    std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
+
+    std::istringstream is(json);
+    dmlc::JSONReader reader(&is);
+    int tmp;
+    reader.BeginArray();
+    reader.NextArrayItem();
+    reader.ReadNumber(&tmp);
+    reader.NextArrayItem();
+    switch(static_cast<TRACKER_CODE>(tmp)) {
+    case TRACKER_CODE::FAIL:
+      std::cout << __FILE__ << " " << __LINE__ << " FAIL" << std::endl;
+      break;
+    case TRACKER_CODE::SUCCESS:
+      std::cout << __FILE__ << " " << __LINE__ << " SUCCESS" << std::endl;
+      break;
+    case TRACKER_CODE::PING:
+      std::cout << __FILE__ << " " << __LINE__ << " PING" << std::endl;
+      break;
+    case TRACKER_CODE::STOP:
+      std::cout << __FILE__ << " " << __LINE__ << " STOP" << std::endl;
+      break;
+    case TRACKER_CODE::PUT:
+      std::cout << __FILE__ << " " << __LINE__ << " PUT" << std::endl;
+      break;
+    case TRACKER_CODE::REQUEST:
+      std::cout << __FILE__ << " " << __LINE__ << " REQUEST" << std::endl;
+      break;
+    case TRACKER_CODE::UPDATE_INFO: {
+      std::cout << __FILE__ << " " << __LINE__ << " UPDATE_INFO" << std::endl;
+      std::string key;
+      std::string value;
+      reader.BeginObject();
+      reader.NextObjectItem(&key);
+      reader.Read(&value);
+      std::cout << __FILE__ << " " << __LINE__ << " " << key << " = " << value << std::endl;
+      break;
+    }
+    case TRACKER_CODE::SUMMARY:
+      std::cout << __FILE__ << " " << __LINE__ << " SUMMARY" << std::endl;
+      break;
+    case TRACKER_CODE::GET_PENDING_MATCHKEYS:
+      std::cout << __FILE__ << " " << __LINE__ << " GET_PENDING_MATCHKEYS" << std::endl;
+      break;
+    }
+  }
 
 //   TrackerClient tracker(tracker_addr_, key_, custom_addr_);
 //   while (true) {
