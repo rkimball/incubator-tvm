@@ -25,6 +25,7 @@
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
 #include <future>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -68,6 +69,18 @@ class RPCTracker {
   };
 
  private:
+  class PriorityScheduler {
+   public:
+    PriorityScheduler(std::string key);
+    void Put();
+    void Request();
+    void Remove();
+    void Summary();
+
+    std::string key_;
+    size_t request_count_ = 0;
+  };
+
   void ListenLoopEntry();
 
   std::string host_;
@@ -78,6 +91,7 @@ class RPCTracker {
   support::TCPSocket listen_sock_;
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
+  std::map<std::string, PriorityScheduler> scheduler_map_;
 };
 }  // namespace rpc
 }  // namespace runtime
