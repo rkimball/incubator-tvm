@@ -24,6 +24,7 @@
 #include "rpc_tracker.h"
 
 #include <tvm/runtime/registry.h>
+#include <tvm/support/logging.h>
 
 namespace tvm {
 namespace runtime {
@@ -44,11 +45,16 @@ int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
 RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
 : host_{host}, port_{port}, port_end_{port_end}, silent_{silent} {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << host_ << std::endl;
+  std::cout << port_ << std::endl;
+  std::cout << port_end_ << std::endl;
+  std::cout << silent_ << std::endl;
+
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
   listen_sock_.Listen(1);
-  std::future<void> proc(std::async(std::launch::async, &RPCTracker::ListenLoopProc, this));
+  std::future<void> proc(std::async(std::launch::async, &RPCTracker::ListenLoopEntry, this));
   // proc.get();
   // // Close the listen socket
   // listen_sock_.Close();
@@ -56,10 +62,6 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
 
 RPCTracker::~RPCTracker() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  std::cout << host_ << std::endl;
-  std::cout << port_ << std::endl;
-  std::cout << port_end_ << std::endl;
-  std::cout << silent_ << std::endl;
 }
 
 RPCTracker* RPCTracker::GetTracker(){
@@ -83,8 +85,23 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
 /*!
  * \brief ListenLoopProc The listen process.
  */
-void RPCTracker::ListenLoopProc() {
+void RPCTracker::ListenLoopEntry() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  support::TCPSocket connection = listen_sock_.Accept();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  int packet_length = 0;
+  ICHECK_EQ(connection.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
+  packet_length = htonl(packet_length);
+  std::cout << __FILE__ << " " << __LINE__ << " " << packet_length << std::endl;
+  std::vector<char> buffer;
+  buffer.reserve(packet_length);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  ICHECK_EQ(connection.RecvAll(buffer.data(), packet_length), packet_length);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::string json(buffer.data(), packet_length);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
+
 //   TrackerClient tracker(tracker_addr_, key_, custom_addr_);
 //   while (true) {
 //     support::TCPSocket conn;

@@ -42,7 +42,7 @@ class RPCTracker {
   int GetPort() const;
 
  private:
-  void ListenLoopProc();
+  void ListenLoopEntry();
 
   std::string host_;
   int port_;
