@@ -18,7 +18,6 @@
  */
 
 #include <iostream>
-#include <future>
 #include <memory>
 
 #include "rpc_tracker.h"
@@ -29,7 +28,7 @@
 namespace tvm {
 namespace runtime {
 namespace rpc {
-std::unique_ptr<RPCTracker> RPCTracker::rpc_tracker_;
+std::unique_ptr<RPCTracker> RPCTracker::rpc_tracker_ = nullptr;
 
 int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
@@ -54,10 +53,8 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
   listen_sock_.Listen(1);
-  std::future<void> proc(std::async(std::launch::async, &RPCTracker::ListenLoopEntry, this));
-  // proc.get();
-  // // Close the listen socket
-  // listen_sock_.Close();
+  listener_task_ = std::async(std::launch::async, &RPCTracker::ListenLoopEntry, this);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 RPCTracker::~RPCTracker() {
@@ -71,15 +68,18 @@ RPCTracker* RPCTracker::GetTracker(){
 int RPCTracker::GetPort() const { return my_port_; }
 
 int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   RPCTracker* tracker = RPCTracker::GetTracker();
   int result = -1;
   if (!tracker) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     rpc_tracker_ = std::make_unique<RPCTracker>(host, port, port_end, silent);
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     result = rpc_tracker_->GetPort();
   }
 
+  std::cout << __FILE__ << " " << __LINE__ << " " << result << std::endl;
   return result;
-
 }
 
 /*!
@@ -91,8 +91,8 @@ void RPCTracker::ListenLoopEntry() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
   int packet_length = 0;
   ICHECK_EQ(connection.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
-  packet_length = htonl(packet_length);
-  std::cout << __FILE__ << " " << __LINE__ << " " << packet_length << std::endl;
+  // packet_length = htonl(packet_length);
+  std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
   std::vector<char> buffer;
   buffer.reserve(packet_length);
   std::cout << __FILE__ << " " << __LINE__ << std::endl;

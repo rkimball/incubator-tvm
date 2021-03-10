@@ -396,7 +396,7 @@ class Tracker(object):
         if silent:
             logger.setLevel(logging.WARN)
 
-        sock = socket.socket(base.get_addr_family((host, port)), socket.SOCK_STREAM)
+        # sock = socket.socket(base.get_addr_family((host, port)), socket.SOCK_STREAM)
         # self.port = None
         # self.stop_key = base.random_key("tracker")
         # for my_port in range(port, port_end):
@@ -414,7 +414,7 @@ class Tracker(object):
         # sock.listen(1)
         print("calling tracker start")
         self.port = RPCTrackerStart(host, port, port_end, silent)
-        print("called tracker start")
+        print("called tracker start, port =", self.port)
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         # self.pool = PopenPoolExecutor(max_workers=2)
         # self.pool.submit(_tracker_server, sock, self.stop_key)
@@ -453,5 +453,4 @@ class Tracker(object):
 def RPCTrackerStart(host, port, port_end, silent):
     """"""
     rc = _ffi_api.RPCTrackerStart(host, port, port_end, silent)
-    print("call return", rc)
     return rc

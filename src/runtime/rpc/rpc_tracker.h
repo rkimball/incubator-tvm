@@ -24,6 +24,7 @@
 #ifndef TVM_RUNTIME_RPC_RPC_TRACKER_H_
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
+#include <future>
 #include <memory>
 #include <string>
 
@@ -50,6 +51,7 @@ class RPCTracker {
   int port_end_;
   bool silent_;
   support::TCPSocket listen_sock_;
+  std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
 };
 }  // namespace rpc
