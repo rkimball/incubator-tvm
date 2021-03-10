@@ -24,6 +24,9 @@
 #ifndef TVM_RUNTIME_RPC_RPC_TRACKER_H_
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
+#include <memory>
+#include <string>
+
 #include "../../support/socket.h"
 
 namespace tvm {
@@ -31,17 +34,23 @@ namespace runtime {
 namespace rpc {
 class RPCTracker {
  public:
-  static void Entry();
+  RPCTracker(std::string host, int port, int port_end, bool silent);
+  ~RPCTracker();
+  static int Start(std::string host, int port, int port_end, bool silent);
+
+  static RPCTracker* GetTracker();
+  int GetPort() const;
 
  private:
-  void Start();
   void ListenLoopProc();
 
   std::string host_;
   int port_;
   int my_port_;
   int port_end_;
+  bool silent_;
   support::TCPSocket listen_sock_;
+  static std::unique_ptr<RPCTracker> rpc_tracker_;
 };
 }  // namespace rpc
 }  // namespace runtime
