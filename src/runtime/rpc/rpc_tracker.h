@@ -82,6 +82,7 @@ class RPCTracker {
   };
 
   void ListenLoopEntry();
+  void SendResponse(support::TCPSocket& conn, TRACKER_CODE value);
 
   std::string host_;
   int port_;

@@ -34,7 +34,6 @@ namespace rpc {
 std::unique_ptr<RPCTracker> RPCTracker::rpc_tracker_ = nullptr;
 
 int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   int result = -1;
   RPCTracker* tracker = RPCTracker::GetTracker();
   if (!tracker) {
@@ -46,18 +45,12 @@ int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
 
 RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
     : host_{host}, port_{port}, port_end_{port_end}, silent_{silent} {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  std::cout << host_ << std::endl;
-  std::cout << port_ << std::endl;
-  std::cout << port_end_ << std::endl;
-  std::cout << silent_ << std::endl;
 
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
   listen_sock_.Listen(1);
   listener_task_ = std::async(std::launch::async, &RPCTracker::ListenLoopEntry, this);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 RPCTracker::~RPCTracker() { std::cout << __FILE__ << " " << __LINE__ << std::endl; }
@@ -67,13 +60,10 @@ RPCTracker* RPCTracker::GetTracker() { return rpc_tracker_.get(); }
 int RPCTracker::GetPort() const { return my_port_; }
 
 int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   RPCTracker* tracker = RPCTracker::GetTracker();
   int result = -1;
   if (!tracker) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     rpc_tracker_ = std::make_unique<RPCTracker>(host, port, port_end, silent);
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     result = rpc_tracker_->GetPort();
   }
 
@@ -86,9 +76,7 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
  */
 void RPCTracker::ListenLoopEntry() {
   while (true) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     support::TCPSocket connection = listen_sock_.Accept();
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     std::string peer_name = connection.GetPeerName();
     std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_name << std::endl;
 
@@ -129,9 +117,24 @@ void RPCTracker::ListenLoopEntry() {
       case TRACKER_CODE::STOP:
         std::cout << __FILE__ << " " << __LINE__ << " STOP" << std::endl;
         break;
-      case TRACKER_CODE::PUT:
+      case TRACKER_CODE::PUT: {
         std::cout << __FILE__ << " " << __LINE__ << " PUT" << std::endl;
+        std::string key;
+        int port;
+        std::string matchkey;
+        reader.Read(&key);
+        reader.NextArrayItem();
+        reader.BeginArray();
+        reader.NextArrayItem();
+        reader.Read(&port);
+        reader.NextArrayItem();
+        reader.Read(&matchkey);
+        std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
+        std::cout << __FILE__ << " " << __LINE__ << " port " << port << std::endl;
+        std::cout << __FILE__ << " " << __LINE__ << " matchkey " << matchkey << std::endl;
+        SendResponse(connection, TRACKER_CODE::SUCCESS);
         break;
+      }
       case TRACKER_CODE::REQUEST: {
         std::cout << __FILE__ << " " << __LINE__ << " REQUEST" << std::endl;
         std::string key;
@@ -146,6 +149,7 @@ void RPCTracker::ListenLoopEntry() {
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " user " << user << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " priority " << priority << std::endl;
+        SendResponse(connection, TRACKER_CODE::SUCCESS);
         break;
       }
       case TRACKER_CODE::UPDATE_INFO: {
@@ -253,6 +257,16 @@ void RPCTracker::ListenLoopEntry() {
   //     LOG(INFO) << "Socket Connection Closed";
   //     conn.Close();
   //   }
+}
+
+void RPCTracker::SendResponse(support::TCPSocket& conn, TRACKER_CODE value) {
+  std::stringstream ss;
+  ss << "[" << static_cast<int>(value) << "]";
+  std::string status = ss.str();
+  int length = status.size();
+
+  conn.SendAll(&length, sizeof(length));
+  conn.SendAll(status.data(), status.size());
 }
 
 }  // namespace rpc
