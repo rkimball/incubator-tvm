@@ -45,7 +45,6 @@ int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
 
 RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
     : host_{host}, port_{port}, port_end_{port_end}, silent_{silent} {
-
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
@@ -77,23 +76,48 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
 void RPCTracker::ListenLoopEntry() {
   while (true) {
     support::TCPSocket connection = listen_sock_.Accept();
-    std::string peer_name = connection.GetPeerName();
-    std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_name << std::endl;
+    std::string peer_host;
+    int peer_port;
+    connection.GetPeerAddress(peer_host, peer_port);
+    connection_list_.emplace_back(peer_host, peer_port, connection);
+    std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_host << ":" << peer_port
+              << std::endl;
+  }
+}
 
-    // Do magic handshake
-    int magic = 0;
-    ICHECK_EQ(connection.RecvAll(&magic, sizeof(magic)), sizeof(magic));
-    // ICHECK_EQ(magic, RPC_CODE::RPC_MAGIC);
-    std::cout << __FILE__ << " " << __LINE__ << " magic=" << magic << std::endl;
-    connection.SendAll(&magic, sizeof(magic));
+void RPCTracker::ConnectionInfo::SendResponse(support::TCPSocket& conn, TRACKER_CODE value) {
+  std::stringstream ss;
+  ss << "[" << static_cast<int>(value) << "]";
+  std::string status = ss.str();
+  int length = status.size();
 
+  conn.SendAll(&length, sizeof(length));
+  conn.SendAll(status.data(), status.size());
+}
+
+RPCTracker::ConnectionInfo::ConnectionInfo(std::string host, int port,
+                                           support::TCPSocket connection)
+    : host_{host}, port_{port}, connection_{connection} {
+  connection_task_ =
+      std::async(std::launch::async, &RPCTracker::ConnectionInfo::ConnectionLoop, this);
+}
+
+void RPCTracker::ConnectionInfo::ConnectionLoop() {
+  // Do magic handshake
+  int magic = 0;
+  ICHECK_EQ(connection_.RecvAll(&magic, sizeof(magic)), sizeof(magic));
+  // ICHECK_EQ(magic, RPC_CODE::RPC_MAGIC);
+  std::cout << __FILE__ << " " << __LINE__ << " magic=" << magic << std::endl;
+  connection_.SendAll(&magic, sizeof(magic));
+
+  while (true) {
+    std::cout << __FILE__ << " " << __LINE__ << " peer=" << host_ << ":" << port_ << std::endl;
     int packet_length = 0;
-    ICHECK_EQ(connection.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
-    // packet_length = htonl(packet_length);
+    ICHECK_EQ(connection_.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
     std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
     std::vector<char> buffer;
     buffer.reserve(packet_length);
-    ICHECK_EQ(connection.RecvAll(buffer.data(), packet_length), packet_length);
+    ICHECK_EQ(connection_.RecvAll(buffer.data(), packet_length), packet_length);
     std::string json(buffer.data(), packet_length);
     std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
 
@@ -132,7 +156,7 @@ void RPCTracker::ListenLoopEntry() {
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " port " << port << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " matchkey " << matchkey << std::endl;
-        SendResponse(connection, TRACKER_CODE::SUCCESS);
+        SendResponse(connection_, TRACKER_CODE::SUCCESS);
         break;
       }
       case TRACKER_CODE::REQUEST: {
@@ -149,7 +173,7 @@ void RPCTracker::ListenLoopEntry() {
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " user " << user << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " priority " << priority << std::endl;
-        SendResponse(connection, TRACKER_CODE::SUCCESS);
+        SendResponse(connection_, TRACKER_CODE::SUCCESS);
         break;
       }
       case TRACKER_CODE::UPDATE_INFO: {
@@ -159,7 +183,8 @@ void RPCTracker::ListenLoopEntry() {
         reader.BeginObject();
         reader.NextObjectItem(&key);
         reader.Read(&value);
-        std::cout << __FILE__ << " " << __LINE__ << " " << key << " = " << value << std::endl;
+        key_ = value;
+        std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
         break;
       }
       case TRACKER_CODE::SUMMARY:
@@ -170,103 +195,6 @@ void RPCTracker::ListenLoopEntry() {
         break;
     }
   }
-
-  //   TrackerClient tracker(tracker_addr_, key_, custom_addr_);
-  //   while (true) {
-  //     support::TCPSocket conn;
-  //     support::SockAddr addr("0.0.0.0", 0);
-  //     std::string opts;
-  //     try {
-  //       // step 1: setup tracker and report to tracker
-  //       tracker.TryConnect();
-  //       // step 2: wait for in-coming connections
-  //       AcceptConnection(&tracker, &conn, &addr, &opts);
-  //     } catch (const char* msg) {
-  //       LOG(WARNING) << "Socket exception: " << msg;
-  //       // close tracker resource
-  //       tracker.Close();
-  //       continue;
-  //     } catch (const std::exception& e) {
-  //       // close tracker resource
-  //       tracker.Close();
-  //       LOG(WARNING) << "Exception standard: " << e.what();
-  //       continue;
-  //     }
-
-  //     int timeout = GetTimeOutFromOpts(opts);
-  // #if defined(__linux__) || defined(__ANDROID__)
-  //     // step 3: serving
-  //     if (timeout != 0) {
-  //       const pid_t timer_pid = fork();
-  //       if (timer_pid == 0) {
-  //         // Timer process
-  //         sleep(timeout);
-  //         exit(0);
-  //       }
-
-  //       const pid_t worker_pid = fork();
-  //       if (worker_pid == 0) {
-  //         // Worker process
-  //         ServerLoopProc(conn, addr);
-  //         exit(0);
-  //       }
-
-  //       int status = 0;
-  //       const pid_t finished_first = waitPidEintr(&status);
-  //       if (finished_first == timer_pid) {
-  //         kill(worker_pid, SIGTERM);
-  //       } else if (finished_first == worker_pid) {
-  //         kill(timer_pid, SIGTERM);
-  //       } else {
-  //         LOG(INFO) << "Child pid=" << finished_first << " unexpected, but still continue.";
-  //       }
-
-  //       int status_second = 0;
-  //       waitPidEintr(&status_second);
-
-  //       // Logging.
-  //       if (finished_first == timer_pid) {
-  //         LOG(INFO) << "Child pid=" << worker_pid << " killed (timeout = " << timeout
-  //                   << "), Process status = " << status_second;
-  //       } else if (finished_first == worker_pid) {
-  //         LOG(INFO) << "Child pid=" << timer_pid << " killed, Process status = " <<
-  //         status_second;
-  //       }
-  //     } else {
-  //       auto pid = fork();
-  //       if (pid == 0) {
-  //         ServerLoopProc(conn, addr);
-  //         exit(0);
-  //       }
-  //       // Wait for the result
-  //       int status = 0;
-  //       wait(&status);
-  //       LOG(INFO) << "Child pid=" << pid << " exited, Process status =" << status;
-  //     }
-  // #elif defined(WIN32)
-  //     auto start_time = high_resolution_clock::now();
-  //     try {
-  //       SpawnRPCChild(conn.sockfd, seconds(timeout));
-  //     } catch (const std::exception&) {
-  //     }
-  //     auto dur = high_resolution_clock::now() - start_time;
-
-  //     LOG(INFO) << "Serve Time " << duration_cast<milliseconds>(dur).count() << "ms";
-  // #endif
-  //     // close from our side.
-  //     LOG(INFO) << "Socket Connection Closed";
-  //     conn.Close();
-  //   }
-}
-
-void RPCTracker::SendResponse(support::TCPSocket& conn, TRACKER_CODE value) {
-  std::stringstream ss;
-  ss << "[" << static_cast<int>(value) << "]";
-  std::string status = ss.str();
-  int length = status.size();
-
-  conn.SendAll(&length, sizeof(length));
-  conn.SendAll(status.data(), status.size());
 }
 
 }  // namespace rpc

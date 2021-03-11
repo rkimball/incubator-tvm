@@ -95,22 +95,24 @@ inline bool ValidateIP(std::string ip) {
   return is_ipv4 || is_ipv6;
 }
 
-inline std::string SockaddrToString(const struct sockaddr* sa) {
+inline bool SockaddrInfo(const struct sockaddr* sa, std::string& host, int& port) {
   char buffer[16];
   std::string result = "unknown socket AF";
   switch (sa->sa_family) {
     case AF_INET:
-      result = inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), buffer, sizeof(buffer));
+      host = inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), buffer, sizeof(buffer));
       // result = std::string(buffer, sizeof(buffer));
       break;
 
     case AF_INET6:
-      result = inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), buffer, sizeof(buffer));
+      host = inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), buffer, sizeof(buffer));
       // result = std::string(buffer, sizeof(buffer));
       break;
+    default:
+      return false;
   }
-
-  return result;
+  port = ((struct sockaddr_in*)sa)->sin_port;
+  return true;
 }
 
 /*!
@@ -560,11 +562,11 @@ class TCPSocket : public Socket {
     return data;
   }
 
-  std::string GetPeerName() {
+  bool GetPeerAddress(std::string& host, int& port) {
     struct sockaddr peer_addr;
     socklen_t addr_length = sizeof(peer_addr);
     getpeername(sockfd, &peer_addr, &addr_length);
-    return SockaddrToString(&peer_addr);
+    return SockaddrInfo(&peer_addr, host, port);
   }
 };
 

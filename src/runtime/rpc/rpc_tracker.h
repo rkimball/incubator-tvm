@@ -81,8 +81,24 @@ class RPCTracker {
     size_t request_count_ = 0;
   };
 
+  class ConnectionInfo {
+   public:
+    ConnectionInfo(std::string host, int port, support::TCPSocket connection);
+    std::future<void> connection_task_;
+    std::string host_;
+    int port_;
+    support::TCPSocket connection_;
+    std::string key_;
+
+    void ConnectionLoop();
+    void SendResponse(support::TCPSocket& conn, TRACKER_CODE value);
+  };
+  friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
+    out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
+    return out;
+  }
+
   void ListenLoopEntry();
-  void SendResponse(support::TCPSocket& conn, TRACKER_CODE value);
 
   std::string host_;
   int port_;
@@ -93,6 +109,7 @@ class RPCTracker {
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, PriorityScheduler> scheduler_map_;
+  std::vector<ConnectionInfo> connection_list_;
 };
 }  // namespace rpc
 }  // namespace runtime
