@@ -69,6 +69,17 @@ class RPCTracker {
   };
 
  private:
+
+  class RequestInfo {
+  public:
+    RequestInfo(std::string user, int priority, std::function<bool()> response_callback)
+    : user_{user}, priority_{priority}, response_callback_{response_callback} {}
+
+    std::string user_;
+    int priority_;
+    std::function<bool()> response_callback_;
+  };
+
   class PriorityScheduler {
    public:
     PriorityScheduler(std::string key);
@@ -83,12 +94,14 @@ class RPCTracker {
 
   class ConnectionInfo {
    public:
-    ConnectionInfo(std::string host, int port, support::TCPSocket connection);
+    ConnectionInfo(RPCTracker& tracker, std::string host, int port, support::TCPSocket connection);
+    RPCTracker& tracker_;
     std::future<void> connection_task_;
     std::string host_;
     int port_;
     support::TCPSocket connection_;
     std::string key_;
+    std::vector<std::string> pending_match_keys_;
 
     void ConnectionLoop();
     void SendResponse(support::TCPSocket& conn, TRACKER_CODE value);
@@ -99,6 +112,10 @@ class RPCTracker {
   }
 
   void ListenLoopEntry();
+  void Put(std::string key, std::string address, int port, std::string match_key);
+  void Request(std::string key, std::string user, int priority, std::function<bool()> send_response);
+  std::string Summary();
+  void Stop();
 
   std::string host_;
   int port_;
@@ -110,6 +127,7 @@ class RPCTracker {
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, PriorityScheduler> scheduler_map_;
   std::vector<ConnectionInfo> connection_list_;
+  std::vector<RequestInfo> requests_;
 };
 }  // namespace rpc
 }  // namespace runtime

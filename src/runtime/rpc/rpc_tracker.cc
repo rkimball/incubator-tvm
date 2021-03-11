@@ -79,10 +79,14 @@ void RPCTracker::ListenLoopEntry() {
     std::string peer_host;
     int peer_port;
     connection.GetPeerAddress(peer_host, peer_port);
-    connection_list_.emplace_back(peer_host, peer_port, connection);
+    connection_list_.emplace_back(*this, peer_host, peer_port, connection);
     std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_host << ":" << peer_port
               << std::endl;
   }
+}
+
+void RPCTracker::Request(std::string key, std::string user, int priority, std::function<bool()> send_response) {
+  requests_.emplace_back(user, priority, send_response);
 }
 
 void RPCTracker::ConnectionInfo::SendResponse(support::TCPSocket& conn, TRACKER_CODE value) {
@@ -95,9 +99,9 @@ void RPCTracker::ConnectionInfo::SendResponse(support::TCPSocket& conn, TRACKER_
   conn.SendAll(status.data(), status.size());
 }
 
-RPCTracker::ConnectionInfo::ConnectionInfo(std::string host, int port,
+RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker& tracker, std::string host, int port,
                                            support::TCPSocket connection)
-    : host_{host}, port_{port}, connection_{connection} {
+    : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   connection_task_ =
       std::async(std::launch::async, &RPCTracker::ConnectionInfo::ConnectionLoop, this);
 }
@@ -170,10 +174,13 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.NextArrayItem();
         reader.Read(&priority);
         reader.NextArrayItem();
+        tracker_.Request(key, user, priority, [&](){
+                  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+                  SendResponse(connection_, TRACKER_CODE::SUCCESS);
+                  return true;});
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " user " << user << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " priority " << priority << std::endl;
-        SendResponse(connection_, TRACKER_CODE::SUCCESS);
         break;
       }
       case TRACKER_CODE::UPDATE_INFO: {
