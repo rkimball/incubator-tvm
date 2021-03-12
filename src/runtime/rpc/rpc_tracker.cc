@@ -88,20 +88,34 @@ void RPCTracker::ListenLoopEntry() {
 
 void RPCTracker::Put(std::string key, std::string address, int port, std::string match_key,
                      std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
-    scheduler_map_.insert({key, PriorityScheduler(key)});
+    scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
   }
-  scheduler_map_.at(key).Put(address, port, match_key, conn);
+  scheduler_map_.at(key)->Put(address, port, match_key, conn);
 }
 
 void RPCTracker::Request(std::string key, std::string user, int priority,
                          std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
-    scheduler_map_.insert({key, PriorityScheduler(key)});
+    scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
   }
-  scheduler_map_.at(key).Request(user, priority, conn);
+  scheduler_map_.at(key)->Request(user, priority, conn);
+}
+
+std::string RPCTracker::Summary() {
+  std::stringstream ss;
+  int count = scheduler_map_.size();
+  for (auto p : scheduler_map_) {
+    ss << "\"" << p.first << "\": " << p.second->Summary();
+    if (--count > 0) {
+      ss << ", ";
+    }
+  }
+  return ss.str();
 }
 
 void RPCTracker::ConnectionInfo::SendResponse(TRACKER_CODE value) {
@@ -123,6 +137,7 @@ RPCTracker::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
 
 void RPCTracker::PriorityScheduler::Request(std::string user, int priority,
                                             std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
   requests_.emplace_back(user, priority, request_count_++, conn);
   std::sort(requests_.begin(), requests_.end(),
             [](const RPCTracker::RequestInfo& a, const RPCTracker::RequestInfo& b) {
@@ -138,17 +153,24 @@ void RPCTracker::PriorityScheduler::Request(std::string user, int priority,
 
 void RPCTracker::PriorityScheduler::Put(std::string address, int port, std::string match_key,
                                         std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
   values_.emplace_back(address, port, match_key, conn);
   Schedule();
 }
 void RPCTracker::PriorityScheduler::Remove(PutInfo value) {
+  std::lock_guard<std::mutex> guard(mutex_);
   auto it = std::find(values_.begin(), values_.end(), value);
   if (it != values_.end()) {
     values_.erase(it);
     Schedule();
   }
 }
-void RPCTracker::PriorityScheduler::Summary() {}
+
+std::string RPCTracker::PriorityScheduler::Summary() {
+  std::stringstream ss;
+  ss << "{\"free\": " << values_.size() << ", \"pending\": " << requests_.size() << "}";
+  return ss.str();
+}
 
 void RPCTracker::PriorityScheduler::Schedule() {
   std::cout << __FILE__ << " " << __LINE__ << " " << requests_.size() << std::endl;
@@ -285,9 +307,33 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
         break;
       }
-      case TRACKER_CODE::SUMMARY:
+      case TRACKER_CODE::SUMMARY: {
         std::cout << __FILE__ << " " << __LINE__ << " SUMMARY" << std::endl;
+        // [0, {"queue_info": {"abc": {"free": 0, "pending": 0}, "xyz": {"free": 5, "pending": 0},
+        // "xyz1": {"free": 0, "pending": 0}}, "server_info": [{"addr": ["127.0.0.1", 51602], "key":
+        // "server:xyz"}, {"addr": ["127.0.0.1", 51600], "key": "server:abc"}, {"addr":
+        // ["127.0.0.1", 51606], "key": "server:proxy[xyz,xyz1]"}]}]
+        std::stringstream ss;
+        ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
+           << tracker_->Summary() << "}, ";
+        ss << "\"server_info\": [";
+        int count = 0;
+        for (auto conn : tracker_->connection_list_) {
+          std::cout << __FILE__ << " " << __LINE__ << " *********** key " << conn->key_
+                    << std::endl;
+          if (conn->key_.substr(0, 6) == "server") {
+            if (count++ > 0) {
+              ss << ", ";
+            }
+            ss << "{\"addr\": [\"" << conn->host_ << "\", " << conn->port_ << "], \"key\": \""
+               << conn->key_ << "\"}";
+          }
+        }
+        ss << "]}]";
+        SendStatus(ss.str());
+        std::cout << __FILE__ << " " << __LINE__ << " " << ss.str() << std::endl;
         break;
+      }
       case TRACKER_CODE::GET_PENDING_MATCHKEYS:
         std::cout << __FILE__ << " " << __LINE__ << " GET_PENDING_MATCHKEYS" << std::endl;
         break;

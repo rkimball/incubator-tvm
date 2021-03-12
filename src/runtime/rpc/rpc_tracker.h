@@ -28,6 +28,7 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "../../support/socket.h"
@@ -130,10 +131,11 @@ class RPCTracker {
              std::shared_ptr<ConnectionInfo> conn);
     void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
     void Remove(PutInfo value);
-    void Summary();
+    std::string Summary();
 
     void Schedule();
 
+    std::mutex mutex_;
     std::string key_;
     size_t request_count_ = 0;
     std::deque<PutInfo> values_;
@@ -156,8 +158,9 @@ class RPCTracker {
   support::TCPSocket listen_sock_;
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
-  std::map<std::string, PriorityScheduler> scheduler_map_;
+  std::map<std::string, std::shared_ptr<PriorityScheduler>> scheduler_map_;
   std::deque<std::shared_ptr<ConnectionInfo>> connection_list_;
+  std::mutex mutex_;
 };
 }  // namespace rpc
 }  // namespace runtime
