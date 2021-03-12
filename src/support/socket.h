@@ -526,23 +526,17 @@ class TCPSocket : public Socket {
     char* buf = reinterpret_cast<char*>(buf_);
     size_t ndone = 0;
     while (ndone < len) {
-      std::cout << __FILE__ << " " << __LINE__ << " socket " << sockfd << std::endl;
       ssize_t ret = recv(sockfd, buf, static_cast<sock_size_t>(len - ndone), MSG_WAITALL);
-      std::cout << __FILE__ << " " << __LINE__ << " ret " << ret << std::endl;
       if (ret == -1) {
         if (LastErrorWouldBlock()) {
-          std::cout << __FILE__ << " " << __LINE__ << std::endl;
           LOG(FATAL) << "would block";
           return ndone;
         }
-        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         Socket::Error("RecvAll");
-        std::cout << __FILE__ << " " << __LINE__ << std::endl;
       }
       if (ret == 0) return ndone;
       buf += ret;
       ndone += ret;
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
     }
     return ndone;
   }
