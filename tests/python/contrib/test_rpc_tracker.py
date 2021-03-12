@@ -34,8 +34,10 @@ def check_server_drop():
             return x + 1
 
         def _put(tclient, value):
+            print("********************************************************************")
             base.sendjson(tclient._sock, value)
-            base.recvjson(tclient._sock)
+            rc = base.recvjson(tclient._sock)
+            print("rc", rc)
 
         tserver = tracker.Tracker("localhost", 8888)
         tproxy = proxy.Proxy("localhost", 8881, tracker_addr=("localhost", tserver.port))
@@ -88,14 +90,23 @@ def check_server_drop():
             f1 = remote3.get_function("rpc.test2.addone")
             assert f1(10) == 11
 
+        print("\n\n\n\n************* 1\n\n\n")
         check_timeout(0.01, 0.1)
+        print("\n\n\n\n************* 2\n\n\n")
         check_timeout(2, 0)
+        print("\n\n\n\n************* 3\n\n\n")
         tserver.terminate()
+        print("\n\n\n\n************* 4\n\n\n")
         server0.terminate()
+        print("\n\n\n\n************* 5\n\n\n")
         server1.terminate()
+        print("\n\n\n\n************* 6\n\n\n")
         server2.terminate()
+        print("\n\n\n\n************* 7\n\n\n")
         server3.terminate()
+        print("\n\n\n\n************* 8\n\n\n")
         tproxy.terminate()
+        print("\n\n\n\n************* 9\n\n\n")
     except ImportError:
         print("Skip because tornado is not available")
 

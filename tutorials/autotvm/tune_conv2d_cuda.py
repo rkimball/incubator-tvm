@@ -72,7 +72,7 @@ from tvm import autotvm
 # the techniques used in these tutorials. Then we rely on the efficient auto-tuner
 # to search through this space and pick some good configurations.
 #
-# If you are familiar with writing cuda schedule, you can find the following
+# If you are familiar with writing llvm schedule, you can find the following
 # template is very general. Actually this template can be easily modified
 # to tune other operators such as depthwise convolution and gemm.
 # In order to fully understand this template, you should be familiar with
@@ -188,7 +188,7 @@ logging.getLogger("autotvm").addHandler(logging.StreamHandler(sys.stdout))
 # the last layer in resnet
 N, H, W, CO, CI, KH, KW, strides, padding = 1, 7, 7, 512, 512, 3, 3, (1, 1), (1, 1)
 task = autotvm.task.create(
-    "tutorial/conv2d_no_batching", args=(N, H, W, CO, CI, KH, KW, strides, padding), target="cuda"
+    "tutorial/conv2d_no_batching", args=(N, H, W, CO, CI, KH, KW, strides, padding), target="llvm"
 )
 print(task.config_space)
 
@@ -221,7 +221,7 @@ print(best_config)
 
 # apply history best from log file
 with autotvm.apply_history_best("conv2d.log"):
-    with tvm.target.Target("cuda"):
+    with tvm.target.Target("llvm"):
         s, arg_bufs = conv2d_no_batching(N, H, W, CO, CI, KH, KW, strides, padding)
         func = tvm.build(s, arg_bufs)
 

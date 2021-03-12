@@ -122,23 +122,30 @@ class PriorityScheduler(Scheduler):
         self._requests = []
 
     def _schedule(self):
+        print("########################## schedule", len(self._requests), len(self._values))
         while self._requests and self._values:
             value = self._values.pop(0)
+            print("########################## use value", value)
             item = heapq.heappop(self._requests)
             callback = item[-1]
+            print("########################## callback", value[1:])
             if callback(value[1:]):
                 value[0].pending_matchkeys.remove(value[-1])
             else:
                 self._values.append(value)
 
     def put(self, value):
+        print("########################## put value", value)
         self._values.append(value)
         self._schedule()
 
     def request(self, user, priority, callback):
+        print("REQUEST", user, priority)
+        print("before", self._requests)
         with self._lock:
             heapq.heappush(self._requests, (-priority, self._request_cnt, callback))
             self._request_cnt += 1
+        print("after", self._requests)
         self._schedule()
 
     def remove(self, value):
@@ -171,6 +178,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
         self.pending_matchkeys = set()
         self._tracker._connections.add(self)
         self.put_values = []
+        print("************** open for", self._addr)
 
     def name(self):
         """name of connection"""
@@ -213,6 +221,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
                     self._msg_size = struct.unpack("<i", self._data[:4])[0]
                 else:
                     return
+            print("************** message for", self._addr)
             if self._msg_size != 0 and len(self._data) >= self._msg_size + 4:
                 msg = py_str(bytes(self._data[4 : 4 + self._msg_size]))
                 del self._data[: 4 + self._msg_size]
@@ -234,11 +243,9 @@ class TCPEventHandler(tornado_util.TCPHandler):
         """Event handler when json request arrives."""
         code = args[0]
         if code == TrackerCode.PUT:
+            print("%%%%%%% PUT args", args)
             key = args[1]
             port, matchkey = args[2]
-            print("key", key)
-            print("port", port)
-            print("matchkey", matchkey)
             self.pending_matchkeys.add(matchkey)
             # got custom address (from rpc server)
             if len(args) >= 4 and args[3] is not None:
@@ -277,7 +284,10 @@ class TCPEventHandler(tornado_util.TCPHandler):
             else:
                 self.ret_value(TrackerCode.FAIL)
         elif code == TrackerCode.UPDATE_INFO:
+            print("%%%%%%% 1", self._info)
+            print("%%%%%%% 2", args[1])
             self._info.update(args[1])
+            print("%%%%%%% 3", self._info)
             self.ret_value(TrackerCode.SUCCESS)
         elif code == TrackerCode.SUMMARY:
             status = self._tracker.summary()
@@ -287,6 +297,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
             self.close()
 
     def on_close(self):
+        print("************** close", self._addr)
         self._tracker.close(self)
 
     def on_error(self, err):
