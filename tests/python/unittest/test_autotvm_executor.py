@@ -15,11 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 """Test local executor"""
-import pytest
 import time
 
 from tvm.autotvm.measure import LocalExecutor, executor
-from tvm.testing import timeout_job, fast, slow
+
+
+def slow(n):
+    r = 0
+    for i in range(0, n + 1):
+        r += i
+    return r
+
+
+def fast(n):
+    return n * (n + 1) // 2
 
 
 def test_local_measure_async():
@@ -36,7 +45,11 @@ def test_local_measure_async():
         if t1 != 0 and t2 != 0:
             break
     assert t2 < t1, "Expected fast async job to finish first!"
-    assert f1.result() == f2.result()
+    assert f1.get() == f2.get()
+
+
+def timeout_job(n):
+    time.sleep(n * 1.5)
 
 
 def test_timeout():
@@ -47,8 +60,8 @@ def test_timeout():
     f1 = ex.submit(timeout_job, timeout)
     while not f1.done():
         pass
-    with pytest.raises(TimeoutError):
-        f1.result()
+    res = f1.get()
+    assert isinstance(res, executor.TimeoutError)
 
 
 if __name__ == "__main__":

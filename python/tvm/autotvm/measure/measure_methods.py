@@ -110,7 +110,7 @@ class LocalBuilder(Builder):
                 futures.append(ret)
 
             for future in futures:
-                res = future.result()
+                res = future.get()
 
                 if isinstance(res, Exception):
                     # timeout or fleet error, return MeasureResult directly
@@ -313,7 +313,7 @@ class RPCRunner(Runner):
                 futures.append(ret)
 
             for future in futures:
-                res = future.result()
+                res = future.get()
                 if isinstance(res, Exception):  # executor error or timeout
                     results.append(
                         MeasureResult(

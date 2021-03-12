@@ -65,7 +65,7 @@ class Future(object):
         """
         raise NotImplementedError()
 
-    def result(self, timeout=None):
+    def get(self, timeout=None):
         """
         Get the result. This will block until the result is available.
 

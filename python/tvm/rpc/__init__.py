@@ -29,4 +29,3 @@ from .server import Server
 from .client import connect, connect_tracker
 from .client import RPCSession, LocalSession, PopenSession, TrackerSession
 from .minrpc import with_minrpc
-from .tracker import RPCTrackerStart
