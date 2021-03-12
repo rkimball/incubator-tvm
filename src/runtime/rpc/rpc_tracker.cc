@@ -79,27 +79,81 @@ void RPCTracker::ListenLoopEntry() {
     std::string peer_host;
     int peer_port;
     connection.GetPeerAddress(peer_host, peer_port);
-    connection_list_.emplace_back(*this, peer_host, peer_port, connection);
+    connection_list_.emplace_back(this, peer_host, peer_port, connection);
     std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_host << ":" << peer_port
               << std::endl;
   }
 }
 
-void RPCTracker::Request(std::string key, std::string user, int priority, std::function<bool()> send_response) {
-  requests_.emplace_back(user, priority, send_response);
+void RPCTracker::Request(std::string key, std::string user, int priority, response_callback_t response_callback) {
+  if (scheduler_map_.find(key) == scheduler_map_.end()) {
+    // There is no scheduler for this key yet so add one
+    scheduler_map_.insert({key, PriorityScheduler(key)});
+  }
+  scheduler_map_.at(key).Request(user, priority, response_callback);
 }
 
 void RPCTracker::ConnectionInfo::SendResponse(support::TCPSocket& conn, TRACKER_CODE value) {
   std::stringstream ss;
-  ss << "[" << static_cast<int>(value) << "]";
+  ss << static_cast<int>(value);
   std::string status = ss.str();
   int length = status.size();
 
   conn.SendAll(&length, sizeof(length));
+  std::cout << "<< " << status << std::endl;
   conn.SendAll(status.data(), status.size());
 }
 
-RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker& tracker, std::string host, int port,
+RPCTracker::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {
+}
+
+void RPCTracker::PriorityScheduler::Request(std::string user, int priority, response_callback_t response_callback){
+  requests_.emplace_back(user, priority, request_count_++, response_callback);
+  std::sort(requests_.begin(), requests_.end(), [](const RPCTracker::RequestInfo& a, const RPCTracker::RequestInfo& b){
+    return a.priority_ > b.priority_;
+  });
+  std::cout << __FILE__ << " " << __LINE__ << " ######################################" << std::endl;
+  for (auto r : requests_) {
+    std::cout << r << std::endl;
+  }
+  Schedule();
+}
+
+void RPCTracker::PriorityScheduler::Put(ConnectionInfo* value) {
+  values_.push_back(value);
+  Schedule();
+}
+void RPCTracker::PriorityScheduler::Remove(ConnectionInfo* value) {
+  auto it = std::find(values_.begin(), values_.end(), value);
+  if (it != values_.end()) {
+    values_.erase(it);
+    Schedule();
+  }
+}
+void RPCTracker::PriorityScheduler::Summary() {}
+
+void RPCTracker::PriorityScheduler::Schedule() {
+  std::cout << __FILE__ << " " << __LINE__ << " " << requests_.size() << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << values_.size() << std::endl;
+  while (!requests_.empty() && !values_.empty()) {
+    ConnectionInfo* conn = values_[0];
+    RequestInfo &request = requests_[0];
+    if(request.response_callback_(conn)) {
+      std::string key = conn->key_;
+      auto it = find(conn->pending_match_keys_.begin(), conn->pending_match_keys_.end(), key);
+      if (it != conn->pending_match_keys_.end()) {
+        conn->pending_match_keys_.erase(it);
+      }
+    } else {
+      values_.push_back(conn);
+    }
+
+    values_.pop_front();
+    requests_.pop_front();
+  }
+}
+
+RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker* tracker, std::string host, int port,
                                            support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   connection_task_ =
@@ -149,18 +203,19 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         std::cout << __FILE__ << " " << __LINE__ << " PUT" << std::endl;
         std::string key;
         int port;
-        std::string matchkey;
+        std::string match_key;
         reader.Read(&key);
         reader.NextArrayItem();
         reader.BeginArray();
         reader.NextArrayItem();
         reader.Read(&port);
         reader.NextArrayItem();
-        reader.Read(&matchkey);
+        reader.Read(&match_key);
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " port " << port << std::endl;
-        std::cout << __FILE__ << " " << __LINE__ << " matchkey " << matchkey << std::endl;
-        SendResponse(connection_, TRACKER_CODE::SUCCESS);
+        std::cout << __FILE__ << " " << __LINE__ << " matchkey " << match_key << std::endl;
+        // SendResponse(connection_, TRACKER_CODE::SUCCESS);
+        tracker_->Put(key, host_, port, match_key);
         break;
       }
       case TRACKER_CODE::REQUEST: {
@@ -174,8 +229,10 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.NextArrayItem();
         reader.Read(&priority);
         reader.NextArrayItem();
-        tracker_.Request(key, user, priority, [&](){
+        tracker_->Request(key, user, priority, [&](ConnectionInfo* conn){
                   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+                  std::cout << *conn << std::endl;
+                  std::cout << *this << std::endl;
                   SendResponse(connection_, TRACKER_CODE::SUCCESS);
                   return true;});
         std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
@@ -191,6 +248,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.NextObjectItem(&key);
         reader.Read(&value);
         key_ = value;
+        SendResponse(connection_, TRACKER_CODE::SUCCESS);
         std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
         break;
       }

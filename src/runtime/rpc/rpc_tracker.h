@@ -28,6 +28,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <deque>
 
 #include "../../support/socket.h"
 
@@ -70,32 +71,10 @@ class RPCTracker {
 
  private:
 
-  class RequestInfo {
-  public:
-    RequestInfo(std::string user, int priority, std::function<bool()> response_callback)
-    : user_{user}, priority_{priority}, response_callback_{response_callback} {}
-
-    std::string user_;
-    int priority_;
-    std::function<bool()> response_callback_;
-  };
-
-  class PriorityScheduler {
-   public:
-    PriorityScheduler(std::string key);
-    void Put();
-    void Request();
-    void Remove();
-    void Summary();
-
-    std::string key_;
-    size_t request_count_ = 0;
-  };
-
   class ConnectionInfo {
    public:
-    ConnectionInfo(RPCTracker& tracker, std::string host, int port, support::TCPSocket connection);
-    RPCTracker& tracker_;
+    ConnectionInfo(RPCTracker* tracker, std::string host, int port, support::TCPSocket connection);
+    RPCTracker* tracker_;
     std::future<void> connection_task_;
     std::string host_;
     int port_;
@@ -110,10 +89,44 @@ class RPCTracker {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
     return out;
   }
+  using response_callback_t = std::function<bool(ConnectionInfo* conn)>;
+
+  class RequestInfo {
+  public:
+    RequestInfo() = default;
+    RequestInfo(const RequestInfo&) = default;
+    RequestInfo(std::string user, int priority, int request_count, response_callback_t response_callback)
+    : user_{user}, priority_{priority}, request_count_{request_count}, response_callback_{response_callback} {}
+
+  friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
+    out << "RequestInfo(" << info.priority_ << ", " << info.user_ << ", " << info.request_count_ << ")";
+    return out;
+  }
+    std::string user_;
+    int priority_;
+    int request_count_;
+    response_callback_t response_callback_;
+  };
+
+  class PriorityScheduler {
+   public:
+    PriorityScheduler(std::string key);
+    void Put(ConnectionInfo* value);
+    void Request(std::string user, int priority, response_callback_t response_callback);
+    void Remove(ConnectionInfo* value);
+    void Summary();
+
+    void Schedule();
+
+    std::string key_;
+    size_t request_count_ = 0;
+    std::deque<ConnectionInfo*> values_;
+    std::deque<RequestInfo> requests_;
+  };
 
   void ListenLoopEntry();
   void Put(std::string key, std::string address, int port, std::string match_key);
-  void Request(std::string key, std::string user, int priority, std::function<bool()> send_response);
+  void Request(std::string key, std::string user, int priority, response_callback_t send_response);
   std::string Summary();
   void Stop();
 
@@ -126,8 +139,7 @@ class RPCTracker {
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, PriorityScheduler> scheduler_map_;
-  std::vector<ConnectionInfo> connection_list_;
-  std::vector<RequestInfo> requests_;
+  std::deque<ConnectionInfo> connection_list_;
 };
 }  // namespace rpc
 }  // namespace runtime
