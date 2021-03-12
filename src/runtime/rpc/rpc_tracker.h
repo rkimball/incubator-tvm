@@ -24,11 +24,11 @@
 #ifndef TVM_RUNTIME_RPC_RPC_TRACKER_H_
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
+#include <deque>
 #include <future>
 #include <map>
 #include <memory>
 #include <string>
-#include <deque>
 
 #include "../../support/socket.h"
 
@@ -70,8 +70,7 @@ class RPCTracker {
   };
 
  private:
-
-  class ConnectionInfo {
+  class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo> {
    public:
     ConnectionInfo(RPCTracker* tracker, std::string host, int port, support::TCPSocket connection);
     RPCTracker* tracker_;
@@ -83,7 +82,8 @@ class RPCTracker {
     std::vector<std::string> pending_match_keys_;
 
     void ConnectionLoop();
-    void SendResponse(support::TCPSocket& conn, TRACKER_CODE value);
+    void SendStatus(std::string status);
+    void SendResponse(TRACKER_CODE value);
   };
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
@@ -92,41 +92,59 @@ class RPCTracker {
   using response_callback_t = std::function<bool(ConnectionInfo* conn)>;
 
   class RequestInfo {
-  public:
+   public:
     RequestInfo() = default;
     RequestInfo(const RequestInfo&) = default;
-    RequestInfo(std::string user, int priority, int request_count, response_callback_t response_callback)
-    : user_{user}, priority_{priority}, request_count_{request_count}, response_callback_{response_callback} {}
+    RequestInfo(std::string user, int priority, int request_count,
+                std::shared_ptr<ConnectionInfo> conn)
+        : user_{user}, priority_{priority}, request_count_{request_count}, conn_{conn} {}
 
-  friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
-    out << "RequestInfo(" << info.priority_ << ", " << info.user_ << ", " << info.request_count_ << ")";
-    return out;
-  }
+    friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
+      out << "RequestInfo(" << info.priority_ << ", " << info.user_ << ", " << info.request_count_
+          << ")";
+      return out;
+    }
     std::string user_;
     int priority_;
     int request_count_;
-    response_callback_t response_callback_;
+    std::shared_ptr<ConnectionInfo> conn_;
+  };
+
+  class PutInfo {
+   public:
+    PutInfo(std::string address, int port, std::string match_key,
+            std::shared_ptr<ConnectionInfo> conn)
+        : address_{address}, port_{port}, match_key_{match_key}, conn_{conn} {}
+    std::string address_;
+    int port_;
+    std::string match_key_;
+    std::shared_ptr<ConnectionInfo> conn_;
+
+    bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
   };
 
   class PriorityScheduler {
    public:
     PriorityScheduler(std::string key);
-    void Put(ConnectionInfo* value);
-    void Request(std::string user, int priority, response_callback_t response_callback);
-    void Remove(ConnectionInfo* value);
+    void Put(std::string address, int port, std::string match_key,
+             std::shared_ptr<ConnectionInfo> conn);
+    void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
+    void Remove(PutInfo value);
     void Summary();
 
     void Schedule();
 
     std::string key_;
     size_t request_count_ = 0;
-    std::deque<ConnectionInfo*> values_;
+    std::deque<PutInfo> values_;
     std::deque<RequestInfo> requests_;
   };
 
   void ListenLoopEntry();
-  void Put(std::string key, std::string address, int port, std::string match_key);
-  void Request(std::string key, std::string user, int priority, response_callback_t send_response);
+  void Put(std::string key, std::string address, int port, std::string match_key,
+           std::shared_ptr<ConnectionInfo> conn);
+  void Request(std::string key, std::string user, int priority,
+               std::shared_ptr<ConnectionInfo> conn);
   std::string Summary();
   void Stop();
 
@@ -139,7 +157,7 @@ class RPCTracker {
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, PriorityScheduler> scheduler_map_;
-  std::deque<ConnectionInfo> connection_list_;
+  std::deque<std::shared_ptr<ConnectionInfo>> connection_list_;
 };
 }  // namespace rpc
 }  // namespace runtime

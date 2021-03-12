@@ -21,5 +21,4 @@
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
 
-TEST(Tracker, Basic) {
-}
+TEST(Tracker, Basic) {}
