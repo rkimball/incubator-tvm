@@ -30,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <set>
 
 #include "../../support/socket.h"
 
@@ -80,7 +81,7 @@ class RPCTracker {
     int port_;
     support::TCPSocket connection_;
     std::string key_;
-    std::vector<std::string> pending_match_keys_;
+    std::set<std::string> pending_match_keys_;
 
     void ConnectionLoop();
     void SendStatus(std::string status);

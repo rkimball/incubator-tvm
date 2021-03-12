@@ -184,11 +184,14 @@ void RPCTracker::PriorityScheduler::Schedule() {
          << pi.port_ << ", \"" << pi.match_key_ << "\"]]";
       std::string msg = ss.str();
       request.conn_->SendStatus(ss.str());
-      std::string key = pi.conn_->key_;
-      auto it =
-          find(pi.conn_->pending_match_keys_.begin(), pi.conn_->pending_match_keys_.end(), key);
-      if (it != pi.conn_->pending_match_keys_.end()) {
-        pi.conn_->pending_match_keys_.erase(it);
+      std::string key = pi.match_key_;
+      std::cout << "erase match key " << key << std::endl;
+      for (auto d : pi.conn_->pending_match_keys_) {
+        std::cout << "pending match key " << d << std::endl;
+      }
+      pi.conn_->pending_match_keys_.erase(key);
+      for (auto d : pi.conn_->pending_match_keys_) {
+        std::cout << "post pending match key " << d << std::endl;
       }
     } catch (...) {
       values_.push_back(pi);
@@ -217,16 +220,16 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
   while (true) {
     std::string json;
     try {
-      std::cout << __FILE__ << " " << __LINE__ << " peer=" << host_ << ":" << port_ << std::endl;
-      int packet_length = 0;
-      ICHECK_EQ(connection_.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
-      std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
-      std::vector<char> buffer;
-      buffer.reserve(packet_length);
-      ICHECK_EQ(connection_.RecvAll(buffer.data(), packet_length), packet_length);
-      json = std::string(buffer.data(), packet_length);
-      std::cout << __FILE__ << " " << __LINE__ << " " << host_ << ":" << port_ << " " << json
-                << std::endl;
+      json = connection_.RecvBytes();
+      // std::cout << __FILE__ << " " << __LINE__ << " peer=" << host_ << ":" << port_ << std::endl;
+      // int packet_length = 0;
+      // ICHECK_EQ(connection_.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
+      // std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
+      // std::vector<char> buffer;
+      // buffer.reserve(packet_length);
+      // ICHECK_EQ(connection_.RecvAll(buffer.data(), packet_length), packet_length);
+      // json = std::string(buffer.data(), packet_length);
+      std::cout << ">> " << host_ << ":" << port_ << " " << json << std::endl;
     } catch (std::exception err) {
       std::cout << __FILE__ << " " << __LINE__ << " exception " << err.what() << std::endl;
     }
@@ -277,6 +280,8 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
             addr = tmp;
           }
         }
+        std::cout << __FILE__ << " " << __LINE__ << " insert match key " << match_key << std::endl;
+        pending_match_keys_.insert(match_key);
         tracker_->Put(key, addr, port, match_key, shared_from_this());
         SendResponse(TRACKER_CODE::SUCCESS);
         break;
@@ -309,10 +314,6 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
       }
       case TRACKER_CODE::SUMMARY: {
         std::cout << __FILE__ << " " << __LINE__ << " SUMMARY" << std::endl;
-        // [0, {"queue_info": {"abc": {"free": 0, "pending": 0}, "xyz": {"free": 5, "pending": 0},
-        // "xyz1": {"free": 0, "pending": 0}}, "server_info": [{"addr": ["127.0.0.1", 51602], "key":
-        // "server:xyz"}, {"addr": ["127.0.0.1", 51600], "key": "server:abc"}, {"addr":
-        // ["127.0.0.1", 51606], "key": "server:proxy[xyz,xyz1]"}]}]
         std::stringstream ss;
         ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
            << tracker_->Summary() << "}, ";
@@ -331,11 +332,21 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         }
         ss << "]}]";
         SendStatus(ss.str());
-        std::cout << __FILE__ << " " << __LINE__ << " " << ss.str() << std::endl;
         break;
       }
       case TRACKER_CODE::GET_PENDING_MATCHKEYS:
         std::cout << __FILE__ << " " << __LINE__ << " GET_PENDING_MATCHKEYS" << std::endl;
+        std::stringstream ss;
+        ss << "[";
+        int count = 0;
+        for (auto match_key : pending_match_keys_) {
+          if (count++ > 0) {
+            ss << ", ";
+          }
+          ss << "\"" << match_key << "\"";
+        }
+        ss << "]";
+        SendStatus(ss.str());
         break;
     }
   }
