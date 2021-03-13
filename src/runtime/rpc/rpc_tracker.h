@@ -37,6 +37,9 @@
 namespace tvm {
 namespace runtime {
 namespace rpc {
+
+class PutInfo;
+
 class RPCTracker {
  public:
   RPCTracker(std::string host, int port, int port_end, bool silent);
@@ -82,6 +85,7 @@ class RPCTracker {
     support::TCPSocket connection_;
     std::string key_;
     std::set<std::string> pending_match_keys_;
+    std::set<std::shared_ptr<PutInfo>> put_values_;
 
     void ConnectionLoop();
     void SendStatus(std::string status);
@@ -145,11 +149,12 @@ class RPCTracker {
 
   void ListenLoopEntry();
   void Put(std::string key, std::string address, int port, std::string match_key,
-           std::shared_ptr<ConnectionInfo> conn);
+             std::shared_ptr<ConnectionInfo> conn);
   void Request(std::string key, std::string user, int priority,
                std::shared_ptr<ConnectionInfo> conn);
   std::string Summary();
   void Stop();
+  void Close(std::shared_ptr<ConnectionInfo> conn);
 
   std::string host_;
   int port_;
@@ -160,7 +165,7 @@ class RPCTracker {
   std::future<void> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, std::shared_ptr<PriorityScheduler>> scheduler_map_;
-  std::deque<std::shared_ptr<ConnectionInfo>> connection_list_;
+  std::set<std::shared_ptr<ConnectionInfo>> connection_list_;
   std::mutex mutex_;
 };
 }  // namespace rpc

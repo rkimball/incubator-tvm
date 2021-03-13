@@ -65,8 +65,6 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
     rpc_tracker_ = std::make_unique<RPCTracker>(host, port, port_end, silent);
     result = rpc_tracker_->GetPort();
   }
-
-  std::cout << __FILE__ << " " << __LINE__ << " " << result << std::endl;
   return result;
 }
 
@@ -79,15 +77,13 @@ void RPCTracker::ListenLoopEntry() {
     std::string peer_host;
     int peer_port;
     connection.GetPeerAddress(peer_host, peer_port);
-    connection_list_.push_back(
+    connection_list_.insert(
         std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
-    std::cout << __FILE__ << " " << __LINE__ << " peer=" << peer_host << ":" << peer_port
-              << std::endl;
   }
 }
 
 void RPCTracker::Put(std::string key, std::string address, int port, std::string match_key,
-                     std::shared_ptr<ConnectionInfo> conn) {
+             std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
@@ -118,6 +114,20 @@ std::string RPCTracker::Summary() {
   return ss.str();
 }
 
+void RPCTracker::Close(std::shared_ptr<ConnectionInfo> conn) {
+  // std::lock_guard<std::mutex> guard(mutex_);
+  // std::cout << __FILE__ << " " << __LINE__ << " " << *conn << std::endl;
+  // std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
+  // connection_list_.erase(conn);
+  // std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
+  // std::string key = conn->key_;
+  // if (!key.empty()) {
+  //   key = key.substr(key.find(':')+1);
+  //   std::cout << __FILE__ << " " << __LINE__ << " " << conn->key_ << std::endl;
+  //   std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
+  // }
+}
+
 void RPCTracker::ConnectionInfo::SendResponse(TRACKER_CODE value) {
   std::stringstream ss;
   ss << static_cast<int>(value);
@@ -129,7 +139,7 @@ void RPCTracker::ConnectionInfo::SendStatus(std::string status) {
   int length = status.size();
 
   connection_.SendAll(&length, sizeof(length));
-  std::cout << "<< " << host_ << ":" << port_ << " " << status << std::endl;
+  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
   connection_.SendAll(status.data(), status.size());
 }
 
@@ -143,20 +153,16 @@ void RPCTracker::PriorityScheduler::Request(std::string user, int priority,
             [](const RPCTracker::RequestInfo& a, const RPCTracker::RequestInfo& b) {
               return a.priority_ > b.priority_;
             });
-  std::cout << __FILE__ << " " << __LINE__ << " ######################################"
-            << std::endl;
-  for (auto r : requests_) {
-    std::cout << r << std::endl;
-  }
   Schedule();
 }
 
 void RPCTracker::PriorityScheduler::Put(std::string address, int port, std::string match_key,
-                                        std::shared_ptr<ConnectionInfo> conn) {
+             std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   values_.emplace_back(address, port, match_key, conn);
   Schedule();
 }
+
 void RPCTracker::PriorityScheduler::Remove(PutInfo value) {
   std::lock_guard<std::mutex> guard(mutex_);
   auto it = std::find(values_.begin(), values_.end(), value);
@@ -173,8 +179,6 @@ std::string RPCTracker::PriorityScheduler::Summary() {
 }
 
 void RPCTracker::PriorityScheduler::Schedule() {
-  std::cout << __FILE__ << " " << __LINE__ << " " << requests_.size() << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << values_.size() << std::endl;
   while (!requests_.empty() && !values_.empty()) {
     PutInfo& pi = values_[0];
     RequestInfo& request = requests_[0];
@@ -182,17 +186,8 @@ void RPCTracker::PriorityScheduler::Schedule() {
       std::stringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", [\"" << pi.address_ << "\", "
          << pi.port_ << ", \"" << pi.match_key_ << "\"]]";
-      std::string msg = ss.str();
       request.conn_->SendStatus(ss.str());
-      std::string key = pi.match_key_;
-      std::cout << "erase match key " << key << std::endl;
-      for (auto d : pi.conn_->pending_match_keys_) {
-        std::cout << "pending match key " << d << std::endl;
-      }
-      pi.conn_->pending_match_keys_.erase(key);
-      for (auto d : pi.conn_->pending_match_keys_) {
-        std::cout << "post pending match key " << d << std::endl;
-      }
+      pi.conn_->pending_match_keys_.erase(pi.match_key_);
     } catch (...) {
       values_.push_back(pi);
     }
@@ -213,25 +208,30 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
   // Do magic handshake
   int magic = 0;
   ICHECK_EQ(connection_.RecvAll(&magic, sizeof(magic)), sizeof(magic));
-  // ICHECK_EQ(magic, RPC_CODE::RPC_MAGIC);
-  std::cout << __FILE__ << " " << __LINE__ << " magic=" << magic << std::endl;
+  ICHECK_EQ(magic, static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC));
   connection_.SendAll(&magic, sizeof(magic));
 
   while (true) {
     std::string json;
+    bool fail = false;
     try {
-      json = connection_.RecvBytes();
-      // std::cout << __FILE__ << " " << __LINE__ << " peer=" << host_ << ":" << port_ << std::endl;
-      // int packet_length = 0;
-      // ICHECK_EQ(connection_.RecvAll(&packet_length, sizeof(packet_length)), sizeof(packet_length));
-      // std::cout << __FILE__ << " " << __LINE__ << " packet_length=" << packet_length << std::endl;
-      // std::vector<char> buffer;
-      // buffer.reserve(packet_length);
-      // ICHECK_EQ(connection_.RecvAll(buffer.data(), packet_length), packet_length);
-      // json = std::string(buffer.data(), packet_length);
-      std::cout << ">> " << host_ << ":" << port_ << " " << json << std::endl;
+      int length = 0;
+      if (connection_.RecvAll(&length, sizeof(length)) != sizeof(length)) {
+        fail = true;
+      }
+      json.resize(length);
+      if(!fail && connection_.RecvAll(&json[0], length) != length) {
+        fail = true;
+      }
+      std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
     } catch (std::exception err) {
-      std::cout << __FILE__ << " " << __LINE__ << " exception " << err.what() << std::endl;
+      fail = true;
+      // This means that the connection has gone down. Tell the tracker to remove it.
+    }
+
+    if (fail) {
+      tracker_->Close(shared_from_this());
+      return;
     }
 
     std::istringstream is(json);
@@ -243,10 +243,8 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
     reader.NextArrayItem();
     switch (static_cast<TRACKER_CODE>(tmp)) {
       case TRACKER_CODE::FAIL:
-        std::cout << __FILE__ << " " << __LINE__ << " FAIL" << std::endl;
         break;
       case TRACKER_CODE::SUCCESS:
-        std::cout << __FILE__ << " " << __LINE__ << " SUCCESS" << std::endl;
         break;
       case TRACKER_CODE::PING:
         std::cout << __FILE__ << " " << __LINE__ << " PING" << std::endl;
@@ -255,7 +253,6 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         std::cout << __FILE__ << " " << __LINE__ << " STOP" << std::endl;
         break;
       case TRACKER_CODE::PUT: {
-        std::cout << __FILE__ << " " << __LINE__ << " PUT" << std::endl;
         std::string key;
         int port;
         std::string match_key;
@@ -280,14 +277,14 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
             addr = tmp;
           }
         }
-        std::cout << __FILE__ << " " << __LINE__ << " insert match key " << match_key << std::endl;
         pending_match_keys_.insert(match_key);
+        // auto put_info = std::make_shared<PutInfo>(addr, port, match_key, shared_from_this());
         tracker_->Put(key, addr, port, match_key, shared_from_this());
+        // put_values_.insert(put_info);
         SendResponse(TRACKER_CODE::SUCCESS);
         break;
       }
       case TRACKER_CODE::REQUEST: {
-        std::cout << __FILE__ << " " << __LINE__ << " REQUEST" << std::endl;
         std::string key;
         std::string user;
         int priority;
@@ -301,7 +298,6 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         break;
       }
       case TRACKER_CODE::UPDATE_INFO: {
-        std::cout << __FILE__ << " " << __LINE__ << " UPDATE_INFO" << std::endl;
         std::string key;
         std::string value;
         reader.BeginObject();
@@ -309,19 +305,15 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.Read(&value);
         key_ = value;
         SendResponse(TRACKER_CODE::SUCCESS);
-        std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
         break;
       }
       case TRACKER_CODE::SUMMARY: {
-        std::cout << __FILE__ << " " << __LINE__ << " SUMMARY" << std::endl;
         std::stringstream ss;
         ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
            << tracker_->Summary() << "}, ";
         ss << "\"server_info\": [";
         int count = 0;
         for (auto conn : tracker_->connection_list_) {
-          std::cout << __FILE__ << " " << __LINE__ << " *********** key " << conn->key_
-                    << std::endl;
           if (conn->key_.substr(0, 6) == "server") {
             if (count++ > 0) {
               ss << ", ";
@@ -335,7 +327,6 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         break;
       }
       case TRACKER_CODE::GET_PENDING_MATCHKEYS:
-        std::cout << __FILE__ << " " << __LINE__ << " GET_PENDING_MATCHKEYS" << std::endl;
         std::stringstream ss;
         ss << "[";
         int count = 0;
