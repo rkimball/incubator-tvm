@@ -115,11 +115,11 @@ std::string RPCTracker::Summary() {
 }
 
 void RPCTracker::Close(std::shared_ptr<ConnectionInfo> conn) {
-  // std::lock_guard<std::mutex> guard(mutex_);
-  // std::cout << __FILE__ << " " << __LINE__ << " " << *conn << std::endl;
-  // std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
+  std::lock_guard<std::mutex> guard(mutex_);
+  std::cout << __FILE__ << " " << __LINE__ << " " << *conn << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
   // connection_list_.erase(conn);
-  // std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
   // std::string key = conn->key_;
   // if (!key.empty()) {
   //   key = key.substr(key.find(':')+1);
@@ -204,11 +204,31 @@ RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker* tracker, std::string host
       std::async(std::launch::async, &RPCTracker::ConnectionInfo::ConnectionLoop, this);
 }
 
+int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
+  char* buf = static_cast<char*>(data);
+  size_t remainder = length;
+  while (remainder > 0) {
+    int read_length = connection_.Recv(buf, length);
+    if (read_length == -1) {
+      return -1;
+    }
+    remainder -= read_length;
+    buf += read_length;
+  }
+  return length;
+}
+
 void RPCTracker::ConnectionInfo::ConnectionLoop() {
   // Do magic handshake
   int magic = 0;
-  ICHECK_EQ(connection_.RecvAll(&magic, sizeof(magic)), sizeof(magic));
-  ICHECK_EQ(magic, static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC));
+  if (RecvAll(&magic, sizeof(magic)) == -1) {
+    // Error setting up connection
+    return;
+  }
+  if (magic != static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC)) {
+    // Not a tracker connection so close connection and exit
+    return;
+  }
   connection_.SendAll(&magic, sizeof(magic));
 
   while (true) {
@@ -216,11 +236,11 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
     bool fail = false;
     try {
       int length = 0;
-      if (connection_.RecvAll(&length, sizeof(length)) != sizeof(length)) {
+      if (RecvAll(&length, sizeof(length)) != sizeof(length)) {
         fail = true;
       }
       json.resize(length);
-      if(!fail && connection_.RecvAll(&json[0], length) != length) {
+      if(!fail && RecvAll(&json[0], length) != length) {
         fail = true;
       }
       std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
