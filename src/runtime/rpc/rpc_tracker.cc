@@ -43,6 +43,19 @@ int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
   return result;
 }
 
+void RPCTrackerStop() {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerStop" << std::endl;
+  RPCTracker* tracker = RPCTracker::GetTracker();
+  tracker->Stop();
+}
+
+void RPCTrackerTerminate() {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerTerminate" << std::endl;
+  RPCTracker* tracker = RPCTracker::GetTracker();
+  tracker->Terminate();
+}
+
+
 RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
     : host_{host}, port_{port}, port_end_{port_end}, silent_{silent} {
   listen_sock_.Create();
@@ -76,6 +89,18 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
   return result;
 }
 
+void RPCTracker::Stop() {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCTracker::Stop" << std::endl;
+  // For now call Terminate
+  Terminate();
+}
+
+void RPCTracker::Terminate() {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCTracker::Terminate" << std::endl;
+  // Delete the RPCTracker object to terminate
+  rpc_tracker_ = nullptr;
+}
+
 /*!
  * \brief ListenLoopProc The listen process.
  */
@@ -99,7 +124,15 @@ void RPCTracker::Put(std::string key, std::string address, int port, std::string
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
   }
-  scheduler_map_.at(key)->Put(address, port, match_key, conn);
+  auto it = scheduler_map_.find(key);
+  if (it != scheduler_map_.end()) {
+    it->second->Put(address, port, match_key, conn);
+  } else {
+    std::cout << __FILE__ << " " << __LINE__ << " put error" << key << std::endl;
+    for (auto p : scheduler_map_) {
+      std::cout << __FILE__ << " " << __LINE__ << " " << p.first << std::endl;
+    }
+  }
 }
 
 void RPCTracker::Request(std::string key, std::string user, int priority,
@@ -109,7 +142,15 @@ void RPCTracker::Request(std::string key, std::string user, int priority,
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
   }
-  scheduler_map_.at(key)->Request(user, priority, conn);
+  auto it = scheduler_map_.find(key);
+  if (it != scheduler_map_.end()) {
+    it->second->Request(user, priority, conn);
+  } else {
+    std::cout << __FILE__ << " " << __LINE__ << " request error" << key << std::endl;
+    for (auto p : scheduler_map_) {
+      std::cout << __FILE__ << " " << __LINE__ << " " << p.first << std::endl;
+    }
+  }
 }
 
 std::string RPCTracker::Summary() {
@@ -189,6 +230,7 @@ std::string RPCTracker::PriorityScheduler::Summary() {
 }
 
 void RPCTracker::PriorityScheduler::Schedule() {
+  std::lock_guard<std::mutex> guard(mutex_);
   while (!requests_.empty() && !values_.empty()) {
     PutInfo& pi = values_[0];
     RequestInfo& request = requests_[0];
@@ -279,22 +321,11 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
       case TRACKER_CODE::SUCCESS:
         break;
       case TRACKER_CODE::PING:
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << __FILE__ << " " << __LINE__ << " PING" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
+        SendResponse(TRACKER_CODE::SUCCESS);
         break;
       case TRACKER_CODE::STOP:
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << __FILE__ << " " << __LINE__ << " STOP" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
-        std::cout << "**********************************************************************************" << std::endl;
+        SendResponse(TRACKER_CODE::SUCCESS);
+        tracker_->Stop();
         break;
       case TRACKER_CODE::PUT: {
         std::string key;
@@ -392,5 +423,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
 
 }  // namespace rpc
 TVM_REGISTER_GLOBAL("rpc.RPCTrackerStart").set_body_typed(tvm::runtime::rpc::RPCTrackerEntry);
+TVM_REGISTER_GLOBAL("rpc.RPCTrackerStop").set_body_typed(tvm::runtime::rpc::RPCTrackerStop);
+TVM_REGISTER_GLOBAL("rpc.RPCTrackerTerminate").set_body_typed(tvm::runtime::rpc::RPCTrackerTerminate);
 }  // namespace runtime
 }  // namespace tvm

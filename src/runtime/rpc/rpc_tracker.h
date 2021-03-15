@@ -41,11 +41,26 @@ namespace rpc {
 
 class PutInfo;
 
+/*!
+ * \brief The interface of all remote RPC sessions.
+ *
+ *  It contains all the necessary interface to implement
+ *  remote call and resource management.
+ *
+ *  The interface is designed to allow easy proxy-chaining
+ *  by forward requests to another RPCSession.
+ */
+
+/*!
+ * \brief The main RPC Tracker class.
+ */
 class RPCTracker {
  public:
   RPCTracker(std::string host, int port, int port_end, bool silent);
   ~RPCTracker();
   static int Start(std::string host, int port, int port_end, bool silent);
+  void Stop();
+  void Terminate();
 
   static RPCTracker* GetTracker();
   int GetPort() const;
@@ -76,6 +91,9 @@ class RPCTracker {
   };
 
  private:
+  /*!
+   * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
+   */
   class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo> {
    public:
     ConnectionInfo(RPCTracker* tracker, std::string host, int port, support::TCPSocket connection);
@@ -92,13 +110,16 @@ class RPCTracker {
     void SendStatus(std::string status);
     void SendResponse(TRACKER_CODE value);
     int RecvAll(void* data, size_t length);
-};
+  };
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
     return out;
   }
   using response_callback_t = std::function<bool(ConnectionInfo* conn)>;
 
+  /*!
+   * \brief The RequestInfo class tracking information from REQUEST messages.
+   */
   class RequestInfo {
    public:
     RequestInfo() = default;
@@ -118,6 +139,9 @@ class RPCTracker {
     std::shared_ptr<ConnectionInfo> conn_;
   };
 
+  /*!
+   * \brief The PutInfo class tracks the information from PUT messages.
+   */
   class PutInfo {
    public:
     PutInfo(std::string address, int port, std::string match_key,
@@ -131,6 +155,12 @@ class RPCTracker {
     bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
   };
 
+  /*!
+   * \brief The PriorityScheduler handles request messages in a priority order.
+   *
+   * The priority is passed in the REQUEST message with higher numeric values being processed
+   * first.
+   */
   class PriorityScheduler {
    public:
     PriorityScheduler(std::string key);
@@ -149,25 +179,73 @@ class RPCTracker {
     std::deque<RequestInfo> requests_;
   };
 
+  /*!
+   * \brief This method is the loop over the listen call.
+   *
+   * Each new connection is passed to it's own new thread for processing. After spawning
+   * this new connection thread this method returns to listen for new connections.
+   */
   void ListenLoopEntry();
+
   void Put(std::string key, std::string address, int port, std::string match_key,
              std::shared_ptr<ConnectionInfo> conn);
   void Request(std::string key, std::string user, int priority,
                std::shared_ptr<ConnectionInfo> conn);
   std::string Summary();
-  void Stop();
   void Close(std::shared_ptr<ConnectionInfo> conn);
 
+  /*!
+   * \brief Contains the IP address of the host where the RPC Tracker is instantiated.
+   */
   std::string host_;
+
+  /*!
+   * \brief Contains the starting port the RPC Tracker uses to start searching a port.
+   */
   int port_;
-  int my_port_;
+
+  /*!
+   * \brief Contains the ending port the RPC Tracker uses to start searching a port.
+   */
   int port_end_;
+
+  /*!
+   * \brief The port in use by the RPC Tracker.
+   */
+  int my_port_;
+
   bool silent_;
+
+  /*!
+   * \brief The port on which the RPC Tracker is listening.
+   */
   support::TCPSocket listen_sock_;
+
+  /*!
+   * \brief The thread running the Tracker's listen loop.
+   */
   std::unique_ptr<std::thread> listener_task_;
+
   static std::unique_ptr<RPCTracker> rpc_tracker_;
+
+  /*!
+   * \brief The map of `key` to PriorityScheduler.
+   *
+   * Each key has a unique scheduler for that key.
+   */
   std::map<std::string, std::shared_ptr<PriorityScheduler>> scheduler_map_;
+
+  /*!
+   * \brief The collection of connections currently active.
+   */
   std::set<std::shared_ptr<ConnectionInfo>> connection_list_;
+
+  /*!
+   * \brief The mutex used to lock access to the RPCTracker.
+   *
+   * Since connections run in separate threads and interact with the Tracker we need
+   * a mutex to keep things safe.
+   */
   std::mutex mutex_;
 };
 }  // namespace rpc
