@@ -25,12 +25,13 @@
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
 #include <deque>
-#include <future>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <set>
+#include <thread>
+#include <functional>
 
 #include "../../support/socket.h"
 
@@ -79,7 +80,7 @@ class RPCTracker {
    public:
     ConnectionInfo(RPCTracker* tracker, std::string host, int port, support::TCPSocket connection);
     RPCTracker* tracker_;
-    std::future<void> connection_task_;
+    std::thread connection_task_;
     std::string host_;
     int port_;
     support::TCPSocket connection_;
@@ -91,7 +92,8 @@ class RPCTracker {
     void SendStatus(std::string status);
     void SendResponse(TRACKER_CODE value);
     int RecvAll(void* data, size_t length);
-  };
+    void WaitForTaskCompletion();
+};
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
     return out;
@@ -163,7 +165,7 @@ class RPCTracker {
   int port_end_;
   bool silent_;
   support::TCPSocket listen_sock_;
-  std::future<void> listener_task_;
+  std::thread listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, std::shared_ptr<PriorityScheduler>> scheduler_map_;
   std::set<std::shared_ptr<ConnectionInfo>> connection_list_;

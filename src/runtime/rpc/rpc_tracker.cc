@@ -49,7 +49,8 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
   listen_sock_.Listen(1);
-  listener_task_ = std::async(std::launch::async, &RPCTracker::ListenLoopEntry, this);
+  listener_task_ = std::thread(&RPCTracker::ListenLoopEntry, this);
+  listener_task_.detach();
 }
 
 RPCTracker::~RPCTracker() { std::cout << __FILE__ << " " << __LINE__ << std::endl; }
@@ -74,9 +75,11 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
 void RPCTracker::ListenLoopEntry() {
   while (true) {
     support::TCPSocket connection = listen_sock_.Accept();
+    // connection.SetNonBlock(false);
     std::string peer_host;
     int peer_port;
     connection.GetPeerAddress(peer_host, peer_port);
+    std::lock_guard<std::mutex> guard(mutex_);
     connection_list_.insert(
         std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
   }
@@ -115,10 +118,21 @@ std::string RPCTracker::Summary() {
 }
 
 void RPCTracker::Close(std::shared_ptr<ConnectionInfo> conn) {
+  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
+  conn->WaitForTaskCompletion();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
   std::cout << __FILE__ << " " << __LINE__ << " " << *conn << std::endl;
   std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
-  // connection_list_.erase(conn);
+  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
+  for (auto c : connection_list_) {
+    std::cout << __FILE__ << " " << __LINE__ << " " << *c << std::endl;
+  }
+  connection_list_.erase(conn);
+  for (auto c : connection_list_) {
+    std::cout << __FILE__ << " " << __LINE__ << " " << *c << std::endl;
+  }
+  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
   std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
   // std::string key = conn->key_;
   // if (!key.empty()) {
@@ -201,15 +215,23 @@ RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker* tracker, std::string host
                                            support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   connection_task_ =
-      std::async(std::launch::async, &RPCTracker::ConnectionInfo::ConnectionLoop, this);
+      std::thread(&RPCTracker::ConnectionInfo::ConnectionLoop, this);
+  connection_task_.detach();
+}
+
+void RPCTracker::ConnectionInfo::WaitForTaskCompletion() {
+  std::cout << __FILE__ << " " << __LINE__  << std::endl;
+  // connection_task_.get();
+  std::cout << __FILE__ << " " << __LINE__  << std::endl;
 }
 
 int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
   char* buf = static_cast<char*>(data);
   size_t remainder = length;
   while (remainder > 0) {
-    int read_length = connection_.Recv(buf, length);
-    if (read_length == -1) {
+    int read_length = connection_.Recv(buf, remainder);
+    std::cout << __FILE__ << " " << __LINE__ << " remainder=" << remainder << ", read_length=" << read_length << std::endl;
+    if (read_length <= 0) {
       return -1;
     }
     remainder -= read_length;
@@ -250,7 +272,10 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
     }
 
     if (fail) {
-      tracker_->Close(shared_from_this());
+      auto tmp_p = shared_from_this();
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      tracker_->Close(tmp_p);
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       return;
     }
 
@@ -333,13 +358,16 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
            << tracker_->Summary() << "}, ";
         ss << "\"server_info\": [";
         int count = 0;
-        for (auto conn : tracker_->connection_list_) {
-          if (conn->key_.substr(0, 6) == "server") {
-            if (count++ > 0) {
-              ss << ", ";
+        {
+          std::lock_guard<std::mutex> guard(tracker_->mutex_);
+          for (auto conn : tracker_->connection_list_) {
+            if (conn->key_.substr(0, 6) == "server") {
+              if (count++ > 0) {
+                ss << ", ";
+              }
+              ss << "{\"addr\": [\"" << conn->host_ << "\", " << conn->port_ << "], \"key\": \""
+                << conn->key_ << "\"}";
             }
-            ss << "{\"addr\": [\"" << conn->host_ << "\", " << conn->port_ << "], \"key\": \""
-               << conn->key_ << "\"}";
           }
         }
         ss << "]}]";
