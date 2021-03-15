@@ -92,7 +92,6 @@ class RPCTracker {
     void SendStatus(std::string status);
     void SendResponse(TRACKER_CODE value);
     int RecvAll(void* data, size_t length);
-    void WaitForTaskCompletion();
 };
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
@@ -165,7 +164,7 @@ class RPCTracker {
   int port_end_;
   bool silent_;
   support::TCPSocket listen_sock_;
-  std::thread listener_task_;
+  std::unique_ptr<std::thread> listener_task_;
   static std::unique_ptr<RPCTracker> rpc_tracker_;
   std::map<std::string, std::shared_ptr<PriorityScheduler>> scheduler_map_;
   std::set<std::shared_ptr<ConnectionInfo>> connection_list_;

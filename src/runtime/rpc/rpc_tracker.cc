@@ -49,11 +49,18 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
   listen_sock_.Listen(1);
-  listener_task_ = std::thread(&RPCTracker::ListenLoopEntry, this);
-  listener_task_.detach();
+  listener_task_ = std::make_unique<std::thread>(&RPCTracker::ListenLoopEntry, this);
+  listener_task_->detach();
 }
 
-RPCTracker::~RPCTracker() { std::cout << __FILE__ << " " << __LINE__ << std::endl; }
+RPCTracker::~RPCTracker() {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  if (listener_task_->joinable()) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  }
+  listener_task_ = nullptr;
+  }
 
 RPCTracker* RPCTracker::GetTracker() { return rpc_tracker_.get(); }
 
@@ -118,28 +125,17 @@ std::string RPCTracker::Summary() {
 }
 
 void RPCTracker::Close(std::shared_ptr<ConnectionInfo> conn) {
-  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
-  conn->WaitForTaskCompletion();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
-  std::cout << __FILE__ << " " << __LINE__ << " " << *conn << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
-  for (auto c : connection_list_) {
-    std::cout << __FILE__ << " " << __LINE__ << " " << *c << std::endl;
-  }
   connection_list_.erase(conn);
-  for (auto c : connection_list_) {
-    std::cout << __FILE__ << " " << __LINE__ << " " << *c << std::endl;
+  std::string key = conn->key_;
+  if (!key.empty()) {
+    // "server:rasp3b" -> "rasp3b"
+    auto pos = key.find(':');
+    if (pos != std::string::npos) {
+      key = key.substr(pos+1);
+    }
+    // TODO: rkimball remove values from scheduler_map
   }
-  std::cout << __FILE__ << " " << __LINE__ << " " << conn.use_count() << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << connection_list_.size() << std::endl;
-  // std::string key = conn->key_;
-  // if (!key.empty()) {
-  //   key = key.substr(key.find(':')+1);
-  //   std::cout << __FILE__ << " " << __LINE__ << " " << conn->key_ << std::endl;
-  //   std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
-  // }
 }
 
 void RPCTracker::ConnectionInfo::SendResponse(TRACKER_CODE value) {
@@ -219,18 +215,11 @@ RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker* tracker, std::string host
   connection_task_.detach();
 }
 
-void RPCTracker::ConnectionInfo::WaitForTaskCompletion() {
-  std::cout << __FILE__ << " " << __LINE__  << std::endl;
-  // connection_task_.get();
-  std::cout << __FILE__ << " " << __LINE__  << std::endl;
-}
-
 int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
   char* buf = static_cast<char*>(data);
   size_t remainder = length;
   while (remainder > 0) {
     int read_length = connection_.Recv(buf, remainder);
-    std::cout << __FILE__ << " " << __LINE__ << " remainder=" << remainder << ", read_length=" << read_length << std::endl;
     if (read_length <= 0) {
       return -1;
     }
@@ -273,9 +262,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
 
     if (fail) {
       auto tmp_p = shared_from_this();
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       tracker_->Close(tmp_p);
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       return;
     }
 
@@ -292,10 +279,22 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
       case TRACKER_CODE::SUCCESS:
         break;
       case TRACKER_CODE::PING:
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " PING" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
         break;
       case TRACKER_CODE::STOP:
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
         std::cout << __FILE__ << " " << __LINE__ << " STOP" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
+        std::cout << "**********************************************************************************" << std::endl;
         break;
       case TRACKER_CODE::PUT: {
         std::string key;
