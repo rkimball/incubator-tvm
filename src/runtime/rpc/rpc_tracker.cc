@@ -230,7 +230,6 @@ std::string RPCTracker::PriorityScheduler::Summary() {
 }
 
 void RPCTracker::PriorityScheduler::Schedule() {
-  std::lock_guard<std::mutex> guard(mutex_);
   while (!requests_.empty() && !values_.empty()) {
     PutInfo& pi = values_[0];
     RequestInfo& request = requests_[0];
