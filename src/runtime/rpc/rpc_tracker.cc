@@ -33,14 +33,8 @@ namespace rpc {
 
 std::unique_ptr<RPCTracker> RPCTracker::rpc_tracker_ = nullptr;
 
-int RPCTrackerEntry(std::string host, int port, int port_end, bool silent) {
-  int result = -1;
-  RPCTracker* tracker = RPCTracker::GetTracker();
-  if (!tracker) {
-    // Tracker is not currently running so start it
-    result = RPCTracker::Start(host, port, port_end, silent);
-  }
-  return result;
+int RPCTrackerStart(std::string host, int port, int port_end, bool silent) {
+  return RPCTracker::Start(host, port, port_end, silent);
 }
 
 void RPCTrackerStop() {
@@ -84,8 +78,8 @@ int RPCTracker::Start(std::string host, int port, int port_end, bool silent) {
   int result = -1;
   if (!tracker) {
     rpc_tracker_ = std::make_unique<RPCTracker>(host, port, port_end, silent);
-    result = rpc_tracker_->GetPort();
   }
+  result = rpc_tracker_->GetPort();
   return result;
 }
 
@@ -256,6 +250,11 @@ RPCTracker::ConnectionInfo::ConnectionInfo(RPCTracker* tracker, std::string host
   connection_task_.detach();
 }
 
+void RPCTracker::ConnectionInfo::Close() {
+  std::cout << __FILE__ << " " << __LINE__ << " ****************** RPCTracker::ConnectionInfo::Close\n";
+  connection_.Close();
+}
+
 int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
   char* buf = static_cast<char*>(data);
   size_t remainder = length;
@@ -295,7 +294,6 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
       if(!fail && RecvAll(&json[0], length) != length) {
         fail = true;
       }
-      std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
     } catch (std::exception err) {
       fail = true;
       // This means that the connection has gone down. Tell the tracker to remove it.
@@ -304,8 +302,11 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
     if (fail) {
       auto tmp_p = shared_from_this();
       tracker_->Close(tmp_p);
+      Close();
       return;
     }
+
+    std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
@@ -421,7 +422,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
 }
 
 }  // namespace rpc
-TVM_REGISTER_GLOBAL("rpc.RPCTrackerStart").set_body_typed(tvm::runtime::rpc::RPCTrackerEntry);
+TVM_REGISTER_GLOBAL("rpc.RPCTrackerStart").set_body_typed(tvm::runtime::rpc::RPCTrackerStart);
 TVM_REGISTER_GLOBAL("rpc.RPCTrackerStop").set_body_typed(tvm::runtime::rpc::RPCTrackerStop);
 TVM_REGISTER_GLOBAL("rpc.RPCTrackerTerminate").set_body_typed(tvm::runtime::rpc::RPCTrackerTerminate);
 }  // namespace runtime

@@ -110,6 +110,7 @@ class RPCTracker {
     void SendStatus(std::string status);
     void SendResponse(TRACKER_CODE value);
     int RecvAll(void* data, size_t length);
+    void Close();
   };
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
