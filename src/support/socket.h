@@ -325,6 +325,15 @@ class Socket {
       Error("Socket::Close double close the socket or close without create");
     }
   }
+  void Shutdown() {
+    if (sockfd != INVALID_SOCKET) {
+#ifdef _WIN32
+      shutdown(sockfd, SD_BOTH);
+#else
+      shutdown(sockfd, SHUT_RDWR);
+#endif
+    }
+  }
   /*!
    * \return last error of socket 2operation
    */
