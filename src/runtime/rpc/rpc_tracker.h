@@ -96,9 +96,9 @@ class RPCTracker {
    */
   class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo> {
    public:
-    ConnectionInfo(std::weak_ptr<RPCTracker> tracker, std::string host, int port, support::TCPSocket connection);
+    ConnectionInfo(std::shared_ptr<RPCTracker> tracker, std::string host, int port, support::TCPSocket connection);
     ~ConnectionInfo();
-    std::weak_ptr<RPCTracker> tracker_;
+    std::shared_ptr<RPCTracker> tracker_;
     std::thread connection_task_;
     std::string host_;
     int port_;

@@ -64,17 +64,13 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
 
 RPCTracker::~RPCTracker() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   // First shutdown the listen socket so we don't get any new connections
   listen_sock_.Shutdown();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   listen_sock_.Close();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   if (listener_task_->joinable()) {
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
     listener_task_->join();
   }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   active_ = false;
   listener_task_ = nullptr;
   std::cout << __FILE__ << " " << __LINE__ << " end of ~RPCTracker()" << std::endl;
@@ -286,7 +282,7 @@ void RPCTracker::PriorityScheduler::Schedule() {
   }
 }
 
-RPCTracker::ConnectionInfo::ConnectionInfo(std::weak_ptr<RPCTracker> tracker, std::string host, int port,
+RPCTracker::ConnectionInfo::ConnectionInfo(std::shared_ptr<RPCTracker> tracker, std::string host, int port,
                                            support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   std::cout << __FILE__ << " " << __LINE__ << " ctor " << host_ << ":" << port_ << std::endl;
@@ -298,11 +294,8 @@ RPCTracker::ConnectionInfo::ConnectionInfo(std::weak_ptr<RPCTracker> tracker, st
 RPCTracker::ConnectionInfo::~ConnectionInfo(){
   std::cout << __FILE__ << " " << __LINE__ << " dtor " << host_ << ":" << port_ << std::endl;
   if (!connection_.IsClosed()) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     connection_.Shutdown();
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     connection_.Close();
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
 }
 
@@ -343,7 +336,7 @@ int RPCTracker::ConnectionInfo::SendAll(const void* data, size_t length) {
 
 void RPCTracker::ConnectionInfo::Fail() {
   Close();
-  if (auto tracker = tracker_.lock()) {
+  if (auto tracker = tracker_) {
     std::lock_guard<std::mutex> guard(tracker->mutex_);
     tracker->connection_list_.erase(shared_from_this());
   }
@@ -423,7 +416,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
           return;
         }
 
-        if (auto tracker = tracker_.lock()) {
+        if (auto tracker = tracker_) {
           tracker->Stop();
         }
         break;
@@ -454,7 +447,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         }
         pending_match_keys_.insert(match_key);
         // auto put_info = std::make_shared<PutInfo>(addr, port, match_key, shared_from_this());
-        if (auto tracker = tracker_.lock()) {
+        if (auto tracker = tracker_) {
           tracker->Put(key, addr, port, match_key, shared_from_this());
         }
         // put_values_.insert(put_info);
@@ -476,7 +469,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.NextArrayItem();
         reader.Read(&priority);
         reader.NextArrayItem();
-        if (auto tracker = tracker_.lock()) {
+        if (auto tracker = tracker_) {
           tracker->Request(key, user, priority, shared_from_this());
         }
         break;
@@ -497,7 +490,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         break;
       }
       case TRACKER_CODE::SUMMARY: {
-        if (auto tracker = tracker_.lock()) {
+        if (auto tracker = tracker_) {
           std::stringstream ss;
           ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
             << tracker->Summary() << "}, ";
