@@ -77,7 +77,7 @@ RPCTracker::~RPCTracker() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
   active_ = false;
   listener_task_ = nullptr;
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " end of ~RPCTracker()" << std::endl;
 
   // Second clear out any open connections since those have no tracker
   std::lock_guard<std::mutex> guard(mutex_);
@@ -225,7 +225,7 @@ int RPCTracker::ConnectionInfo::SendStatus(std::string status) {
   if (SendAll(&length, sizeof(length)) != sizeof(length)) {
     fail = true;
   }
-  // std::cout << host_ << ":" << port_ << " << " << status << std::endl;
+  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
   if (!fail && SendAll(status.data(), status.size()) != length) {
     fail = true;
   }
@@ -289,18 +289,14 @@ void RPCTracker::PriorityScheduler::Schedule() {
 RPCTracker::ConnectionInfo::ConnectionInfo(std::weak_ptr<RPCTracker> tracker, std::string host, int port,
                                            support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
-  std::cout << __FILE__ << " " << __LINE__ << " " << static_cast<void*>(this) << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " ctor " << host_ << ":" << port_ << std::endl;
   connection_task_ =
       std::thread(&RPCTracker::ConnectionInfo::ConnectionLoop, this);
   connection_task_.detach();
 }
 
 RPCTracker::ConnectionInfo::~ConnectionInfo(){
-  std::cout << __FILE__ << " " << __LINE__ << " " << static_cast<void*>(this) << std::endl;
-}
-
-void RPCTracker::ConnectionInfo::Close() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " dtor " << host_ << ":" << port_ << std::endl;
   if (!connection_.IsClosed()) {
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
     connection_.Shutdown();
@@ -308,6 +304,9 @@ void RPCTracker::ConnectionInfo::Close() {
     connection_.Close();
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
   }
+}
+
+void RPCTracker::ConnectionInfo::Close() {
 }
 
 int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
@@ -325,6 +324,10 @@ int RPCTracker::ConnectionInfo::RecvAll(void* data, size_t length) {
 }
 
 int RPCTracker::ConnectionInfo::SendAll(const void* data, size_t length) {
+  if (connection_.IsClosed() ) {
+    std::cout << __FILE__ << " " << __LINE__ << " send while connection closed" << std::endl;
+    return -1;
+  }
   const char* buf = static_cast<const char*>(data);
   size_t remainder = length;
   while (remainder > 0) {
@@ -390,7 +393,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
       return;
     }
 
-    // std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
+    std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
@@ -457,7 +460,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         // put_values_.insert(put_info);
         if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
-          std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
+          std::cout << __FILE__ << " " << __LINE__ << " error sending response " << host_ << ":" << port_ << std::endl;
           Fail();
           return;
         }

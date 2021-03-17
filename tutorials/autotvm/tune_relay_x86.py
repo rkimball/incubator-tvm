@@ -158,6 +158,7 @@ def tune_kernels(
         elif tuner == "ga":
             tuner_obj = GATuner(task, pop_size=50)
         elif tuner == "random":
+            print("RandomTuner")
             tuner_obj = RandomTuner(task)
         elif tuner == "gridsearch":
             tuner_obj = GridSearchTuner(task)
