@@ -96,8 +96,9 @@ class RPCTracker {
    */
   class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo> {
    public:
-    ConnectionInfo(RPCTracker* tracker, std::string host, int port, support::TCPSocket connection);
-    RPCTracker* tracker_;
+    ConnectionInfo(std::weak_ptr<RPCTracker> tracker, std::string host, int port, support::TCPSocket connection);
+    ~ConnectionInfo();
+    std::weak_ptr<RPCTracker> tracker_;
     std::thread connection_task_;
     std::string host_;
     int port_;
@@ -107,10 +108,13 @@ class RPCTracker {
     std::set<std::shared_ptr<PutInfo>> put_values_;
 
     void ConnectionLoop();
-    void SendStatus(std::string status);
-    void SendResponse(TRACKER_CODE value);
+    int SendStatus(std::string status);
+    int SendResponse(TRACKER_CODE value);
     int RecvAll(void* data, size_t length);
+    int SendAll(const void* data, size_t length);
     void Close();
+  private:
+    void Fail();
   };
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
@@ -227,7 +231,7 @@ class RPCTracker {
    */
   std::unique_ptr<std::thread> listener_task_;
 
-  static std::unique_ptr<RPCTracker> rpc_tracker_;
+  static std::shared_ptr<RPCTracker> rpc_tracker_;
 
   /*!
    * \brief The map of `key` to PriorityScheduler.
@@ -248,6 +252,8 @@ class RPCTracker {
    * a mutex to keep things safe.
    */
   std::mutex mutex_;
+
+  bool active_;
 };
 }  // namespace rpc
 }  // namespace runtime

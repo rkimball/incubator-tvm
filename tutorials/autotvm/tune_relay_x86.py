@@ -185,9 +185,13 @@ def tune_graph(graph, dshape, records, opt_sch_file, use_DP=True):
     ]
     Tuner = DPTuner if use_DP else PBQPTuner
     executor = Tuner(graph, {input_name: dshape}, records, target_op, target)
+    print("tune_relay_x86.py Line 188")
     executor.benchmark_layout_transform(min_exec_num=2000)
+    print("tune_relay_x86.py Line 190")
     executor.run()
+    print("tune_relay_x86.py Line 192")
     executor.write_opt_sch2record_file(opt_sch_file)
+    print("tune_relay_x86.py Line 194")
 
 
 ########################################################################
@@ -204,7 +208,9 @@ def tune_and_evaluate(tuning_opt):
 
     # run tuning tasks
     tune_kernels(tasks, **tuning_opt)
+    print("Start tuning")
     tune_graph(mod["main"], data_shape, log_file, graph_opt_sch_file)
+    print("Tuning complete")
 
     # compile kernels with graph-level best records
     with autotvm.apply_graph_best(graph_opt_sch_file):

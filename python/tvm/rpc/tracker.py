@@ -425,18 +425,20 @@ class Tracker(object):
 
     def _stop_tracker(self):
         print("tracker.py _stop_tracker()")
-        sock = socket.socket(base.get_addr_family((self.host, self.port)), socket.SOCK_STREAM)
-        sock.connect((self.host, self.port))
-        sock.sendall(struct.pack("<i", base.RPC_TRACKER_MAGIC))
-        magic = struct.unpack("<i", base.recvall(sock, 4))[0]
-        assert magic == base.RPC_TRACKER_MAGIC
-        base.sendjson(sock, [TrackerCode.STOP, self.stop_key])
-        assert base.recvjson(sock) == TrackerCode.SUCCESS
-        sock.close()
+        RPCTrackerStop()
+        # sock = socket.socket(base.get_addr_family((self.host, self.port)), socket.SOCK_STREAM)
+        # sock.connect((self.host, self.port))
+        # sock.sendall(struct.pack("<i", base.RPC_TRACKER_MAGIC))
+        # magic = struct.unpack("<i", base.recvall(sock, 4))[0]
+        # assert magic == base.RPC_TRACKER_MAGIC
+        # base.sendjson(sock, [TrackerCode.STOP, self.stop_key])
+        # assert base.recvjson(sock) == TrackerCode.SUCCESS
+        # sock.close()
 
     def terminate(self):
         """Terminate the server process"""
         print("tracker.py terminate()")
+        RPCTrackerTerminate()
         # if self.proc:
         #     if self.proc.is_alive():
         #         self._stop_tracker()
@@ -454,3 +456,13 @@ def RPCTrackerStart(host, port, port_end, silent):
     """"""
     rc = _ffi_api.RPCTrackerStart(host, port, port_end, silent)
     return rc
+
+
+def RPCTrackerStop():
+    """"""
+    _ffi_api.RPCTrackerStop()
+
+
+def RPCTrackerTerminate():
+    """"""
+    _ffi_api.RPCTrackerTerminate()
