@@ -109,7 +109,7 @@ input_name = "data"
 
 # Set number of threads used for tuning based on the number of
 # physical CPU cores on your machine.
-num_threads = 1
+num_threads = 16
 os.environ["TVM_NUM_THREADS"] = str(num_threads)
 
 

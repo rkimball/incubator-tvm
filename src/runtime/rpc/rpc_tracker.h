@@ -94,7 +94,7 @@ class RPCTracker {
   /*!
    * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
    */
-  class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo> {
+  class ConnectionInfo {
    public:
     ConnectionInfo(std::shared_ptr<RPCTracker> tracker, std::string host, int port, support::TCPSocket connection);
     ~ConnectionInfo();
@@ -169,6 +169,7 @@ class RPCTracker {
   class PriorityScheduler {
    public:
     PriorityScheduler(std::string key);
+    ~PriorityScheduler();
     void Put(std::string address, int port, std::string match_key,
              std::shared_ptr<ConnectionInfo> conn);
     void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
@@ -193,11 +194,10 @@ class RPCTracker {
   void ListenLoopEntry();
 
   void Put(std::string key, std::string address, int port, std::string match_key,
-             std::shared_ptr<ConnectionInfo> conn);
-  void Request(std::string key, std::string user, int priority,
-               std::shared_ptr<ConnectionInfo> conn);
+           ConnectionInfo* conn);
+  void Request(std::string key, std::string user, int priority, ConnectionInfo* conn);
   std::string Summary();
-  void Close(std::shared_ptr<ConnectionInfo> conn);
+  void Close(ConnectionInfo* conn);
 
   /*!
    * \brief Contains the IP address of the host where the RPC Tracker is instantiated.

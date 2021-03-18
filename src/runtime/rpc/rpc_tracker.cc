@@ -64,29 +64,6 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
 
 RPCTracker::~RPCTracker() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  // First shutdown the listen socket so we don't get any new connections
-  listen_sock_.Shutdown();
-  listen_sock_.Close();
-  if (listener_task_->joinable()) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
-    listener_task_->join();
-  }
-  active_ = false;
-  listener_task_ = nullptr;
-  std::cout << __FILE__ << " " << __LINE__ << " end of ~RPCTracker()" << std::endl;
-
-  // Second clear out any open connections since those have no tracker
-  std::lock_guard<std::mutex> guard(mutex_);
-  // for (auto conn : connection_list_) {
-  //   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  //   conn->Close();
-  //   std::cout << __FILE__ << " " << __LINE__ << " conn ref count=" << conn.use_count() << std::endl;
-  // }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  connection_list_.clear();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  scheduler_map_.clear();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 /*!
@@ -141,13 +118,51 @@ void RPCTracker::Stop() {
 
 void RPCTracker::Terminate() {
   std::cout << __FILE__ << " " << __LINE__ << " RPCTracker::Terminate" << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " rpc_tracker_ use count " << rpc_tracker_.use_count() << std::endl;
+
+  // First shutdown the listen socket so we don't get any new connections
+  listen_sock_.Shutdown();
+  listen_sock_.Close();
+  if (listener_task_->joinable()) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    listener_task_->join();
+  }
+  active_ = false;
+  listener_task_ = nullptr;
+  std::cout << __FILE__ << " " << __LINE__ << " end of ~RPCTracker()" << std::endl;
+
+  // Second clear out any open connections since those have no tracker
+  std::lock_guard<std::mutex> guard(mutex_);
+  for (auto conn : connection_list_) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    if (!conn->connection_.IsClosed()) {
+      conn->connection_.Shutdown();
+      conn->connection_.Close();
+    }
+    std::cout << __FILE__ << " " << __LINE__ << " conn " << conn->host_ << ":" << conn->port_ << " ref count=" << conn.use_count() << std::endl;
+  }
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  scheduler_map_.clear();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  for (auto conn : connection_list_) {
+    std::cout << __FILE__ << " " << __LINE__ << " conn " << conn->host_ << ":" << conn->port_ << " ref count=" << conn.use_count() << std::endl;
+  }
+  connection_list_.clear();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+
   // Delete the RPCTracker object to terminate
   rpc_tracker_ = nullptr;
 }
 
 void RPCTracker::Put(std::string key, std::string address, int port, std::string match_key,
-             std::shared_ptr<ConnectionInfo> conn) {
+             ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
+  std::shared_ptr<ConnectionInfo> conn;
+  for (auto c : connection_list_) {
+    if (c.get() == connection) {
+      conn = c;
+    }
+  }
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
@@ -164,8 +179,14 @@ void RPCTracker::Put(std::string key, std::string address, int port, std::string
 }
 
 void RPCTracker::Request(std::string key, std::string user, int priority,
-                         std::shared_ptr<ConnectionInfo> conn) {
+                         ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
+  std::shared_ptr<ConnectionInfo> conn;
+  for (auto c : connection_list_) {
+    if (c.get() == connection) {
+      conn = c;
+    }
+  }
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
@@ -193,8 +214,14 @@ std::string RPCTracker::Summary() {
   return ss.str();
 }
 
-void RPCTracker::Close(std::shared_ptr<ConnectionInfo> conn) {
+void RPCTracker::Close(ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
+  std::shared_ptr<ConnectionInfo> conn;
+  for (auto c : connection_list_) {
+    if (c.get() == connection) {
+      conn = c;
+    }
+  }
   connection_list_.erase(conn);
   std::string key = conn->key_;
   if (!key.empty()) {
@@ -228,7 +255,13 @@ int RPCTracker::ConnectionInfo::SendStatus(std::string status) {
   return fail ? -1 : length;
 }
 
-RPCTracker::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
+RPCTracker::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {
+  std::cout << __FILE__ << " " << __LINE__ << " PriorityScheduler " << key_ << std::endl;
+}
+
+RPCTracker::PriorityScheduler::~PriorityScheduler() {
+  std::cout << __FILE__ << " " << __LINE__ << " ~PriorityScheduler " << key_ << std::endl;
+}
 
 void RPCTracker::PriorityScheduler::Request(std::string user, int priority,
                                             std::shared_ptr<ConnectionInfo> conn) {
@@ -338,7 +371,12 @@ void RPCTracker::ConnectionInfo::Fail() {
   Close();
   if (auto tracker = tracker_) {
     std::lock_guard<std::mutex> guard(tracker->mutex_);
-    tracker->connection_list_.erase(shared_from_this());
+    for (auto c : tracker->connection_list_) {
+      if (c.get() == this) {
+        tracker->connection_list_.erase(c);
+        break;
+      }
+    }
   }
 }
 
@@ -446,9 +484,8 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
           }
         }
         pending_match_keys_.insert(match_key);
-        // auto put_info = std::make_shared<PutInfo>(addr, port, match_key, shared_from_this());
         if (auto tracker = tracker_) {
-          tracker->Put(key, addr, port, match_key, shared_from_this());
+          tracker->Put(key, addr, port, match_key, this);
         }
         // put_values_.insert(put_info);
         if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
@@ -470,7 +507,7 @@ void RPCTracker::ConnectionInfo::ConnectionLoop() {
         reader.Read(&priority);
         reader.NextArrayItem();
         if (auto tracker = tracker_) {
-          tracker->Request(key, user, priority, shared_from_this());
+          tracker->Request(key, user, priority, this);
         }
         break;
       }
