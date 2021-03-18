@@ -56,7 +56,7 @@ class PutInfo;
  */
 class RPCTracker {
  public:
-  RPCTracker(std::string host, int port, int port_end, bool silent);
+  RPCTracker(std::string host, int port, int port_end, bool silent = true);
   ~RPCTracker();
   static int Start(std::string host, int port, int port_end, bool silent);
   void Stop();

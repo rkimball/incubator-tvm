@@ -21,4 +21,16 @@
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
 
-TEST(Tracker, Basic) {}
+#include "../../src/runtime/rpc/rpc_tracker.h"
+
+TEST(Tracker, Basic) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
+    std::cout << "Tracker port " << tracker.GetPort() << std::endl;
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  testing::FLAGS_gtest_death_test_style = "threadsafe";
+  return RUN_ALL_TESTS();
+}

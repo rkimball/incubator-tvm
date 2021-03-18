@@ -57,12 +57,18 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
+
+  // Set socket so we can reuse the address later
+  listen_sock_.SetReuseAddress();
+
   listen_sock_.Listen();
   listener_task_ = std::make_unique<std::thread>(&RPCTracker::ListenLoopEntry, this);
   // listener_task_->detach();
 }
 
 RPCTracker::~RPCTracker() {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  Stop();
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
@@ -76,8 +82,8 @@ void RPCTracker::ListenLoopEntry() {
     support::TCPSocket connection;
     try {
       connection = listen_sock_.Accept();
-    } catch(...) {
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    } catch(std::exception err) {
+      std::cout << __FILE__ << " " << __LINE__ << " " << err.what() << std::endl;
       break;
     }
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
@@ -114,6 +120,7 @@ void RPCTracker::Stop() {
   std::cout << __FILE__ << " " << __LINE__ << " RPCTracker::Stop" << std::endl;
   // For now call Terminate
   Terminate();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 void RPCTracker::Terminate() {

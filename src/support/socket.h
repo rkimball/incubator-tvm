@@ -255,6 +255,16 @@ class Socket {
 #endif
   }
   /*!
+   * \brief set this socket to use non-blocking mode
+   * \param non_block whether set it to be non-block, if it is false
+   *        it will set it back to block mode
+   */
+  void SetReuseAddress(int enable = 1) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+        Socket::Error("SetReuseAddress");
+    }
+  }
+  /*!
    * \brief bind the socket to an address
    * \param addr The address to be binded
    */
