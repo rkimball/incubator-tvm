@@ -22,11 +22,33 @@
 #include <tvm/topi/elemwise.h>
 
 #include "../../src/runtime/rpc/rpc_tracker.h"
+#include "../../src/support/socket.h"
+
+class MockServer {
+public:
+  MockServer(int port, std::string key) : key_{key} {
+    tvm::support::SockAddr addr("localhost", port);
+    std::cout << __FILE__ << " " << __LINE__ << " " << addr.AsString() << std::endl;
+    if (socket_.Connect(addr)) {
+        std::cout << __FILE__ << " " << __LINE__ << " successfully start server " << key_ << std::endl;
+    } else {
+        std::cout << __FILE__ << " " << __LINE__ << " failed to start server " << key_ << std::endl;
+    }
+  }
+
+private:
+    tvm::support::TCPSocket socket_;
+    std::string key_;
+};
 
 TEST(Tracker, Basic) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
-    tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
-    std::cout << "Tracker port " << tracker.GetPort() << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  int tracker_port = tracker.GetPort();
+  std::cout << "Tracker port " << tracker_port << std::endl;
+
+  // Setup mock server
+  MockServer s1(tracker_port, "abc");
 }
 
 int main(int argc, char** argv) {

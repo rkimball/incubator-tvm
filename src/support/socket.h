@@ -259,8 +259,9 @@ class Socket {
    * \param non_block whether set it to be non-block, if it is false
    *        it will set it back to block mode
    */
-  void SetReuseAddress(int enable = 1) {
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+  void SetReuseAddress(bool enable = true) {
+    int opt = (enable ? 1 : 0);
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) < 0) {
         Socket::Error("SetReuseAddress");
     }
   }
