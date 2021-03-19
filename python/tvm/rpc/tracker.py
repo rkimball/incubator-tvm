@@ -51,6 +51,7 @@ import errno
 import struct
 import json
 import tvm._ffi
+from tvm.runtime import Object
 
 try:
     from tornado import ioloop
@@ -68,7 +69,6 @@ from .base import RPC_TRACKER_MAGIC, TrackerCode
 from . import _ffi_api
 
 logger = logging.getLogger("RPCTracker")
-
 
 class Scheduler(object):
     """Abstract interface of scheduler."""
@@ -372,15 +372,24 @@ def _tracker_server(listen_sock, stop_key):
     handler.run()
 
 
-@tvm._ffi.register_object("Tracker")
-class Tracker(Object):
+# @tvm._ffi.register_object("Tracker")
+# class Tracker(Object):
 
-    # def __getitem__(self, idx):
-    #     return getitem_helper(self, _ffi_api.ArrayGetItem, len(self), idx)
+#     def __init__(self, addr, port, port_end, silent):
+#         pass
 
-    # def __len__(self):
-    #     return _ffi_api.ArraySize(self)
 
+#     # def __getitem__(self, idx):
+#     #     return getitem_helper(self, _ffi_api.ArrayGetItem, len(self), idx)
+
+#     # def __len__(self):
+#     #     return _ffi_api.ArraySize(self)
+
+
+@tvm._ffi.register_object("rpc.RPCTracker")
+class RPCTracker(Object):
+    def __init__(self, host, port=9190, port_end=9199, silent=False):
+        pass
 
 class Tracker(object):
     """Start RPC tracker on a seperate process.
@@ -407,7 +416,7 @@ class Tracker(object):
             logger.setLevel(logging.WARN)
 
         # sock = socket.socket(base.get_addr_family((host, port)), socket.SOCK_STREAM)
-        # self.port = None
+        self.port = None
         # self.stop_key = base.random_key("tracker")
         # for my_port in range(port, port_end):
         #     try:
@@ -423,9 +432,10 @@ class Tracker(object):
         # logger.info("bind to %s:%d", host, self.port)
         # sock.listen(1)
         print("calling tracker start")
+        # self.tracker = tvm.runtime.RPCTracker(host, port, port_end, silent)
         # self.port = RPCTrackerStart(host, port, port_end, silent)
-        rc = _ffi_api.RPCTrackerStart(self, host, port, port_end, silent)
-        print("called tracker start, port =", self.port)
+        # rc = _ffi_api.RPCTrackerStart(self, host, port, port_end, silent)
+        # print("called tracker start, port =", self.port)
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         # self.pool = PopenPoolExecutor(max_workers=2)
         # self.pool.submit(_tracker_server, sock, self.stop_key)
@@ -436,7 +446,7 @@ class Tracker(object):
 
     def _stop_tracker(self):
         print("tracker.py _stop_tracker()")
-        _ffi_api.RPCTrackerStop(self)
+        # _ffi_api.RPCTrackerStop(self)
         # RPCTrackerStop()
         # sock = socket.socket(base.get_addr_family((self.host, self.port)), socket.SOCK_STREAM)
         # sock.connect((self.host, self.port))
@@ -450,7 +460,7 @@ class Tracker(object):
     def terminate(self):
         """Terminate the server process"""
         print("tracker.py terminate()")
-        _ffi_api.RPCTrackerTerminate(self)
+        # _ffi_api.RPCTrackerTerminate(self)
         # RPCTrackerTerminate()
         # if self.proc:
         #     if self.proc.is_alive():
@@ -465,14 +475,14 @@ class Tracker(object):
         self.terminate()
 
 
-def RPCTrackerStart(host, port, port_end, silent):
-    """"""
-    return rc
+# def RPCTrackerStart(host, port, port_end, silent):
+#     """"""
+#     return rc
 
 
-def RPCTrackerStop():
-    """"""
+# def RPCTrackerStop():
+#     """"""
 
 
-def RPCTrackerTerminate():
-    """"""
+# def RPCTrackerTerminate():
+#     """"""
