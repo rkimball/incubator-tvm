@@ -291,7 +291,7 @@ class Socket {
           0) {
         return port;
       } else {
-        LOG(WARNING) << "Bind failed to " << host << ":" << port;
+        LOG(WARNING) << "Bind to " << host << ":" << port << " failed: " << strerror(errno);
       }
 #if defined(_WIN32)
       if (WSAGetLastError() != WSAEADDRINUSE) {

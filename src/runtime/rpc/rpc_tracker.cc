@@ -59,7 +59,7 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
   LOG(INFO) << "bind to " << host_ << ":" << my_port_;
 
   // Set socket so we can reuse the address later
-  listen_sock_.SetReuseAddress();
+  // listen_sock_.SetReuseAddress();
 
   listen_sock_.Listen();
   listener_task_ = std::make_unique<std::thread>(&RPCTracker::ListenLoopEntry, this);
@@ -68,7 +68,7 @@ RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent)
 
 RPCTracker::~RPCTracker() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  Stop();
+  // Stop();
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
