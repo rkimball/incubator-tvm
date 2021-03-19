@@ -372,6 +372,16 @@ def _tracker_server(listen_sock, stop_key):
     handler.run()
 
 
+@tvm._ffi.register_object("Tracker")
+class Tracker(Object):
+
+    # def __getitem__(self, idx):
+    #     return getitem_helper(self, _ffi_api.ArrayGetItem, len(self), idx)
+
+    # def __len__(self):
+    #     return _ffi_api.ArraySize(self)
+
+
 class Tracker(object):
     """Start RPC tracker on a seperate process.
 
@@ -413,7 +423,8 @@ class Tracker(object):
         # logger.info("bind to %s:%d", host, self.port)
         # sock.listen(1)
         print("calling tracker start")
-        self.port = RPCTrackerStart(host, port, port_end, silent)
+        # self.port = RPCTrackerStart(host, port, port_end, silent)
+        rc = _ffi_api.RPCTrackerStart(self, host, port, port_end, silent)
         print("called tracker start, port =", self.port)
         # self.proc = multiprocessing.Process(target=_tracker_server, args=(sock, self.stop_key))
         # self.pool = PopenPoolExecutor(max_workers=2)
@@ -425,7 +436,8 @@ class Tracker(object):
 
     def _stop_tracker(self):
         print("tracker.py _stop_tracker()")
-        RPCTrackerStop()
+        _ffi_api.RPCTrackerStop(self)
+        # RPCTrackerStop()
         # sock = socket.socket(base.get_addr_family((self.host, self.port)), socket.SOCK_STREAM)
         # sock.connect((self.host, self.port))
         # sock.sendall(struct.pack("<i", base.RPC_TRACKER_MAGIC))
@@ -438,7 +450,8 @@ class Tracker(object):
     def terminate(self):
         """Terminate the server process"""
         print("tracker.py terminate()")
-        RPCTrackerTerminate()
+        _ffi_api.RPCTrackerTerminate(self)
+        # RPCTrackerTerminate()
         # if self.proc:
         #     if self.proc.is_alive():
         #         self._stop_tracker()
@@ -454,15 +467,12 @@ class Tracker(object):
 
 def RPCTrackerStart(host, port, port_end, silent):
     """"""
-    rc = _ffi_api.RPCTrackerStart(host, port, port_end, silent)
     return rc
 
 
 def RPCTrackerStop():
     """"""
-    _ffi_api.RPCTrackerStop()
 
 
 def RPCTrackerTerminate():
     """"""
-    _ffi_api.RPCTrackerTerminate()
