@@ -54,23 +54,23 @@ namespace rpc {
  *  by forward requests to another RPCSession.
  */
 
-class RPCTrackerNode : public Object {
+class TrackerNode : public Object {
 public:xxx
-  static constexpr const char* _type_key = "RPCTrackerNode";
-  TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerNode, Object);
+  static constexpr const char* _type_key = "TrackerNode";
+  TVM_DECLARE_BASE_OBJECT_INFO(TrackerNode, Object);
 };
 
 /*!
  * \brief The main RPC Tracker class.
  */
-class RPCTracker : public ObjectRef {
+class Tracker : public ObjectRef {
 public:
-  RPCTracker(std::string host, int port, int port_end, bool silent = true);
-  ~RPCTracker();
+  Tracker(std::string host, int port, int port_end, bool silent = true);
+  ~Tracker();
   void Stop();
   void Terminate();
 
-  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(RPCTracker, ObjectRef, RPCTrackerNode);
+  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(Tracker, ObjectRef, TrackerNode);
 
 private:
   // std::shared_ptr<RPCTrackerImplementation> tracker_;
