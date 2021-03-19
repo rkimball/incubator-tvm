@@ -38,6 +38,7 @@
 #include <tvm/runtime/object.h>
 #include <tvm/runtime/packed_func.h>
 #include <tvm/runtime/registry.h>
+#include <tvm/node/reflection.h>
 
 #include "../../support/socket.h"
 
@@ -45,20 +46,34 @@ namespace tvm {
 namespace runtime {
 namespace rpc {
 
-class RPCTrackerNode : public Object {
+class RPCTrackerObj : public Object {
 public:
-  static constexpr const char* _type_key = "RPCTrackerNode";
-  TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerNode, Object);
+  void VisitAttrs(tvm::AttrVisitor* av) {
+    av->Visit("port", &port);
+    av->Visit("port_end", &port_end);
+    av->Visit("host", &host);
+  }
+  static constexpr const char* _type_key = "rpc.RPCTracker";
+  TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerObj, Object);
+
+  RPCTrackerObj(){}
+  explicit RPCTrackerObj(std::string host, int port, int port_end, bool silent = true);
+  // ~RPCTracker();
+  void Stop();
+  void Terminate();
+
+  int64_t port;
+  int64_t port_end;
+  String host;
 };
 
 class RPCTracker : public ObjectRef {
 public:
-  RPCTracker(std::string host, int port, int port_end, bool silent = true);
-  ~RPCTracker();
-  void Stop();
-  void Terminate();
+  explicit RPCTracker(std::string host, int port, int port_end, bool silent){
+    data_ = make_object<RPCTrackerObj>(host, port, port_end, silent);
+  }
 
-  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(RPCTracker, ObjectRef, RPCTrackerNode);
+  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(RPCTracker, ObjectRef, RPCTrackerObj);
 };
 
 }  // namespace rpc

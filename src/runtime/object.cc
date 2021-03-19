@@ -152,6 +152,11 @@ class TypeContext {
 
   uint32_t TypeKey2Index(const std::string& skey) {
     auto it = type_key2index_.find(skey);
+    if (it == type_key2index_.end()) {
+      for (auto t : type_key2index_) {
+        std::cout << __FILE__ << " " << __LINE__ << " " << t.first << std::endl;
+      }
+    }
     ICHECK(it != type_key2index_.end())
         << "Cannot find type " << skey
         << ". Did you forget to register the node by TVM_REGISTER_NODE_TYPE ?";

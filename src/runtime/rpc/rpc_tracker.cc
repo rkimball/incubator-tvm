@@ -31,34 +31,43 @@ namespace tvm {
 namespace runtime{
 namespace rpc {
 
-RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent) {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
+// RPCTracker::RPCTracker(std::string host, int port, int port_end, bool silent) {
+//   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+// }
+
+// RPCTracker::~RPCTracker() {
+//   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+// }
+
+// void RPCTracker::Stop() {
+//   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+// }
+
+// void RPCTracker::Terminate() {
+//   std::cout << __FILE__ << " " << __LINE__ << std::endl;
+// }
+
+RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool)
+  : host{host}, port{port}, port_end{port_end} {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+
 }
 
-RPCTracker::~RPCTracker() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-}
+  void RPCTrackerObj::Stop() {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      }
 
-void RPCTracker::Stop() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-}
+  void RPCTrackerObj::Terminate() {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      }
 
-void RPCTracker::Terminate() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
-}
 
-// TVM_REGISTER_NODE_TYPE(RPCTrackerNode);
-TVM_REGISTER_OBJECT_TYPE(RPCTrackerNode);
 
-}  // namespace rpc
-// TVM_REGISTER_GLOBAL("rpc.RPCTrackerStart").set_body_typed(tvm::runtime::rpc::RPCTrackerStart);
-// TVM_REGISTER_GLOBAL("rpc.RPCTrackerStop").set_body_typed(tvm::runtime::rpc::RPCTrackerStop);
-// TVM_REGISTER_GLOBAL("rpc.RPCTrackerTerminate").set_body_typed(tvm::runtime::rpc::RPCTrackerTerminate);
-
-TVM_REGISTER_GLOBAL("RPCTracker").set_body_typed([](std::string host, int port, int port_end, bool silent) {
+TVM_REGISTER_NODE_TYPE(RPCTrackerObj);
+TVM_REGISTER_GLOBAL("rpc.RPCTracker").set_body_typed([](std::string host, int port, int port_end, bool silent) {
   return tvm::runtime::rpc::RPCTracker(host, port, port_end, silent);
 });
 
-
+}  // namespace rpc
 }  // namespace runtime
 }  // namespace tvm
