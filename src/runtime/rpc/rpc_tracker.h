@@ -47,29 +47,19 @@ namespace runtime {
 namespace rpc {
 
 class PutInfo;
-
-/*!
- * \brief The interface of all remote RPC sessions.
- *
- *  It contains all the necessary interface to implement
- *  remote call and resource management.
- *
- *  The interface is designed to allow easy proxy-chaining
- *  by forward requests to another RPCSession.
- */
+class ConnectionInfo;
 
 /*!
  * \brief The main RPC Tracker class.
  */
 class RPCTrackerObj : public Object {
+  friend class ConnectionInfo;
  public:
   RPCTrackerObj(){}
   RPCTrackerObj(std::string host, int port, int port_end, bool silent = true);
   ~RPCTrackerObj();
   void Stop();
   void Terminate();
-
-  static RPCTrackerObj* GetTracker();
   int GetPort() const;
 
   void VisitAttrs(tvm::AttrVisitor* av) {
@@ -103,37 +93,6 @@ class RPCTrackerObj : public Object {
   };
 
  private:
-  /*!
-   * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
-   */
-  class ConnectionInfo {
-   public:
-    ConnectionInfo(std::shared_ptr<RPCTrackerObj> tracker, std::string host, int port, support::TCPSocket connection);
-    ~ConnectionInfo();
-    std::shared_ptr<RPCTrackerObj> tracker_;
-    std::thread connection_task_;
-    std::string host_;
-    int port_;
-    support::TCPSocket connection_;
-    std::string key_;
-    std::set<std::string> pending_match_keys_;
-    std::set<std::shared_ptr<PutInfo>> put_values_;
-
-    void ConnectionLoop();
-    int SendStatus(std::string status);
-    int SendResponse(TRACKER_CODE value);
-    int RecvAll(void* data, size_t length);
-    int SendAll(const void* data, size_t length);
-    void Close();
-  private:
-    void Fail();
-  };
-  friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
-    out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
-    return out;
-  }
-  using response_callback_t = std::function<bool(ConnectionInfo* conn)>;
-
   /*!
    * \brief The RequestInfo class tracking information from REQUEST messages.
    */
@@ -241,8 +200,6 @@ class RPCTrackerObj : public Object {
    */
   std::unique_ptr<std::thread> listener_task_;
 
-  static std::shared_ptr<RPCTrackerObj> rpc_tracker_;
-
   /*!
    * \brief The map of `key` to PriorityScheduler.
    *
@@ -270,6 +227,16 @@ public:
   TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerObj, Object);
 };
 
+/*!
+ * \brief The interface of all remote RPC sessions.
+ *
+ *  It contains all the necessary interface to implement
+ *  remote call and resource management.
+ *
+ *  The interface is designed to allow easy proxy-chaining
+ *  by forward requests to another RPCSession.
+ */
+
 class RPCTracker : public ObjectRef {
 public:
   explicit RPCTracker(std::string host, int port, int port_end, bool silent){
@@ -278,6 +245,39 @@ public:
 
   TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(RPCTracker, ObjectRef, RPCTrackerObj);
 };
+
+/*!
+  * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
+  */
+class ConnectionInfo {
+  public:
+  ConnectionInfo(RPCTrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
+  ~ConnectionInfo();
+  RPCTrackerObj* tracker_;
+  std::thread connection_task_;
+  std::string host_;
+  int port_;
+  support::TCPSocket connection_;
+  std::string key_;
+  std::set<std::string> pending_match_keys_;
+  std::set<std::shared_ptr<PutInfo>> put_values_;
+
+  void ConnectionLoop();
+  int SendStatus(std::string status);
+  int SendResponse(RPCTrackerObj::TRACKER_CODE value);
+  int RecvAll(void* data, size_t length);
+  int SendAll(const void* data, size_t length);
+  void Close();
+
+  friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
+    out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
+    return out;
+  }
+
+private:
+  void Fail();
+};
+
 }  // namespace rpc
 }  // namespace runtime
 }  // namespace tvm

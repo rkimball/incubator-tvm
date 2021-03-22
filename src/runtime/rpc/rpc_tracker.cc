@@ -31,8 +31,6 @@ namespace tvm {
 namespace runtime {
 namespace rpc {
 
-std::shared_ptr<RPCTrackerObj> RPCTrackerObj::rpc_tracker_ = nullptr;
-
 // int RPCTrackerObjStart(std::string host, int port, int port_end, bool silent) {
 //   std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerObjStart" << std::endl;
 //   return RPCTrackerObj::Start(host, port, port_end, silent);
@@ -92,12 +90,10 @@ void RPCTrackerObj::ListenLoopEntry() {
     connection.GetPeerAddress(peer_host, peer_port);
     std::lock_guard<std::mutex> guard(mutex_);
     connection_list_.insert(
-        std::make_shared<ConnectionInfo>(rpc_tracker_, peer_host, peer_port, connection));
+        std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
   }
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
-
-RPCTrackerObj* RPCTrackerObj::GetTracker() { return rpc_tracker_.get(); }
 
 int RPCTrackerObj::GetPort() const { return my_port_; }
 
@@ -125,7 +121,7 @@ void RPCTrackerObj::Stop() {
 
 void RPCTrackerObj::Terminate() {
   std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerObj::Terminate" << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " rpc_tracker_ use count " << rpc_tracker_.use_count() << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " use count " << use_count() << std::endl;
 
   // First shutdown the listen socket so we don't get any new connections
   listen_sock_.Shutdown();
@@ -156,9 +152,6 @@ void RPCTrackerObj::Terminate() {
   }
   connection_list_.clear();
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-
-  // Delete the RPCTrackerObj object to terminate
-  rpc_tracker_ = nullptr;
 }
 
 void RPCTrackerObj::Put(std::string key, std::string address, int port, std::string match_key,
@@ -301,16 +294,16 @@ void RPCTrackerObj::PriorityScheduler::Schedule() {
   }
 }
 
-RPCTrackerObj::ConnectionInfo::ConnectionInfo(std::shared_ptr<RPCTrackerObj> tracker, std::string host, int port,
+ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int port,
                                            support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   std::cout << __FILE__ << " " << __LINE__ << " ctor " << host_ << ":" << port_ << std::endl;
   connection_task_ =
-      std::thread(&RPCTrackerObj::ConnectionInfo::ConnectionLoop, this);
+      std::thread(&ConnectionInfo::ConnectionLoop, this);
   connection_task_.detach();
 }
 
-RPCTrackerObj::ConnectionInfo::~ConnectionInfo(){
+ConnectionInfo::~ConnectionInfo(){
   std::cout << __FILE__ << " " << __LINE__ << " dtor " << host_ << ":" << port_ << std::endl;
   if (!connection_.IsClosed()) {
     connection_.Shutdown();
@@ -318,10 +311,10 @@ RPCTrackerObj::ConnectionInfo::~ConnectionInfo(){
   }
 }
 
-void RPCTrackerObj::ConnectionInfo::Close() {
+void ConnectionInfo::Close() {
 }
 
-int RPCTrackerObj::ConnectionInfo::RecvAll(void* data, size_t length) {
+int ConnectionInfo::RecvAll(void* data, size_t length) {
   char* buf = static_cast<char*>(data);
   size_t remainder = length;
   while (remainder > 0) {
@@ -335,7 +328,7 @@ int RPCTrackerObj::ConnectionInfo::RecvAll(void* data, size_t length) {
   return length;
 }
 
-int RPCTrackerObj::ConnectionInfo::SendAll(const void* data, size_t length) {
+int ConnectionInfo::SendAll(const void* data, size_t length) {
   if (connection_.IsClosed() ) {
     std::cout << __FILE__ << " " << __LINE__ << " send while connection closed" << std::endl;
     return -1;
@@ -353,27 +346,27 @@ int RPCTrackerObj::ConnectionInfo::SendAll(const void* data, size_t length) {
   return length;
 }
 
-void RPCTrackerObj::ConnectionInfo::Fail() {
+void ConnectionInfo::Fail() {
   Close();
-  if (auto tracker = tracker_) {
-    std::lock_guard<std::mutex> guard(tracker->mutex_);
-    for (auto c : tracker->connection_list_) {
+  if (tracker_) {
+    std::lock_guard<std::mutex> guard(tracker_->mutex_);
+    for (auto c : tracker_->connection_list_) {
       if (c.get() == this) {
-        tracker->connection_list_.erase(c);
+        tracker_->connection_list_.erase(c);
         break;
       }
     }
   }
 }
 
-int RPCTrackerObj::ConnectionInfo::SendResponse(TRACKER_CODE value) {
+int ConnectionInfo::SendResponse(RPCTrackerObj::TRACKER_CODE value) {
   std::stringstream ss;
   ss << static_cast<int>(value);
   std::string status = ss.str();
   return SendStatus(status);
 }
 
-int RPCTrackerObj::ConnectionInfo::SendStatus(std::string status) {
+int ConnectionInfo::SendStatus(std::string status) {
   int length = status.size();
   bool fail = false;
 
@@ -387,7 +380,7 @@ int RPCTrackerObj::ConnectionInfo::SendStatus(std::string status) {
   return fail ? -1 : length;
 }
 
-void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
+void ConnectionInfo::ConnectionLoop() {
   // Do magic handshake
   int magic = 0;
   if (RecvAll(&magic, sizeof(magic)) == -1) {
@@ -396,7 +389,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
     Fail();
     return;
   }
-  if (magic != static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC)) {
+  if (magic != static_cast<int>(RPCTrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
     // Not a tracker connection so close connection and exit
     std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
     Fail();
@@ -442,21 +435,21 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
     reader.NextArrayItem();
     reader.ReadNumber(&tmp);
     reader.NextArrayItem();
-    switch (static_cast<TRACKER_CODE>(tmp)) {
-      case TRACKER_CODE::FAIL:
+    switch (static_cast<RPCTrackerObj::TRACKER_CODE>(tmp)) {
+      case RPCTrackerObj::TRACKER_CODE::FAIL:
         break;
-      case TRACKER_CODE::SUCCESS:
+      case RPCTrackerObj::TRACKER_CODE::SUCCESS:
         break;
-      case TRACKER_CODE::PING:
-        if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
+      case RPCTrackerObj::TRACKER_CODE::PING:
+        if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
           Fail();
           return;
         }
         break;
-      case TRACKER_CODE::STOP:
-        if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
+      case RPCTrackerObj::TRACKER_CODE::STOP:
+        if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
           Fail();
@@ -467,7 +460,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
           tracker->Stop();
         }
         break;
-      case TRACKER_CODE::PUT: {
+      case RPCTrackerObj::TRACKER_CODE::PUT: {
         std::string key;
         int port;
         std::string match_key;
@@ -497,7 +490,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
           tracker->Put(key, addr, port, match_key, this);
         }
         // put_values_.insert(put_info);
-        if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
+        if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response " << host_ << ":" << port_ << std::endl;
           Fail();
@@ -505,7 +498,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
         }
         break;
       }
-      case TRACKER_CODE::REQUEST: {
+      case RPCTrackerObj::TRACKER_CODE::REQUEST: {
         std::string key;
         std::string user;
         int priority;
@@ -515,19 +508,17 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
         reader.NextArrayItem();
         reader.Read(&priority);
         reader.NextArrayItem();
-        if (auto tracker = tracker_) {
-          tracker->Request(key, user, priority, this);
-        }
+        tracker_->Request(key, user, priority, this);
         break;
       }
-      case TRACKER_CODE::UPDATE_INFO: {
+      case RPCTrackerObj::TRACKER_CODE::UPDATE_INFO: {
         std::string key;
         std::string value;
         reader.BeginObject();
         reader.NextObjectItem(&key);
         reader.Read(&value);
         key_ = value;
-        if (SendResponse(TRACKER_CODE::SUCCESS) == -1){
+        if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
           Fail();
@@ -535,10 +526,10 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
         }
         break;
       }
-      case TRACKER_CODE::SUMMARY: {
+      case RPCTrackerObj::TRACKER_CODE::SUMMARY: {
         if (auto tracker = tracker_) {
           std::stringstream ss;
-          ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
+          ss << "[" << static_cast<int>(RPCTrackerObj::TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
             << tracker->Summary() << "}, ";
           ss << "\"server_info\": [";
           int count = 0;
@@ -564,7 +555,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
         }
         break;
       }
-      case TRACKER_CODE::GET_PENDING_MATCHKEYS:
+      case RPCTrackerObj::TRACKER_CODE::GET_PENDING_MATCHKEYS:
         std::stringstream ss;
         ss << "[";
         int count = 0;
