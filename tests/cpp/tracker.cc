@@ -25,20 +25,21 @@
 #include "../../src/support/socket.h"
 
 class MockServer {
-public:
+ public:
   MockServer(int port, std::string key) : key_{key} {
     tvm::support::SockAddr addr("localhost", port);
     std::cout << __FILE__ << " " << __LINE__ << " " << addr.AsString() << std::endl;
     if (socket_.Connect(addr)) {
-        std::cout << __FILE__ << " " << __LINE__ << " successfully start server " << key_ << std::endl;
+      std::cout << __FILE__ << " " << __LINE__ << " successfully start server " << key_
+                << std::endl;
     } else {
-        std::cout << __FILE__ << " " << __LINE__ << " failed to start server " << key_ << std::endl;
+      std::cout << __FILE__ << " " << __LINE__ << " failed to start server " << key_ << std::endl;
     }
   }
 
-private:
-    tvm::support::TCPSocket socket_;
-    std::string key_;
+ private:
+  tvm::support::TCPSocket socket_;
+  std::string key_;
 };
 
 TEST(Tracker, Basic) {

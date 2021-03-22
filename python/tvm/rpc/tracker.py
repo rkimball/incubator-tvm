@@ -79,10 +79,9 @@ logger = logging.getLogger("RPCTracker")
 @tvm._ffi.register_object("rpc.RPCTracker")
 class Tracker(Object):
     def __init__(self, host, port=9190, port_end=9199, silent=False):
-        self.__init_handle_by_constructor__(
-                    _ffi_api.RPCTracker,
-                    host, port, port_end, silent
-                )
+        self.__init_handle_by_constructor__(_ffi_api.RPCTracker, host, port, port_end, silent)
+
+
 # class Tracker(object):
 #     """Start RPC tracker on a seperate process.
 

@@ -24,21 +24,21 @@
 #ifndef TVM_RUNTIME_RPC_RPC_TRACKER_H_
 #define TVM_RUNTIME_RPC_RPC_TRACKER_H_
 
-#include <deque>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <set>
-#include <thread>
-#include <functional>
-
+#include <tvm/node/reflection.h>
 #include <tvm/runtime/c_runtime_api.h>
 #include <tvm/runtime/device_api.h>
 #include <tvm/runtime/object.h>
 #include <tvm/runtime/packed_func.h>
 #include <tvm/runtime/registry.h>
-#include <tvm/node/reflection.h>
+
+#include <deque>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <string>
+#include <thread>
 
 #include "../../support/socket.h"
 
@@ -54,8 +54,9 @@ class ConnectionInfo;
  */
 class RPCTrackerObj : public Object {
   friend class ConnectionInfo;
+
  public:
-  RPCTrackerObj(){}
+  RPCTrackerObj() {}
   RPCTrackerObj(std::string host, int port, int port_end, bool silent = true);
   ~RPCTrackerObj();
   void Stop();
@@ -169,6 +170,7 @@ class RPCTrackerObj : public Object {
   void Request(std::string key, std::string user, int priority, ConnectionInfo* conn);
   std::string Summary();
   void Close(ConnectionInfo* conn);
+  void RemoveStaleConnections();
 
   /*!
    * \brief Contains the IP address of the host where the RPC Tracker is instantiated.
@@ -222,7 +224,7 @@ class RPCTrackerObj : public Object {
 
   bool active_;
 
-public:
+ public:
   static constexpr const char* _type_key = "rpc.RPCTracker";
   TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerObj, Object);
 };
@@ -238,8 +240,8 @@ public:
  */
 
 class RPCTracker : public ObjectRef {
-public:
-  explicit RPCTracker(std::string host, int port, int port_end, bool silent){
+ public:
+  explicit RPCTracker(std::string host, int port, int port_end, bool silent) {
     data_ = make_object<RPCTrackerObj>(host, port, port_end, silent);
   }
 
@@ -247,10 +249,10 @@ public:
 };
 
 /*!
-  * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
-  */
+ * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
+ */
 class ConnectionInfo {
-  public:
+ public:
   ConnectionInfo(RPCTrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
   ~ConnectionInfo();
   RPCTrackerObj* tracker_;
