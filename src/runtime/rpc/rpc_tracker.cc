@@ -241,27 +241,6 @@ void RPCTrackerObj::Close(ConnectionInfo* connection) {
   }
 }
 
-int RPCTrackerObj::ConnectionInfo::SendResponse(TRACKER_CODE value) {
-  std::stringstream ss;
-  ss << static_cast<int>(value);
-  std::string status = ss.str();
-  return SendStatus(status);
-}
-
-int RPCTrackerObj::ConnectionInfo::SendStatus(std::string status) {
-  int length = status.size();
-  bool fail = false;
-
-  if (SendAll(&length, sizeof(length)) != sizeof(length)) {
-    fail = true;
-  }
-  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
-  if (!fail && SendAll(status.data(), status.size()) != length) {
-    fail = true;
-  }
-  return fail ? -1 : length;
-}
-
 RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {
   std::cout << __FILE__ << " " << __LINE__ << " PriorityScheduler " << key_ << std::endl;
 }
@@ -387,6 +366,27 @@ void RPCTrackerObj::ConnectionInfo::Fail() {
   }
 }
 
+int RPCTrackerObj::ConnectionInfo::SendResponse(TRACKER_CODE value) {
+  std::stringstream ss;
+  ss << static_cast<int>(value);
+  std::string status = ss.str();
+  return SendStatus(status);
+}
+
+int RPCTrackerObj::ConnectionInfo::SendStatus(std::string status) {
+  int length = status.size();
+  bool fail = false;
+
+  if (SendAll(&length, sizeof(length)) != sizeof(length)) {
+    fail = true;
+  }
+  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
+  if (!fail && SendAll(status.data(), status.size()) != length) {
+    fail = true;
+  }
+  return fail ? -1 : length;
+}
+
 void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
   // Do magic handshake
   int magic = 0;
@@ -410,6 +410,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
   }
 
   while (true) {
+    std::cout << __FILE__ << " " << __LINE__ << " " << host_ << ":" << port_ << std::endl;
     std::string json;
     bool fail = false;
     try {
@@ -427,6 +428,7 @@ void RPCTrackerObj::ConnectionInfo::ConnectionLoop() {
     }
 
     if (fail) {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       Fail();
       return;
     }
