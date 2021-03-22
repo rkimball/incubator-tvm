@@ -66,7 +66,7 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
 
 RPCTrackerObj::~RPCTrackerObj() {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
-  // Stop();
+  Terminate();
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
@@ -84,6 +84,22 @@ void RPCTrackerObj::ListenLoopEntry() {
       std::cout << __FILE__ << " " << __LINE__ << " " << err.what() << std::endl;
       break;
     }
+
+    // Check the connection_list_ for stale connections
+    std::set<std::shared_ptr<ConnectionInfo>> erase_list;
+    for (auto conn : connection_list_) {
+      std::cout << __FILE__ << " " << __LINE__ << " conn " << conn->host_ << ":" << conn->port_ << " " << conn->active_ << std::endl;
+      if(conn->active_ == false) {
+        conn->ShutdownThread();
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+        erase_list.insert(conn);
+      }
+    }
+    for (auto conn : erase_list) {
+      connection_list_.erase(conn);
+    }
+    erase_list.clear();
+
     std::cout << __FILE__ << " " << __LINE__ << std::endl;
     std::string peer_host;
     int peer_port;
@@ -91,6 +107,7 @@ void RPCTrackerObj::ListenLoopEntry() {
     std::lock_guard<std::mutex> guard(mutex_);
     connection_list_.insert(
         std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
+
   }
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
@@ -137,10 +154,11 @@ void RPCTrackerObj::Terminate() {
   // Second clear out any open connections since those have no tracker
   std::lock_guard<std::mutex> guard(mutex_);
   for (auto conn : connection_list_) {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << conn->host_ << ":" << conn->port_ << std::endl;
     if (!conn->connection_.IsClosed()) {
-      conn->connection_.Shutdown();
-      conn->connection_.Close();
+      std::cout << __FILE__ << " " << __LINE__ << " " << conn->host_ << ":" << conn->port_ << std::endl;
+      conn->Close();
+      std::cout << __FILE__ << " " << __LINE__ << " " << conn->host_ << ":" << conn->port_ << std::endl;
     }
     std::cout << __FILE__ << " " << __LINE__ << " conn " << conn->host_ << ":" << conn->port_ << " ref count=" << conn.use_count() << std::endl;
   }
@@ -299,19 +317,36 @@ ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int por
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   std::cout << __FILE__ << " " << __LINE__ << " ctor " << host_ << ":" << port_ << std::endl;
   connection_task_ =
-      std::thread(&ConnectionInfo::ConnectionLoop, this);
+      std::thread(&ConnectionInfo::ConnectionLoopEntry, this);
   connection_task_.detach();
 }
 
 ConnectionInfo::~ConnectionInfo(){
   std::cout << __FILE__ << " " << __LINE__ << " dtor " << host_ << ":" << port_ << std::endl;
+  Close();
+  std::cout << __FILE__ << " " << __LINE__ << " dtor done " << host_ << ":" << port_ << std::endl;
+}
+
+void ConnectionInfo::Close() {
+  std::cout << __FILE__ << " " << __LINE__ << " close connection " << host_ << ":" << port_ << std::endl;
   if (!connection_.IsClosed()) {
     connection_.Shutdown();
     connection_.Close();
   }
 }
 
-void ConnectionInfo::Close() {
+void ConnectionInfo::ShutdownThread() {
+  if (std::this_thread::get_id() != connection_task_.get_id()) {
+    std::cout << __FILE__ << " " << __LINE__ << " close from other " << host_ << ":" << port_ << std::endl;
+    if (connection_task_.joinable()) {
+      std::cout << __FILE__ << " " << __LINE__ << " joinable " << host_ << ":" << port_ << " joinable" << std::endl;
+      connection_task_.join();
+    } else {
+      std::cout << __FILE__ << " " << __LINE__ << " not joinable " << host_ << ":" << port_ << " not joinable" << std::endl;
+    }
+  } else {
+    std::cout << __FILE__ << " " << __LINE__ << " close from this " << host_ << ":" << port_ << std::endl;
+  }
 }
 
 int ConnectionInfo::RecvAll(void* data, size_t length) {
@@ -346,19 +381,6 @@ int ConnectionInfo::SendAll(const void* data, size_t length) {
   return length;
 }
 
-void ConnectionInfo::Fail() {
-  Close();
-  if (tracker_) {
-    std::lock_guard<std::mutex> guard(tracker_->mutex_);
-    for (auto c : tracker_->connection_list_) {
-      if (c.get() == this) {
-        tracker_->connection_list_.erase(c);
-        break;
-      }
-    }
-  }
-}
-
 int ConnectionInfo::SendResponse(RPCTrackerObj::TRACKER_CODE value) {
   std::stringstream ss;
   ss << static_cast<int>(value);
@@ -380,25 +402,29 @@ int ConnectionInfo::SendStatus(std::string status) {
   return fail ? -1 : length;
 }
 
+void ConnectionInfo::ConnectionLoopEntry() {
+  ConnectionLoop();
+  Close();
+  active_ = false;
+    std::cout << __FILE__ << " " << __LINE__ << " conn exit " << host_ << ":" << port_ << std::endl;
+}
+
 void ConnectionInfo::ConnectionLoop() {
   // Do magic handshake
   int magic = 0;
   if (RecvAll(&magic, sizeof(magic)) == -1) {
     // Error setting up connection
     std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-    Fail();
     return;
   }
   if (magic != static_cast<int>(RPCTrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
     // Not a tracker connection so close connection and exit
     std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-    Fail();
     return;
   }
   if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
     // Failed to send magic so exit
     std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-    Fail();
     return;
   }
 
@@ -421,8 +447,7 @@ void ConnectionInfo::ConnectionLoop() {
     }
 
     if (fail) {
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
-      Fail();
+      std::cout << __FILE__ << " " << __LINE__ << " connection closed by peer " << host_ << ":" << port_ << std::endl;
       return;
     }
 
@@ -444,7 +469,6 @@ void ConnectionInfo::ConnectionLoop() {
         if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-          Fail();
           return;
         }
         break;
@@ -452,7 +476,6 @@ void ConnectionInfo::ConnectionLoop() {
         if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-          Fail();
           return;
         }
 
@@ -493,7 +516,6 @@ void ConnectionInfo::ConnectionLoop() {
         if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response " << host_ << ":" << port_ << std::endl;
-          Fail();
           return;
         }
         break;
@@ -521,7 +543,6 @@ void ConnectionInfo::ConnectionLoop() {
         if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1){
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-          Fail();
           return;
         }
         break;
@@ -549,7 +570,6 @@ void ConnectionInfo::ConnectionLoop() {
           if (SendStatus(ss.str()) == -1) {
             // Failed to send response so connection broken
             std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-            Fail();
             return;
           }
         }
@@ -569,7 +589,6 @@ void ConnectionInfo::ConnectionLoop() {
         if (SendStatus(ss.str()) == -1) {
           // Failed to send response so connection broken
           std::cout << __FILE__ << " " << __LINE__ << " error sending response\n";
-          Fail();
           return;
         }
         break;

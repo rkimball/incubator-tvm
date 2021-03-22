@@ -261,21 +261,21 @@ class ConnectionInfo {
   std::string key_;
   std::set<std::string> pending_match_keys_;
   std::set<std::shared_ptr<PutInfo>> put_values_;
+  bool active_ = true;
 
+  void ConnectionLoopEntry();
   void ConnectionLoop();
   int SendStatus(std::string status);
   int SendResponse(RPCTrackerObj::TRACKER_CODE value);
   int RecvAll(void* data, size_t length);
   int SendAll(const void* data, size_t length);
   void Close();
+  void ShutdownThread();
 
   friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
     out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
     return out;
   }
-
-private:
-  void Fail();
 };
 
 }  // namespace rpc
