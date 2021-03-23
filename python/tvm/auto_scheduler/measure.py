@@ -578,7 +578,6 @@ class LocalRPCMeasureContext:
 
     def __del__(self):
         # Close the tracker and server before exit
-        print("************* measure.py __del__")
         self.tracker.terminate()
         self.server.terminate()
         time.sleep(0.5)

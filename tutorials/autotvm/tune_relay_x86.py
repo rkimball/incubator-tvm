@@ -208,8 +208,9 @@ def tune_and_evaluate(tuning_opt):
     )
 
     # run tuning tasks
+    print("Tune Kernels")
     tune_kernels(tasks, **tuning_opt)
-    print("Start tuning")
+    print("Tune Graph")
     tune_graph(mod["main"], data_shape, log_file, graph_opt_sch_file)
     print("Tuning complete")
 
