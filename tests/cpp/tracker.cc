@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
+#include <regex>
 
 #include "../../src/runtime/rpc/rpc_tracker.h"
 #include "../../src/support/socket.h"
@@ -166,8 +167,39 @@ class MockServer : public RPCUtil {
   tvm::support::TCPSocket listen_socket_;
 };
 
+class RequestResponse {
+  public:
+  std::string host;
+  int port;
+  std::string match_key;
+  int status_;
+};
+
 class MockClient : public RPCUtil {
+  public:
   MockClient(int port) : RPCUtil(port) {}
+
+  RequestResponse Request(std::string key, int priority) {
+    {
+      RequestResponse response;
+      std::ostringstream ss;
+      ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
+       << priority << "]";
+      SendAll(ss.str());
+      std::string status = RecvAll();
+      std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
+      std::smatch sm;
+      if (std::regex_match(status, sm, reg)) {
+        response.status_ = std::stoi(sm[1]);
+        if (response.status_ == 0) {
+          response.host = sm[2];
+          response.port = std::stoi(sm[3]);
+          response.match_key = sm[4];
+        }
+      }
+      return response;
+    }
+  }
 };
 
 TEST(Tracker, Basic) {
@@ -185,7 +217,15 @@ TEST(Tracker, Basic) {
   MockServer s5(tracker_port, "abc-2");
   MockServer s6(tracker_port, "abc-2");
 
-  s1.Summary();
+  MockClient c1(tracker_port);
+  // c1.Request("bad", 0);
+  auto status1 = c1.Request("abc-1", 0);
+  std::cout << __FILE__ << " " << __LINE__ << " status 1 " << status1.match_key << std::endl;
+  c1.Request("abc-1", 0);
+  c1.Request("abc-1", 0);
+  c1.Request("abc-1", 0);
+
+  // s1.Summary();
   std::cout << __FILE__ << " " << __LINE__ << " sleep 3 seconds" << std::endl;
   sleep(3);
   std::cout << __FILE__ << " " << __LINE__ << " done with sleep" << std::endl;
