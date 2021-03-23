@@ -24,32 +24,21 @@
 #include "../../src/runtime/rpc/rpc_tracker.h"
 #include "../../src/support/socket.h"
 
-// int magic = 0;
-// if (RecvAll(&magic, sizeof(magic)) == -1) {
-//   // Error setting up connection
-//   return;
-// }
-// if (magic != static_cast<int>(RPCTrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
-//   // Not a tracker connection so close connection and exit
-//   return;
-// }
-// if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
-//   // Failed to send magic so exit
-//   return;
-// }
+using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
+using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
 
 class RPCUtil {
  public:
-  RPCUtil(int port) { ConnectToTracker(port); }
+  RPCUtil(int tracker_port) { ConnectToTracker(tracker_port); }
   ~RPCUtil() { DisconnectFromTracker(); }
-  bool ConnectToTracker(int port) {
-    tvm::support::SockAddr addr("localhost", port);
-    socket_.Create();
-    if (socket_.Connect(addr)) {
+  bool ConnectToTracker(int tracker_port) {
+    tvm::support::SockAddr addr("localhost", tracker_port);
+    tracker_socket_.Create();
+    if (tracker_socket_.Connect(addr)) {
     } else {
       std::cout << __FILE__ << " " << __LINE__ << " failed to start server " << std::endl;
     }
-    int magic = static_cast<int>(tvm::runtime::rpc::RPCTrackerObj::RPC_CODE::RPC_TRACKER_MAGIC);
+    int magic = static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC);
     if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
       // Failed to send magic so exit
       std::cout << __FILE__ << " " << __LINE__ << std::endl;
@@ -58,20 +47,40 @@ class RPCUtil {
       // Error setting up connection
       std::cout << __FILE__ << " " << __LINE__ << std::endl;
     }
+
     return true;
   }
+
   void DisconnectFromTracker() {
-    if (!socket_.IsClosed()) {
-      socket_.Shutdown();
-      socket_.Close();
+    if (!tracker_socket_.IsClosed()) {
+      tracker_socket_.Shutdown();
+      tracker_socket_.Close();
     }
+  }
+
+  std::string Summary() {
+    std::stringstream ss;
+    ss << "[" << static_cast<int>(TRACKER_CODE::SUMMARY) << "]";
+    SendAll(ss.str());
+    std::string json = RecvAll();
+    std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
+    return "fix this";
+  }
+
+  std::string RecvAll() {
+    int32_t size = 0;
+    std::string json;
+    RecvAll(&size, sizeof(size));
+    json.resize(size);
+    RecvAll(&json[0], json.size());
+    return json;
   }
 
   int RecvAll(void* data, size_t length) {
     char* buf = static_cast<char*>(data);
     size_t remainder = length;
     while (remainder > 0) {
-      int read_length = socket_.Recv(buf, remainder);
+      int read_length = tracker_socket_.Recv(buf, remainder);
       if (read_length <= 0) {
         return -1;
       }
@@ -81,14 +90,21 @@ class RPCUtil {
     return length;
   }
 
+  int SendAll(std::string msg) {
+    int32_t size = msg.size();
+    SendAll(&size, sizeof(size));
+    SendAll(msg.data(), msg.size());
+    return msg.size();
+  }
+
   int SendAll(const void* data, size_t length) {
-    if (socket_.IsClosed()) {
+    if (tracker_socket_.IsClosed()) {
       return -1;
     }
     const char* buf = static_cast<const char*>(data);
     size_t remainder = length;
     while (remainder > 0) {
-      int send_length = socket_.Send(buf, remainder);
+      int send_length = tracker_socket_.Send(buf, remainder);
       if (send_length <= 0) {
         return -1;
       }
@@ -99,16 +115,55 @@ class RPCUtil {
   }
 
  protected:
-  tvm::support::TCPSocket socket_;
+  tvm::support::TCPSocket tracker_socket_;
+  std::string key_;
 };
 
 class MockServer : public RPCUtil {
  public:
-  MockServer(int port, std::string key) : RPCUtil(port), key_{key} {
+  MockServer(int tracker_port, std::string key) : RPCUtil(tracker_port), key_{key} {
+    std::string status;
+
+    listen_socket_.Create();
+    my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
+    std::cout << __FILE__ << " " << __LINE__ << " MockServer listen " << my_port_ << std::endl;
+
+    {
+      std::ostringstream ss;
+      ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
+          << "\"}]";
+      SendAll(ss.str());
+    }
+
+    // Receive status and validate
+    status = RecvAll();
+    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
+
+    match_key_ = key_ + ":" + std::to_string(rand());
+    std::cout << __FILE__ << " " << __LINE__ << " " << match_key_ << std::endl;
+    {
+      std::ostringstream ss;
+      ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
+          << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
+      SendAll(ss.str());
+    }
+    status = RecvAll();
+    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
+  }
+
+  ~MockServer() {
+    if (!listen_socket_.IsClosed()) {
+      listen_socket_.Shutdown();
+      listen_socket_.Close();
+    }
   }
 
  private:
   std::string key_;
+  std::string match_key_;
+  std::string custom_addr_ = "\"127.0.0.1\"";
+  int my_port_;
+  tvm::support::TCPSocket listen_socket_;
 };
 
 class MockClient : public RPCUtil {
@@ -123,10 +178,14 @@ TEST(Tracker, Basic) {
   std::cout << "Tracker port " << tracker_port << std::endl;
 
   // Setup mock server
-  MockServer s1(tracker_port, "abc");
-  MockServer s2(tracker_port, "abc");
-  MockServer s3(tracker_port, "abc");
+  MockServer s1(tracker_port, "abc-1");
+  MockServer s2(tracker_port, "abc-1");
+  MockServer s3(tracker_port, "abc-1");
+  MockServer s4(tracker_port, "abc-2");
+  MockServer s5(tracker_port, "abc-2");
+  MockServer s6(tracker_port, "abc-2");
 
+  s1.Summary();
   std::cout << __FILE__ << " " << __LINE__ << " sleep 3 seconds" << std::endl;
   sleep(3);
   std::cout << __FILE__ << " " << __LINE__ << " done with sleep" << std::endl;
