@@ -51,11 +51,14 @@ RPCTrackerObj::~RPCTrackerObj() { Terminate(); }
  * \brief ListenLoopProc The listen process.
  */
 void RPCTrackerObj::ListenLoopEntry() {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   active_ = true;
   while (active_) {
     support::TCPSocket connection;
     try {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       connection = listen_sock_.Accept();
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
     } catch (std::exception err) {
       break;
     }
