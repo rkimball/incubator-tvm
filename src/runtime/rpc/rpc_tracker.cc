@@ -283,9 +283,7 @@ ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int por
   connection_task_.detach();
 }
 
-ConnectionInfo::~ConnectionInfo() {
-  Close();
-}
+ConnectionInfo::~ConnectionInfo() { Close(); }
 
 void ConnectionInfo::Close() {
   if (!connection_.IsClosed()) {
