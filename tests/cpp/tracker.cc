@@ -32,6 +32,17 @@ using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
 using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
 
 class Summary {
+  class Queue {
+  public:
+    std::string key;
+    int free_count;
+    int pending_count;
+
+    friend std::ostream& operator<<(std::ostream& out, const Queue& obj) {
+      out << "queue(" << obj.key << ", free=" << obj.free_count << ", pending=" << obj.pending_count << ")";
+      return out;
+    }
+  };
 public:
   Summary(std::string json) {
     std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
@@ -43,6 +54,61 @@ public:
     reader.ReadNumber(&tmp);
     reader.NextArrayItem();
     reader.BeginObject();
+    std::string key;
+    while(reader.NextObjectItem(&key)) {
+      std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
+      // reader.ReadString(&key);
+      if (key == "queue_info") {
+        ParseQueueInfo(reader);
+      } else if (key == "server_info") {
+        ParseServerInfo(reader);
+      }
+    }
+  }
+
+  void ParseQueueInfo(dmlc::JSONReader& reader) {
+    reader.BeginObject();
+    std::string key;
+    while (reader.NextObjectItem(&key)) {
+      Queue queue;
+      queue.key = key;
+      std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
+      reader.BeginObject();
+      std::string key1;
+      while (reader.NextObjectItem(&key1)) {
+        int value = 0;
+        reader.ReadNumber(&value);
+        if (key1 == "free") {
+          queue.free_count = value;
+        } else if (key1 == "pending") {
+          queue.pending_count = value;
+        }
+      }
+      std::cout << __FILE__ << " " << __LINE__ << " " << queue << std::endl;
+    }
+  }
+
+  void ParseServerInfo(dmlc::JSONReader& reader) {
+    reader.BeginArray();
+    while (reader.NextArrayItem()) {
+      reader.BeginObject();
+      std::string key;
+      while (reader.NextObjectItem(&key)) {
+        int port;
+        if (key == "addr") {
+          std::string addr;
+          reader.BeginArray();
+          reader.NextArrayItem();
+          reader.Read(&addr);
+          reader.NextArrayItem();
+          reader.Read(&port);
+          reader.NextArrayItem();
+        } else if (key == "key") {
+          std::string server_key;
+          reader.Read(&server_key);
+        }
+      }
+    }
   }
 };
 
@@ -288,6 +354,8 @@ TEST(Tracker, DeviceClose) {
   MockServer dev4(tracker_port, "abc-2");
   MockServer dev5(tracker_port, "abc-2");
   MockServer dev6(tracker_port, "abc-2");
+
+  dev1.GetSummary();
 }
 
 int main(int argc, char** argv) {
