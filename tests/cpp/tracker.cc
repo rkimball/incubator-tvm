@@ -38,18 +38,15 @@ class RPCUtil {
   bool ConnectToTracker(int tracker_port) {
     tvm::support::SockAddr addr("localhost", tracker_port);
     tracker_socket_.Create();
-    if (tracker_socket_.Connect(addr)) {
-    } else {
-      std::cout << __FILE__ << " " << __LINE__ << " failed to start server " << std::endl;
-    }
+    tracker_socket_.Connect(addr);
     int magic = static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC);
     if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
       // Failed to send magic so exit
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      return false;
     }
     if (RecvAll(&magic, sizeof(magic)) == -1) {
       // Error setting up connection
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      return false;
     }
 
     return true;
@@ -67,7 +64,6 @@ class RPCUtil {
     ss << "[" << static_cast<int>(TRACKER_CODE::SUMMARY) << "]";
     SendAll(ss.str());
     std::string json = RecvAll();
-    std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
     return "fix this";
   }
 
@@ -128,7 +124,6 @@ class MockServer : public RPCUtil {
   MockServer(int tracker_port, std::string key) : RPCUtil(tracker_port), key_{key} {
     listen_socket_.Create();
     my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
-    std::cout << __FILE__ << " " << __LINE__ << " MockServer listen " << my_port_ << std::endl;
 
       std::ostringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
@@ -137,7 +132,6 @@ class MockServer : public RPCUtil {
 
     // Receive status and validate
     std::string status = RecvAll();
-    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
 
     PutDevice();
   }
@@ -151,13 +145,11 @@ class MockServer : public RPCUtil {
 
   void PutDevice() {
     match_key_ = key_ + ":" + std::to_string(rand());
-    std::cout << __FILE__ << " " << __LINE__ << " " << match_key_ << std::endl;
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
         << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
     SendAll(ss.str());
     std::string status = RecvAll();
-    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
   }
 
  private:
@@ -208,11 +200,9 @@ bool is_ready(R const& f) {
 
 TEST(Tracker, Basic) {
   std::chrono::milliseconds wait_time(100);
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   auto tracker =
       tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
-  std::cout << "Tracker port " << tracker_port << std::endl;
 
   // Setup mock server
   MockServer dev1(tracker_port, "abc-1");
@@ -225,8 +215,7 @@ TEST(Tracker, Basic) {
   MockClient client1(tracker_port);
   MockClient client2(tracker_port);
   MockClient client3(tracker_port);
-  // MockClient client4(tracker_port);
-  // client1.Request("bad", 0);
+
   std::future<RequestResponse> f1 = std::async(&MockClient::Request, &client1, "abc-1", 0);
   ASSERT_TRUE(f1.valid());
   EXPECT_EQ(f1.wait_for(wait_time), std::future_status::ready);
@@ -269,21 +258,6 @@ TEST(Tracker, Basic) {
 
   dev1.PutDevice();
   EXPECT_EQ(f4.wait_for(wait_time), std::future_status::ready);
-
-
-
-  // std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client4, "abc-1", 0);
-  // ASSERT_TRUE(f4.valid());
-  // EXPECT_NE(f4.wait_for(wait_time), std::future_status::ready);
-  // EXPECT_FALSE(is_ready(f4));
-
-  // RequestResponse status1 = f1.get();
-  // std::cout << __FILE__ << " " << __LINE__ << " status 1 " << status1.match_key << std::endl;
-
-  // s1.Summary();
-  std::cout << __FILE__ << " " << __LINE__ << " sleep 3 seconds" << std::endl;
-  sleep(3);
-  std::cout << __FILE__ << " " << __LINE__ << " done with sleep" << std::endl;
 }
 
 int main(int argc, char** argv) {

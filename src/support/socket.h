@@ -101,12 +101,10 @@ inline bool SockaddrInfo(const struct sockaddr* sa, std::string& host, int& port
   switch (sa->sa_family) {
     case AF_INET:
       host = inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), buffer, sizeof(buffer));
-      // result = std::string(buffer, sizeof(buffer));
       break;
 
     case AF_INET6:
       host = inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), buffer, sizeof(buffer));
-      // result = std::string(buffer, sizeof(buffer));
       break;
     default:
       return false;
@@ -290,8 +288,6 @@ class Socket {
                (addr.addr.ss_family == AF_INET6 ? sizeof(sockaddr_in6) : sizeof(sockaddr_in))) ==
           0) {
         return port;
-      } else {
-        LOG(WARNING) << "Bind to " << host << ":" << port << " failed: " << strerror(errno);
       }
 #if defined(_WIN32)
       if (WSAGetLastError() != WSAEADDRINUSE) {

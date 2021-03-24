@@ -35,7 +35,6 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
     : host_{host}, port_{port}, port_end_{port_end} {
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
-  LOG(INFO) << "bind to " << host_ << ":" << my_port_;
 
   // Set socket so we can reuse the address later
   // listen_sock_.SetReuseAddress();
@@ -51,14 +50,11 @@ RPCTrackerObj::~RPCTrackerObj() { Terminate(); }
  * \brief ListenLoopProc The listen process.
  */
 void RPCTrackerObj::ListenLoopEntry() {
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   active_ = true;
   while (active_) {
     support::TCPSocket connection;
     try {
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       connection = listen_sock_.Accept();
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
     } catch (std::exception err) {
       break;
     }
@@ -72,7 +68,6 @@ void RPCTrackerObj::ListenLoopEntry() {
     connection_list_.insert(
         std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
   }
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 void RPCTrackerObj::RemoveStaleConnections() {
@@ -97,24 +92,16 @@ void RPCTrackerObj::RemoveStaleConnections() {
 
     connection_list_.erase(conn);
   }
-
-  // DEBUG: Remove
-  for (auto p : scheduler_map_) {
-    std::cout << __FILE__ << " " << __LINE__ << " " << p.first << std::endl;
-  }
 }
 
 int RPCTrackerObj::GetPort() const { return my_port_; }
 
 void RPCTrackerObj::Stop() {
-  std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerObj::Stop" << std::endl;
   // For now call Terminate
   Terminate();
-  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 void RPCTrackerObj::Terminate() {
-  std::cout << __FILE__ << " " << __LINE__ << " RPCTrackerObj::Terminate" << std::endl;
 
   // First shutdown the listen socket so we don't get any new connections
   listen_sock_.Shutdown();
@@ -128,15 +115,12 @@ void RPCTrackerObj::Terminate() {
   // Second clear out any open connections since those have no tracker
   std::lock_guard<std::mutex> guard(mutex_);
   for (auto conn : connection_list_) {
-    std::cout << __FILE__ << " " << __LINE__ << " " << conn->host_ << ":" << conn->port_
-              << std::endl;
     if (!conn->connection_.IsClosed()) {
       conn->Close();
     }
   }
   scheduler_map_.clear();
   connection_list_.clear();
-  std::cout << __FILE__ << " " << __LINE__ << " end of ~RPCTrackerObj()" << std::endl;
 }
 
 void RPCTrackerObj::Put(std::string key, std::string address, int port, std::string match_key,
@@ -155,11 +139,6 @@ void RPCTrackerObj::Put(std::string key, std::string address, int port, std::str
   auto it = scheduler_map_.find(key);
   if (it != scheduler_map_.end()) {
     it->second->Put(address, port, match_key, conn);
-  } else {
-    std::cout << __FILE__ << " " << __LINE__ << " put error" << key << std::endl;
-    for (auto p : scheduler_map_) {
-      std::cout << __FILE__ << " " << __LINE__ << " " << p.first << std::endl;
-    }
   }
 }
 
@@ -220,11 +199,9 @@ void RPCTrackerObj::Close(ConnectionInfo* connection) {
 }
 
 RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {
-  std::cout << __FILE__ << " " << __LINE__ << " PriorityScheduler " << key_ << std::endl;
 }
 
 RPCTrackerObj::PriorityScheduler::~PriorityScheduler() {
-  std::cout << __FILE__ << " " << __LINE__ << " ~PriorityScheduler " << key_ << std::endl;
 }
 
 void RPCTrackerObj::PriorityScheduler::Request(std::string user, int priority,
@@ -345,7 +322,7 @@ int ConnectionInfo::SendStatus(std::string status) {
   int length = status.size();
   bool fail = false;
 
-  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
+  // std::cout << host_ << ":" << port_ << " << " << status << std::endl;
 
   if (SendAll(&length, sizeof(length)) != sizeof(length)) {
     fail = true;
@@ -399,7 +376,7 @@ void ConnectionInfo::ConnectionLoop() {
       return;
     }
 
-    std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
+    // std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
