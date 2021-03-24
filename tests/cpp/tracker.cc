@@ -126,33 +126,20 @@ class RPCUtil {
 class MockServer : public RPCUtil {
  public:
   MockServer(int tracker_port, std::string key) : RPCUtil(tracker_port), key_{key} {
-    std::string status;
-
     listen_socket_.Create();
     my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
     std::cout << __FILE__ << " " << __LINE__ << " MockServer listen " << my_port_ << std::endl;
 
-    {
       std::ostringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
          << "\"}]";
       SendAll(ss.str());
-    }
 
     // Receive status and validate
-    status = RecvAll();
+    std::string status = RecvAll();
     std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
 
-    match_key_ = key_ + ":" + std::to_string(rand());
-    std::cout << __FILE__ << " " << __LINE__ << " " << match_key_ << std::endl;
-    {
-      std::ostringstream ss;
-      ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
-         << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
-      SendAll(ss.str());
-    }
-    status = RecvAll();
-    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
+    PutDevice();
   }
 
   ~MockServer() {
@@ -160,6 +147,17 @@ class MockServer : public RPCUtil {
       listen_socket_.Shutdown();
       listen_socket_.Close();
     }
+  }
+
+  void PutDevice() {
+    match_key_ = key_ + ":" + std::to_string(rand());
+    std::cout << __FILE__ << " " << __LINE__ << " " << match_key_ << std::endl;
+    std::ostringstream ss;
+    ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
+        << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
+    SendAll(ss.str());
+    std::string status = RecvAll();
+    std::cout << __FILE__ << " " << __LINE__ << " " << status << std::endl;
   }
 
  private:
@@ -243,6 +241,36 @@ TEST(Tracker, Basic) {
   ASSERT_TRUE(f3.valid());
   EXPECT_EQ(f3.wait_for(wait_time), std::future_status::ready);
   EXPECT_TRUE(is_ready(f3));
+
+  // At this point there are no devices ready
+  // Request 3 more device using priority ordering
+  std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client1, "abc-1", 10);
+  ASSERT_TRUE(f4.valid());
+  EXPECT_NE(f4.wait_for(wait_time), std::future_status::ready);
+
+  std::future<RequestResponse> f5 = std::async(&MockClient::Request, &client2, "abc-1", 100);
+  ASSERT_TRUE(f5.valid());
+  EXPECT_NE(f5.wait_for(wait_time), std::future_status::ready);
+
+  std::future<RequestResponse> f6 = std::async(&MockClient::Request, &client3, "abc-1", 30);
+  ASSERT_TRUE(f6.valid());
+  EXPECT_NE(f6.wait_for(wait_time), std::future_status::ready);
+
+  // The requests must be satisfied in the order f5, f6, f4 even though the order requested
+  // was f4, f5, f6
+  dev1.PutDevice();
+  EXPECT_NE(f4.wait_for(wait_time), std::future_status::ready);
+  EXPECT_EQ(f5.wait_for(wait_time), std::future_status::ready);
+  EXPECT_NE(f6.wait_for(wait_time), std::future_status::ready);
+
+  dev1.PutDevice();
+  EXPECT_NE(f4.wait_for(wait_time), std::future_status::ready);
+  EXPECT_EQ(f6.wait_for(wait_time), std::future_status::ready);
+
+  dev1.PutDevice();
+  EXPECT_EQ(f4.wait_for(wait_time), std::future_status::ready);
+
+
 
   // std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client4, "abc-1", 0);
   // ASSERT_TRUE(f4.valid());
