@@ -102,7 +102,6 @@ void RPCTrackerObj::Stop() {
 }
 
 void RPCTrackerObj::Terminate() {
-
   // First shutdown the listen socket so we don't get any new connections
   listen_sock_.Shutdown();
   listen_sock_.Close();
@@ -198,11 +197,9 @@ void RPCTrackerObj::Close(ConnectionInfo* connection) {
   }
 }
 
-RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {
-}
+RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
 
-RPCTrackerObj::PriorityScheduler::~PriorityScheduler() {
-}
+RPCTrackerObj::PriorityScheduler::~PriorityScheduler() {}
 
 void RPCTrackerObj::PriorityScheduler::Request(std::string user, int priority,
                                                std::shared_ptr<ConnectionInfo> conn) {

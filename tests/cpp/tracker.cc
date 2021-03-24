@@ -21,9 +21,9 @@
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
 
+#include <chrono>
 #include <future>
 #include <regex>
-#include <chrono>
 
 #include "../../src/runtime/rpc/rpc_tracker.h"
 #include "../../src/support/socket.h"
@@ -125,10 +125,10 @@ class MockServer : public RPCUtil {
     listen_socket_.Create();
     my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
 
-      std::ostringstream ss;
-      ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
-         << "\"}]";
-      SendAll(ss.str());
+    std::ostringstream ss;
+    ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
+       << "\"}]";
+    SendAll(ss.str());
 
     // Receive status and validate
     std::string status = RecvAll();
@@ -147,7 +147,7 @@ class MockServer : public RPCUtil {
     match_key_ = key_ + ":" + std::to_string(rand());
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
-        << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
+       << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
     SendAll(ss.str());
     std::string status = RecvAll();
   }
@@ -176,7 +176,7 @@ class MockClient : public RPCUtil {
     RequestResponse response;
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
-        << priority << "]";
+       << priority << "]";
     SendAll(ss.str());
     std::string status = RecvAll();
     std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
