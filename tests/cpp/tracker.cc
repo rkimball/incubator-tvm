@@ -59,15 +59,7 @@ class RPCUtil {
     }
   }
 
-  std::string Summary() {
-    std::stringstream ss;
-    ss << "[" << static_cast<int>(TRACKER_CODE::SUMMARY) << "]";
-    SendAll(ss.str());
-    std::string json = RecvAll();
-    return "fix this";
-  }
-
-  std::string RecvAll() {
+  std::string RecvPacket() {
     int32_t size = 0;
     std::string json;
     RecvAll(&size, sizeof(size));
@@ -90,7 +82,7 @@ class RPCUtil {
     return length;
   }
 
-  int SendAll(std::string msg) {
+  int SendPacket(std::string msg) {
     int32_t size = msg.size();
     SendAll(&size, sizeof(size));
     SendAll(msg.data(), msg.size());
@@ -128,10 +120,10 @@ class MockServer : public RPCUtil {
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
        << "\"}]";
-    SendAll(ss.str());
+    SendPacket(ss.str());
 
     // Receive status and validate
-    std::string status = RecvAll();
+    std::string status = RecvPacket();
 
     PutDevice();
   }
@@ -148,8 +140,8 @@ class MockServer : public RPCUtil {
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
        << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
-    SendAll(ss.str());
-    std::string status = RecvAll();
+    SendPacket(ss.str());
+    std::string status = RecvPacket();
   }
 
  private:
@@ -177,8 +169,8 @@ class MockClient : public RPCUtil {
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
        << priority << "]";
-    SendAll(ss.str());
-    std::string status = RecvAll();
+    SendPacket(ss.str());
+    std::string status = RecvPacket();
     std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
     std::smatch sm;
     if (std::regex_match(status, sm, reg)) {
