@@ -21,7 +21,6 @@
 
 #include <dmlc/json.h>
 #include <tvm/runtime/registry.h>
-#include <tvm/support/logging.h>
 
 #include <iomanip>
 #include <iostream>
