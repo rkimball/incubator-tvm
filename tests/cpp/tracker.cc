@@ -43,6 +43,18 @@ class Summary {
       return out;
     }
   };
+
+  class Server {
+  public:
+    std::string key;
+    std::string host;
+    int port;
+
+    friend std::ostream& operator<<(std::ostream& out, const Server& obj) {
+      out << "server(" << obj.key << ", " << obj.host << ":" << obj.port << ")";
+      return out;
+    }
+  };
 public:
   Summary(std::string json) {
     std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
@@ -72,7 +84,6 @@ public:
     while (reader.NextObjectItem(&key)) {
       Queue queue;
       queue.key = key;
-      std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
       reader.BeginObject();
       std::string key1;
       while (reader.NextObjectItem(&key1)) {
@@ -93,6 +104,7 @@ public:
     while (reader.NextArrayItem()) {
       reader.BeginObject();
       std::string key;
+      Server server;
       while (reader.NextObjectItem(&key)) {
         int port;
         if (key == "addr") {
@@ -103,11 +115,15 @@ public:
           reader.NextArrayItem();
           reader.Read(&port);
           reader.NextArrayItem();
+          server.host = addr;
+          server.port = port;
         } else if (key == "key") {
           std::string server_key;
           reader.Read(&server_key);
+          server.key = server_key;
         }
       }
+      std::cout << __FILE__ << " " << __LINE__ << " " << server << std::endl;
     }
   }
 };
