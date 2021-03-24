@@ -20,7 +20,10 @@
 #include <gtest/gtest.h>
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
+
+#include <future>
 #include <regex>
+#include <chrono>
 
 #include "../../src/runtime/rpc/rpc_tracker.h"
 #include "../../src/support/socket.h"
@@ -132,7 +135,7 @@ class MockServer : public RPCUtil {
     {
       std::ostringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
-          << "\"}]";
+         << "\"}]";
       SendAll(ss.str());
     }
 
@@ -145,7 +148,7 @@ class MockServer : public RPCUtil {
     {
       std::ostringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::PUT) << ", \"" << key_ << "\", [" << my_port_
-          << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
+         << ", \"" << match_key_ << "\"], " << custom_addr_ << "]";
       SendAll(ss.str());
     }
     status = RecvAll();
@@ -168,7 +171,7 @@ class MockServer : public RPCUtil {
 };
 
 class RequestResponse {
-  public:
+ public:
   std::string host;
   int port;
   std::string match_key;
@@ -176,7 +179,7 @@ class RequestResponse {
 };
 
 class MockClient : public RPCUtil {
-  public:
+ public:
   MockClient(int port) : RPCUtil(port) {}
 
   RequestResponse Request(std::string key, int priority) {
@@ -184,7 +187,7 @@ class MockClient : public RPCUtil {
       RequestResponse response;
       std::ostringstream ss;
       ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
-       << priority << "]";
+         << priority << "]";
       SendAll(ss.str());
       std::string status = RecvAll();
       std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
@@ -202,6 +205,11 @@ class MockClient : public RPCUtil {
   }
 };
 
+template <typename R>
+bool is_ready(R const& f) {
+  return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
 TEST(Tracker, Basic) {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
   auto tracker =
@@ -210,20 +218,30 @@ TEST(Tracker, Basic) {
   std::cout << "Tracker port " << tracker_port << std::endl;
 
   // Setup mock server
-  MockServer s1(tracker_port, "abc-1");
-  MockServer s2(tracker_port, "abc-1");
-  MockServer s3(tracker_port, "abc-1");
-  MockServer s4(tracker_port, "abc-2");
-  MockServer s5(tracker_port, "abc-2");
-  MockServer s6(tracker_port, "abc-2");
+  MockServer dev1(tracker_port, "abc-1");
+  MockServer dev2(tracker_port, "abc-1");
+  MockServer dev3(tracker_port, "abc-1");
+  MockServer dev4(tracker_port, "abc-2");
+  MockServer dev5(tracker_port, "abc-2");
+  MockServer dev6(tracker_port, "abc-2");
 
-  MockClient c1(tracker_port);
-  // c1.Request("bad", 0);
-  auto status1 = c1.Request("abc-1", 0);
-  std::cout << __FILE__ << " " << __LINE__ << " status 1 " << status1.match_key << std::endl;
-  c1.Request("abc-1", 0);
-  c1.Request("abc-1", 0);
-  c1.Request("abc-1", 0);
+  MockClient client1(tracker_port);
+  // client1.Request("bad", 0);
+  std::future<RequestResponse> f1 = std::async(&MockClient::Request, &client1, "abc-1", 0);
+  std::future<RequestResponse> f2 = std::async(&MockClient::Request, &client1, "abc-1", 0);
+  std::future<RequestResponse> f3 = std::async(&MockClient::Request, &client1, "abc-1", 0);
+  std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client1, "abc-1", 0);
+  ASSERT_TRUE(f1.valid());
+  ASSERT_TRUE(f2.valid());
+  ASSERT_TRUE(f3.valid());
+  ASSERT_TRUE(f4.valid());
+
+  EXPECT_TRUE(is_ready(f1));
+  EXPECT_TRUE(is_ready(f2));
+  EXPECT_TRUE(is_ready(f3));
+  EXPECT_FALSE(is_ready(f4));
+  // RequestResponse status1 = f1.get();
+  // std::cout << __FILE__ << " " << __LINE__ << " status 1 " << status1.match_key << std::endl;
 
   // s1.Summary();
   std::cout << __FILE__ << " " << __LINE__ << " sleep 3 seconds" << std::endl;

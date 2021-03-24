@@ -345,7 +345,7 @@ int ConnectionInfo::SendStatus(std::string status) {
   int length = status.size();
   bool fail = false;
 
-    std::cout << host_ << ":" << port_ << " << " << status << std::endl;
+  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
 
   if (SendAll(&length, sizeof(length)) != sizeof(length)) {
     fail = true;
