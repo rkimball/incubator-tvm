@@ -48,10 +48,6 @@ __name__ == "__main__":` block.
 #
 # Now return to python code. Import packages.
 
-import multiprocessing
-
-multiprocessing.set_start_method("spawn", True)
-
 import logging
 import sys
 import numpy as np
@@ -192,7 +188,7 @@ logging.getLogger("autotvm").addHandler(logging.StreamHandler(sys.stdout))
 # the last layer in resnet
 N, H, W, CO, CI, KH, KW, strides, padding = 1, 7, 7, 512, 512, 3, 3, (1, 1), (1, 1)
 task = autotvm.task.create(
-    "tutorial/conv2d_no_batching", args=(N, H, W, CO, CI, KH, KW, strides, padding), target="llvm"
+    "tutorial/conv2d_no_batching", args=(N, H, W, CO, CI, KH, KW, strides, padding), target="cuda"
 )
 print(task.config_space)
 
@@ -225,7 +221,7 @@ print(best_config)
 
 # apply history best from log file
 with autotvm.apply_history_best("conv2d.log"):
-    with tvm.target.Target("llvm"):
+    with tvm.target.Target("cuda"):
         s, arg_bufs = conv2d_no_batching(N, H, W, CO, CI, KH, KW, strides, padding)
         func = tvm.build(s, arg_bufs)
 
