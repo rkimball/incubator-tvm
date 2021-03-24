@@ -51,6 +51,8 @@ class ConnectionInfo;
 
 /*!
  * \brief The main RPC Tracker class.
+ *
+ * This is the actual implementation of the Tracker.
  */
 class RPCTrackerObj : public Object {
   friend class ConnectionInfo;
@@ -96,6 +98,8 @@ class RPCTrackerObj : public Object {
  private:
   /*!
    * \brief The RequestInfo class tracking information from REQUEST messages.
+   *
+   * The class contains information for tracking an RPC Request call.
    */
   class RequestInfo {
    public:
@@ -118,6 +122,8 @@ class RPCTrackerObj : public Object {
 
   /*!
    * \brief The PutInfo class tracks the information from PUT messages.
+   *
+   * This class contains information for tracking an RPC Put call.
    */
   class PutInfo {
    public:
@@ -171,21 +177,12 @@ class RPCTrackerObj : public Object {
   std::string Summary();
   void Close(ConnectionInfo* conn);
   void RemoveStaleConnections();
+  std::shared_ptr<PriorityScheduler> GetScheduler(std::string key);
 
   /*!
    * \brief Contains the IP address of the host where the RPC Tracker is instantiated.
    */
   std::string host_;
-
-  /*!
-   * \brief Contains the starting port the RPC Tracker uses to start searching a port.
-   */
-  int port_;
-
-  /*!
-   * \brief Contains the ending port the RPC Tracker uses to start searching a port.
-   */
-  int port_end_;
 
   /*!
    * \brief The port in use by the RPC Tracker.
@@ -203,7 +200,7 @@ class RPCTrackerObj : public Object {
   std::unique_ptr<std::thread> listener_task_;
 
   /*!
-   * \brief The map of `key` to PriorityScheduler.
+   * \brief The map of 'key' to PriorityScheduler.
    *
    * Each key has a unique scheduler for that key.
    */
@@ -250,6 +247,8 @@ class RPCTracker : public ObjectRef {
 
 /*!
  * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
+ *
+ * Each instance of this class handles a single socket connection to the RPC Tracker.
  */
 class ConnectionInfo {
  public:

@@ -31,6 +31,21 @@
 using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
 using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
 
+class Summary {
+public:
+  Summary(std::string json) {
+    std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
+    std::istringstream is(json);
+    dmlc::JSONReader reader(&is);
+    int tmp;
+    reader.BeginArray();
+    reader.NextArrayItem();
+    reader.ReadNumber(&tmp);
+    reader.NextArrayItem();
+    reader.BeginObject();
+  }
+};
+
 class RPCUtil {
  public:
   RPCUtil(int tracker_port) { ConnectToTracker(tracker_port); }
@@ -105,6 +120,15 @@ class RPCUtil {
     }
     return length;
   }
+
+  Summary GetSummary() {
+    std::ostringstream ss;
+    ss << "[" << static_cast<int>(TRACKER_CODE::SUMMARY) << "]";
+    SendPacket(ss.str());
+    std::string json = RecvPacket();
+    Summary summary(json);
+    return summary;
+}
 
  protected:
   tvm::support::TCPSocket tracker_socket_;
@@ -190,7 +214,7 @@ bool is_ready(R const& f) {
   return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
 }
 
-TEST(Tracker, Basic) {
+TEST(Tracker, Priority) {
   std::chrono::milliseconds wait_time(100);
   auto tracker =
       tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
@@ -250,6 +274,20 @@ TEST(Tracker, Basic) {
 
   dev1.PutDevice();
   EXPECT_EQ(f4.wait_for(wait_time), std::future_status::ready);
+}
+
+TEST(Tracker, DeviceClose) {
+  auto tracker =
+      tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
+  int tracker_port = tracker->GetPort();
+
+  // Setup mock server
+  MockServer dev1(tracker_port, "abc-1");
+  MockServer dev2(tracker_port, "abc-1");
+  MockServer dev3(tracker_port, "abc-1");
+  MockServer dev4(tracker_port, "abc-2");
+  MockServer dev5(tracker_port, "abc-2");
+  MockServer dev6(tracker_port, "abc-2");
 }
 
 int main(int argc, char** argv) {

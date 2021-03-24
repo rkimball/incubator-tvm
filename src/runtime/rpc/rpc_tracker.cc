@@ -31,9 +31,9 @@ namespace runtime {
 namespace rpc {
 
 RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool silent)
-    : host_{host}, port_{port}, port_end_{port_end} {
+    : host_{host} {
   listen_sock_.Create();
-  my_port_ = listen_sock_.TryBindHost(host_, port_, port_end_);
+  my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
 
   // Set socket so we can reuse the address later
   // listen_sock_.SetReuseAddress();
@@ -121,6 +121,19 @@ void RPCTrackerObj::Terminate() {
   connection_list_.clear();
 }
 
+std::shared_ptr<RPCTrackerObj::PriorityScheduler> RPCTrackerObj::GetScheduler(std::string key) {
+  std::shared_ptr<RPCTrackerObj::PriorityScheduler> scheduler;
+  if (scheduler_map_.find(key) == scheduler_map_.end()) {
+    // There is no scheduler for this key yet so add one
+    scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
+  }
+  auto it = scheduler_map_.find(key);
+  if (it != scheduler_map_.end()) {
+    scheduler = it->second;
+  }
+  return scheduler;
+}
+
 void RPCTrackerObj::Put(std::string key, std::string address, int port, std::string match_key,
                         ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
@@ -130,13 +143,8 @@ void RPCTrackerObj::Put(std::string key, std::string address, int port, std::str
       conn = c;
     }
   }
-  if (scheduler_map_.find(key) == scheduler_map_.end()) {
-    // There is no scheduler for this key yet so add one
-    scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
-  }
-  auto it = scheduler_map_.find(key);
-  if (it != scheduler_map_.end()) {
-    it->second->Put(address, port, match_key, conn);
+  if (auto scheduler = GetScheduler(key)) {
+    scheduler->Put(address, port, match_key, conn);
   }
 }
 
@@ -149,18 +157,8 @@ void RPCTrackerObj::Request(std::string key, std::string user, int priority,
       conn = c;
     }
   }
-  if (scheduler_map_.find(key) == scheduler_map_.end()) {
-    // There is no scheduler for this key yet so add one
-    scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
-  }
-  auto it = scheduler_map_.find(key);
-  if (it != scheduler_map_.end()) {
-    it->second->Request(user, priority, conn);
-  } else {
-    std::cout << __FILE__ << " " << __LINE__ << " request error" << key << std::endl;
-    for (auto p : scheduler_map_) {
-      std::cout << __FILE__ << " " << __LINE__ << " " << p.first << std::endl;
-    }
+  if (auto scheduler = GetScheduler(key)) {
+    scheduler->Request(user, priority, conn);
   }
 }
 
