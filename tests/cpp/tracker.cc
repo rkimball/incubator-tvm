@@ -183,25 +183,23 @@ class MockClient : public RPCUtil {
   MockClient(int port) : RPCUtil(port) {}
 
   RequestResponse Request(std::string key, int priority) {
-    {
-      RequestResponse response;
-      std::ostringstream ss;
-      ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
-         << priority << "]";
-      SendAll(ss.str());
-      std::string status = RecvAll();
-      std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
-      std::smatch sm;
-      if (std::regex_match(status, sm, reg)) {
-        response.status_ = std::stoi(sm[1]);
-        if (response.status_ == 0) {
-          response.host = sm[2];
-          response.port = std::stoi(sm[3]);
-          response.match_key = sm[4];
-        }
+    RequestResponse response;
+    std::ostringstream ss;
+    ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
+        << priority << "]";
+    SendAll(ss.str());
+    std::string status = RecvAll();
+    std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
+    std::smatch sm;
+    if (std::regex_match(status, sm, reg)) {
+      response.status_ = std::stoi(sm[1]);
+      if (response.status_ == 0) {
+        response.host = sm[2];
+        response.port = std::stoi(sm[3]);
+        response.match_key = sm[4];
       }
-      return response;
     }
+    return response;
   }
 };
 
@@ -211,6 +209,7 @@ bool is_ready(R const& f) {
 }
 
 TEST(Tracker, Basic) {
+  std::chrono::milliseconds wait_time(100);
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
   auto tracker =
       tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
@@ -226,20 +225,30 @@ TEST(Tracker, Basic) {
   MockServer dev6(tracker_port, "abc-2");
 
   MockClient client1(tracker_port);
+  MockClient client2(tracker_port);
+  MockClient client3(tracker_port);
+  // MockClient client4(tracker_port);
   // client1.Request("bad", 0);
   std::future<RequestResponse> f1 = std::async(&MockClient::Request, &client1, "abc-1", 0);
-  std::future<RequestResponse> f2 = std::async(&MockClient::Request, &client1, "abc-1", 0);
-  std::future<RequestResponse> f3 = std::async(&MockClient::Request, &client1, "abc-1", 0);
-  std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client1, "abc-1", 0);
   ASSERT_TRUE(f1.valid());
-  ASSERT_TRUE(f2.valid());
-  ASSERT_TRUE(f3.valid());
-  ASSERT_TRUE(f4.valid());
-
+  EXPECT_EQ(f1.wait_for(wait_time), std::future_status::ready);
   EXPECT_TRUE(is_ready(f1));
+
+  std::future<RequestResponse> f2 = std::async(&MockClient::Request, &client2, "abc-1", 0);
+  ASSERT_TRUE(f2.valid());
+  EXPECT_EQ(f2.wait_for(wait_time), std::future_status::ready);
   EXPECT_TRUE(is_ready(f2));
+
+  std::future<RequestResponse> f3 = std::async(&MockClient::Request, &client3, "abc-1", 0);
+  ASSERT_TRUE(f3.valid());
+  EXPECT_EQ(f3.wait_for(wait_time), std::future_status::ready);
   EXPECT_TRUE(is_ready(f3));
-  EXPECT_FALSE(is_ready(f4));
+
+  // std::future<RequestResponse> f4 = std::async(&MockClient::Request, &client4, "abc-1", 0);
+  // ASSERT_TRUE(f4.valid());
+  // EXPECT_NE(f4.wait_for(wait_time), std::future_status::ready);
+  // EXPECT_FALSE(is_ready(f4));
+
   // RequestResponse status1 = f1.get();
   // std::cout << __FILE__ << " " << __LINE__ << " status 1 " << status1.match_key << std::endl;
 
