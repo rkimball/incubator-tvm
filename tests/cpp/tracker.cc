@@ -32,6 +32,7 @@ using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
 using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
 
 class Summary {
+public:
   class Queue {
   public:
     std::string key;
@@ -55,7 +56,7 @@ class Summary {
       return out;
     }
   };
-public:
+
   Summary(std::string json) {
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
@@ -74,6 +75,17 @@ public:
         ParseServerInfo(reader);
       }
     }
+  }
+
+  Queue GetQueue(std::string key) {
+    Queue result;
+    for (auto queue : queues) {
+      if (queue.key == key) {
+        result = queue;
+        break;
+      }
+    }
+    return result;
   }
 
   bool ContainsServer(int port) {
@@ -270,6 +282,7 @@ class MockServer : public RPCUtil {
   }
 
   ~MockServer() {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     if (!listen_socket_.IsClosed()) {
       std::cout << __FILE__ << " " << __LINE__ << std::endl;
       listen_socket_.Shutdown();
@@ -412,17 +425,24 @@ TEST(Tracker, DeviceClose) {
 
   auto summary = dev1->GetSummary();
   std::cout << summary << std::endl;
-
   int dev6_port = dev6->GetLocalPort();
   EXPECT_TRUE(summary.ContainsServer(dev6_port));
+  Summary::Queue queue = summary.GetQueue("abc-2");
+  EXPECT_EQ(queue.free_count, 3);
+  EXPECT_EQ(queue.pending_count, 0);
 
-  std::cout << __FILE__ << " " << __LINE__ << " before delete connection\n";
   dev6 = nullptr;
-  std::cout << __FILE__ << " " << __LINE__ << " after delete connection\n";
-  summary = dev1->GetSummary();
-  EXPECT_FALSE(summary.ContainsServer(dev6_port));
 
+  // Since the tracker is multithreaded we need to add a sleep in here just to make sure the
+  // call to GetSummary does not happen before dev6 is fully removed
+  std::this_thread::sleep_for(std::chrono::milliseconds(10) );
+
+  summary = dev1->GetSummary();
   std::cout << summary << std::endl;
+  EXPECT_FALSE(summary.ContainsServer(dev6_port));
+  queue = summary.GetQueue("abc-2");
+  EXPECT_EQ(queue.free_count, 2);
+  EXPECT_EQ(queue.pending_count, 0);
 }
 
 // This test checks that a pending request is removed when a client closes
@@ -432,26 +452,14 @@ TEST(Tracker, PendingRequest) {
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
-  auto dev1 = std::make_shared<MockServer>(tracker_port, "abc-1");
-  auto dev2 = std::make_shared<MockServer>(tracker_port, "abc-1");
-  auto dev3 = std::make_shared<MockServer>(tracker_port, "abc-1");
-  auto dev4 = std::make_shared<MockServer>(tracker_port, "abc-2");
-  auto dev5 = std::make_shared<MockServer>(tracker_port, "abc-2");
-  auto dev6 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  // auto dev1 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  // auto dev2 = std::make_shared<MockServer>(tracker_port, "abc-2");
 
-  auto summary = dev1->GetSummary();
-  std::cout << summary << std::endl;
+  MockClient client1(tracker_port);
+  // MockClient client2(tracker_port);
+  // MockClient client3(tracker_port);
 
-  int dev6_port = dev6->GetLocalPort();
-  EXPECT_TRUE(summary.ContainsServer(dev6_port));
 
-  std::cout << __FILE__ << " " << __LINE__ << " before delete connection\n";
-  dev6 = nullptr;
-  std::cout << __FILE__ << " " << __LINE__ << " after delete connection\n";
-  summary = dev1->GetSummary();
-  EXPECT_FALSE(summary.ContainsServer(dev6_port));
-
-  std::cout << summary << std::endl;
 }
 
 int main(int argc, char** argv) {

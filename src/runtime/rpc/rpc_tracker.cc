@@ -71,9 +71,11 @@ void RPCTrackerObj::ListenLoopEntry() {
 
 void RPCTrackerObj::RemoveStaleConnections() {
   // Check the connection_list_ for stale connections
+  // std::lock_guard<std::mutex> guard(mutex_);
   std::set<std::shared_ptr<ConnectionInfo>> erase_list;
   for (auto conn : connection_list_) {
     if (conn->active_ == false) {
+      std::cout << __FILE__ << " " << __LINE__ << " remove stale " << *conn << std::endl;
       conn->ShutdownThread();
       erase_list.insert(conn);
     }
@@ -366,8 +368,7 @@ void ConnectionInfo::ConnectionLoopEntry() {
   ConnectionLoop();
   Close();
   active_ = false;
-  std::cout << __FILE__ << " " << __LINE__ << " connection task exit" << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " exit " << *this << std::endl;
 }
 
 void ConnectionInfo::ConnectionLoop() {
@@ -409,7 +410,7 @@ void ConnectionInfo::ConnectionLoop() {
 
     tracker_->RemoveStaleConnections();
 
-    std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << host_ << ":" << port_ << " >> " << json << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
