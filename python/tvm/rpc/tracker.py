@@ -218,6 +218,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
                 del self._data[: 4 + self._msg_size]
                 self._msg_size = 0
                 # pylint: disable=broad-except
+                print("Tracker rx:", msg)
                 self.call_handler(json.loads(msg))
             else:
                 return
@@ -225,6 +226,7 @@ class TCPEventHandler(tornado_util.TCPHandler):
     def ret_value(self, data):
         """return value to the output"""
         data = json.dumps(data)
+        print("Tracker tx:", data)
         self.write_message(struct.pack("<i", len(data)), binary=True)
         self.write_message(data.encode("utf-8"), binary=True)
 
