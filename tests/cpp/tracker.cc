@@ -57,7 +57,6 @@ class Summary {
   };
 public:
   Summary(std::string json) {
-    std::cout << __FILE__ << " " << __LINE__ << " " << json << std::endl;
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
     int tmp;
@@ -68,7 +67,6 @@ public:
     reader.BeginObject();
     std::string key;
     while(reader.NextObjectItem(&key)) {
-      std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
       // reader.ReadString(&key);
       if (key == "queue_info") {
         ParseQueueInfo(reader);
@@ -76,6 +74,17 @@ public:
         ParseServerInfo(reader);
       }
     }
+  }
+
+  bool ContainsServer(int port) {
+    std::cout << __FILE__ << " " << __LINE__ << " check for port " << port << std::endl;
+    for (auto s : servers) {
+      std::cout << __FILE__ << " " << __LINE__ << " port " << s.port << std::endl;
+      if (s.port == port) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void ParseQueueInfo(dmlc::JSONReader& reader) {
@@ -95,7 +104,7 @@ public:
           queue.pending_count = value;
         }
       }
-      std::cout << __FILE__ << " " << __LINE__ << " " << queue << std::endl;
+      queues.push_back(queue);
     }
   }
 
@@ -123,9 +132,24 @@ public:
           server.key = server_key;
         }
       }
-      std::cout << __FILE__ << " " << __LINE__ << " " << server << std::endl;
+      servers.push_back(server);
     }
   }
+
+  friend std::ostream& operator<<(std::ostream& out, const Summary& obj) {
+    out << "Queue:\n";
+    for (auto queue : obj.queues) {
+      out << "   " << queue << "\n";
+    }
+    out << "Server:\n";
+    for (auto server : obj.servers) {
+      out << "   " << server << "\n";
+    }
+    return out;
+  }
+
+  std::vector<Queue> queues;
+  std::vector<Server> servers;
 };
 
 class RPCUtil {
@@ -222,6 +246,7 @@ class MockServer : public RPCUtil {
   MockServer(int tracker_port, std::string key) : RPCUtil(tracker_port), key_{key} {
     listen_socket_.Create();
     my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
+    std::cout << __FILE__ << " " << __LINE__ << " new server port " << my_port_ << std::endl;
 
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
@@ -231,11 +256,15 @@ class MockServer : public RPCUtil {
     // Receive status and validate
     std::string status = RecvPacket();
 
+    /*!
+    * \brief Register this device with the tracker.
+    */
     PutDevice();
   }
 
   ~MockServer() {
     if (!listen_socket_.IsClosed()) {
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       listen_socket_.Shutdown();
       listen_socket_.Close();
     }
@@ -249,6 +278,8 @@ class MockServer : public RPCUtil {
     SendPacket(ss.str());
     std::string status = RecvPacket();
   }
+
+  int GetPort() { return my_port_; }
 
  private:
   std::string key_;
@@ -364,14 +395,24 @@ TEST(Tracker, DeviceClose) {
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
-  MockServer dev1(tracker_port, "abc-1");
-  MockServer dev2(tracker_port, "abc-1");
-  MockServer dev3(tracker_port, "abc-1");
-  MockServer dev4(tracker_port, "abc-2");
-  MockServer dev5(tracker_port, "abc-2");
-  MockServer dev6(tracker_port, "abc-2");
+  auto dev1 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev2 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev3 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev4 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  auto dev5 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  auto dev6 = std::make_shared<MockServer>(tracker_port, "abc-2");
 
-  dev1.GetSummary();
+  auto summary = dev1->GetSummary();
+  std::cout << summary << std::endl;
+
+  int dev6_port = dev6->GetPort();
+  EXPECT_TRUE(summary.ContainsServer(dev6_port));
+
+
+  dev6 = nullptr;
+
+  summary = dev1->GetSummary();
+  std::cout << summary << std::endl;
 }
 
 int main(int argc, char** argv) {

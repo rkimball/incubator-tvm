@@ -316,7 +316,7 @@ int ConnectionInfo::SendStatus(std::string status) {
   int length = status.size();
   bool fail = false;
 
-  // std::cout << host_ << ":" << port_ << " << " << status << std::endl;
+  std::cout << host_ << ":" << port_ << " << " << status << std::endl;
 
   if (SendAll(&length, sizeof(length)) != sizeof(length)) {
     fail = true;
@@ -331,6 +331,8 @@ void ConnectionInfo::ConnectionLoopEntry() {
   ConnectionLoop();
   Close();
   active_ = false;
+  std::cout << __FILE__ << " " << __LINE__ << " connection task exit" << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << *this << std::endl;
 }
 
 void ConnectionInfo::ConnectionLoop() {
@@ -370,7 +372,7 @@ void ConnectionInfo::ConnectionLoop() {
       return;
     }
 
-    // std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
+    std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
