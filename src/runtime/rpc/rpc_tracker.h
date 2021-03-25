@@ -110,8 +110,8 @@ class RPCTrackerObj : public Object {
         : user_{user}, priority_{priority}, request_count_{request_count}, conn_{conn} {}
 
     friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
-      out << "RequestInfo(" << info.priority_ << ", \"" << info.user_ << "\", " << info.request_count_
-          << ")";
+      out << "RequestInfo(" << info.priority_ << ", \"" << info.user_ << "\", "
+          << info.request_count_ << ")";
       return out;
     }
     std::string user_;
@@ -137,8 +137,7 @@ class RPCTrackerObj : public Object {
 
     bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
     friend std::ostream& operator<<(std::ostream& out, const PutInfo& obj) {
-      out << "PutInfo(" << obj.address_ << ":" << obj.port_ << ", " << obj.match_key_
-          << ")";
+      out << "PutInfo(" << obj.address_ << ":" << obj.port_ << ", " << obj.match_key_ << ")";
       return out;
     }
   };

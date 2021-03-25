@@ -32,21 +32,22 @@ using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
 using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
 
 class Summary {
-public:
+ public:
   class Queue {
-  public:
+   public:
     std::string key;
     int free_count = 0;
     int pending_count = 0;
 
     friend std::ostream& operator<<(std::ostream& out, const Queue& obj) {
-      out << "queue(" << obj.key << ", free=" << obj.free_count << ", pending=" << obj.pending_count << ")";
+      out << "queue(" << obj.key << ", free=" << obj.free_count << ", pending=" << obj.pending_count
+          << ")";
       return out;
     }
   };
 
   class Server {
-  public:
+   public:
     std::string key;
     std::string host;
     int port;
@@ -68,7 +69,7 @@ public:
     reader.NextArrayItem();
     reader.BeginObject();
     std::string key;
-    while(reader.NextObjectItem(&key)) {
+    while (reader.NextObjectItem(&key)) {
       // reader.ReadString(&key);
       if (key == "queue_info") {
         ParseQueueInfo(reader);
@@ -173,7 +174,8 @@ class RPCUtil {
     tracker_socket_.Connect(addr);
     tracker_socket_.GetPeerAddress(remote_host_, remote_port_);
     tracker_socket_.GetLocalAddress(local_host_, local_port_);
-    std::cout << "Server connect " << local_host_ << ":" << local_port_ << " to " << remote_host_ << ":" << remote_port_ << std::endl;
+    std::cout << "Server connect " << local_host_ << ":" << local_port_ << " to " << remote_host_
+              << ":" << remote_port_ << std::endl;
     int magic = static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC);
     if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
       // Failed to send magic so exit
@@ -277,8 +279,8 @@ class MockServer : public RPCUtil {
     std::string status = RecvPacket();
 
     /*!
-    * \brief Register this device with the tracker.
-    */
+     * \brief Register this device with the tracker.
+     */
     PutDevice();
   }
 
@@ -469,9 +471,9 @@ TEST(Tracker, PendingRequest) {
   std::cout << summary << std::endl;
 
   {
-  Summary::Queue queue = summary.GetQueue("abc");
-  EXPECT_EQ(queue.free_count, 0);
-  EXPECT_EQ(queue.pending_count, 1);
+    Summary::Queue queue = summary.GetQueue("abc");
+    EXPECT_EQ(queue.free_count, 0);
+    EXPECT_EQ(queue.pending_count, 1);
   }
 
   // Close the client connection, we are not going to get a response. The server must
@@ -485,9 +487,9 @@ TEST(Tracker, PendingRequest) {
   summary = dev1->GetSummary();
   std::cout << summary << std::endl;
   {
-  Summary::Queue queue = summary.GetQueue("abc");
-  EXPECT_EQ(queue.free_count, 0);
-  EXPECT_EQ(queue.pending_count, 0);
+    Summary::Queue queue = summary.GetQueue("abc");
+    EXPECT_EQ(queue.free_count, 0);
+    EXPECT_EQ(queue.pending_count, 0);
   }
 }
 

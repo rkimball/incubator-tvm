@@ -30,8 +30,7 @@ namespace tvm {
 namespace runtime {
 namespace rpc {
 
-RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool silent)
-    : host_{host} {
+RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool silent) : host_{host} {
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
 
@@ -247,9 +246,9 @@ void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionIn
   std::cout << __FILE__ << " " << __LINE__ << " remove server " << *conn << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
   bool erased = true;
-  while(erased) {
+  while (erased) {
     erased = false;
-    for (auto it=values_.begin(); it!=values_.end(); ++it) {
+    for (auto it = values_.begin(); it != values_.end(); ++it) {
       if (it->conn_ == conn) {
         values_.erase(it);
         std::cout << __FILE__ << " " << __LINE__ << " erase " << std::endl;
@@ -268,8 +267,8 @@ void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionIn
   // for (auto item_to_erase : erase_list) {
   //   for (auto it=values_.begin(); it!=values_.end(); ++it) {
   //     if (it->conn_ == item_to_erase) {
-  //       std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase << std::endl;
-  //       values_.erase(it);
+  //       std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase <<
+  //       std::endl; values_.erase(it);
   //     }
   //   }
   // }
@@ -279,9 +278,9 @@ void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionIn
   std::cout << __FILE__ << " " << __LINE__ << " remove client " << *conn << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
   bool erased = true;
-  while(erased) {
+  while (erased) {
     erased = false;
-    for (auto it=requests_.begin(); it!=requests_.end(); ++it) {
+    for (auto it = requests_.begin(); it != requests_.end(); ++it) {
       if (it->conn_ == conn) {
         requests_.erase(it);
         std::cout << __FILE__ << " " << __LINE__ << " erase " << std::endl;
@@ -294,7 +293,8 @@ void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionIn
   // for (auto request : requests_) {
   //   if (request.conn_ == conn) {
   //     erase_list.push_back(request);
-  //     std::cout << __FILE__ << " " << __LINE__ << " found request to erase " << request << std::endl;
+  //     std::cout << __FILE__ << " " << __LINE__ << " found request to erase " << request <<
+  //     std::endl;
   //   }
   // }
   // for (auto item_to_erase : erase_list) {
@@ -340,7 +340,8 @@ ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int por
 
 ConnectionInfo::~ConnectionInfo() {
   std::cout << __FILE__ << " " << __LINE__ << " dtor " << *this << std::endl;
-  Close(); }
+  Close();
+}
 
 void ConnectionInfo::Close() {
   if (!connection_.IsClosed()) {
@@ -456,7 +457,8 @@ void ConnectionInfo::ConnectionLoop() {
 
     tracker_->RemoveStaleConnections();
 
-    std::cout << __FILE__ << " " << __LINE__ << " " << host_ << ":" << port_ << " >> " << json << std::endl;
+    std::cout << __FILE__ << " " << __LINE__ << " " << host_ << ":" << port_ << " >> " << json
+              << std::endl;
 
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
