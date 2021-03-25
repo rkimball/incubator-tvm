@@ -70,8 +70,9 @@ void RPCTrackerObj::ListenLoopEntry() {
 }
 
 void RPCTrackerObj::RemoveStaleConnections() {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   // Check the connection_list_ for stale connections
-  // std::lock_guard<std::mutex> guard(mutex_);
+  std::lock_guard<std::mutex> guard(mutex_);
   std::set<std::shared_ptr<ConnectionInfo>> erase_list;
   for (auto conn : connection_list_) {
     if (conn->active_ == false) {
@@ -84,6 +85,7 @@ void RPCTrackerObj::RemoveStaleConnections() {
     std::string key = conn->key_;
     std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
     if (!key.empty()) {
+      // This is a server
       // "server:rasp3b" -> "rasp3b"
       auto pos = key.find(':');
       if (pos != std::string::npos) {
@@ -95,7 +97,10 @@ void RPCTrackerObj::RemoveStaleConnections() {
         std::cout << __FILE__ << " " << __LINE__ << " got scheduler for " << key << std::endl;
         scheduler->RemoveServer(conn);
       }
-      // TODO: rkimball remove values from scheduler_map
+    }
+    // Search through requests in the schedulers
+    for (auto p : scheduler_map_) {
+      p.second->RemoveClient(conn);
     }
 
     connection_list_.erase(conn);
@@ -239,25 +244,66 @@ void RPCTrackerObj::PriorityScheduler::Remove(PutInfo value) {
 }
 
 void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
+  std::cout << __FILE__ << " " << __LINE__ << " remove server " << *conn << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
-  std::vector<PutInfo> erase_list;
-  for (auto put : values_) {
-    if (put.conn_ == conn) {
-      erase_list.push_back(put);
-      std::cout << __FILE__ << " " << __LINE__ << " found put to erase " << put << std::endl;
+  bool erased = true;
+  while(erased) {
+    erased = false;
+    for (auto it=values_.begin(); it!=values_.end(); ++it) {
+      if (it->conn_ == conn) {
+        values_.erase(it);
+        std::cout << __FILE__ << " " << __LINE__ << " erase " << std::endl;
+        erased = true;
+        break;
+      }
     }
   }
-  for (auto item_to_erase : erase_list) {
-    auto it = std::find(values_.begin(), values_.end(), item_to_erase);
-    if (it != values_.end()) {
-      std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase << std::endl;
-      values_.erase(it);
-    }
-  }
+  // std::vector<PutInfo> erase_list;
+  // for (auto put : values_) {
+  //   if (put.conn_ == conn) {
+  //     erase_list.push_back(put);
+  //     std::cout << __FILE__ << " " << __LINE__ << " found put to erase " << put << std::endl;
+  //   }
+  // }
+  // for (auto item_to_erase : erase_list) {
+  //   for (auto it=values_.begin(); it!=values_.end(); ++it) {
+  //     if (it->conn_ == item_to_erase) {
+  //       std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase << std::endl;
+  //       values_.erase(it);
+  //     }
+  //   }
+  // }
 }
 
 void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
+  std::cout << __FILE__ << " " << __LINE__ << " remove client " << *conn << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
+  bool erased = true;
+  while(erased) {
+    erased = false;
+    for (auto it=requests_.begin(); it!=requests_.end(); ++it) {
+      if (it->conn_ == conn) {
+        requests_.erase(it);
+        std::cout << __FILE__ << " " << __LINE__ << " erase " << std::endl;
+        erased = true;
+        break;
+      }
+    }
+  }
+  // std::vector<RequestInfo> erase_list;
+  // for (auto request : requests_) {
+  //   if (request.conn_ == conn) {
+  //     erase_list.push_back(request);
+  //     std::cout << __FILE__ << " " << __LINE__ << " found request to erase " << request << std::endl;
+  //   }
+  // }
+  // for (auto item_to_erase : erase_list) {
+  //   auto it = std::find(requests_.begin(), requests_.end(), item_to_erase);
+  //   if (it != requests_.end()) {
+  //     std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase << std::endl;
+  //     requests_.erase(it);
+  //   }
+  // }
 }
 
 std::string RPCTrackerObj::PriorityScheduler::Summary() {

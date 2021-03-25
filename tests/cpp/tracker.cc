@@ -36,8 +36,8 @@ public:
   class Queue {
   public:
     std::string key;
-    int free_count;
-    int pending_count;
+    int free_count = 0;
+    int pending_count = 0;
 
     friend std::ostream& operator<<(std::ostream& out, const Queue& obj) {
       out << "queue(" << obj.key << ", free=" << obj.free_count << ", pending=" << obj.pending_count << ")";
@@ -58,6 +58,7 @@ public:
   };
 
   Summary(std::string json) {
+    std::cout << __FILE__ << " " << __LINE__ << " summary " << json << std::endl;
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
     int tmp;
@@ -322,11 +323,19 @@ class MockClient : public RPCUtil {
   MockClient(int port) : RPCUtil(port) {}
 
   RequestResponse Request(std::string key, int priority) {
-    RequestResponse response;
+    SendRequest(key, priority);
+    return ReadRequestResponse();
+  }
+
+  void SendRequest(std::string key, int priority) {
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::REQUEST) << ", \"" << key << "\", \"\", "
        << priority << "]";
     SendPacket(ss.str());
+  }
+
+  RequestResponse ReadRequestResponse() {
+    RequestResponse response;
     std::string status = RecvPacket();
     std::regex reg("\\[(\\d),.*\\[\"([^\"]+)\", (\\d+), \"([^\"]+)\"\\]\\]");
     std::smatch sm;
@@ -435,7 +444,7 @@ TEST(Tracker, DeviceClose) {
 
   // Since the tracker is multithreaded we need to add a sleep in here just to make sure the
   // call to GetSummary does not happen before dev6 is fully removed
-  std::this_thread::sleep_for(std::chrono::milliseconds(10) );
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   summary = dev1->GetSummary();
   std::cout << summary << std::endl;
@@ -451,15 +460,35 @@ TEST(Tracker, PendingRequest) {
       tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
-  // Setup mock server
-  // auto dev1 = std::make_shared<MockServer>(tracker_port, "abc-1");
-  // auto dev2 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  auto dev1 = std::make_shared<MockServer>(tracker_port, "xyz");
 
-  MockClient client1(tracker_port);
-  // MockClient client2(tracker_port);
-  // MockClient client3(tracker_port);
+  auto client1 = std::make_shared<MockClient>(tracker_port);
+  client1->SendRequest("abc", 0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  auto summary = dev1->GetSummary();
+  std::cout << summary << std::endl;
 
+  {
+  Summary::Queue queue = summary.GetQueue("abc");
+  EXPECT_EQ(queue.free_count, 0);
+  EXPECT_EQ(queue.pending_count, 1);
+  }
 
+  // Close the client connection, we are not going to get a response. The server must
+  // remove the pending request.
+  client1 = nullptr;
+
+  // Since the tracker is multithreaded we need to add a sleep in here just to make sure the
+  // call to GetSummary does not happen before things have settled
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  summary = dev1->GetSummary();
+  std::cout << summary << std::endl;
+  {
+  Summary::Queue queue = summary.GetQueue("abc");
+  EXPECT_EQ(queue.free_count, 0);
+  EXPECT_EQ(queue.pending_count, 0);
+  }
 }
 
 int main(int argc, char** argv) {

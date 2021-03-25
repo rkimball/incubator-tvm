@@ -110,7 +110,7 @@ class RPCTrackerObj : public Object {
         : user_{user}, priority_{priority}, request_count_{request_count}, conn_{conn} {}
 
     friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
-      out << "RequestInfo(" << info.priority_ << ", " << info.user_ << ", " << info.request_count_
+      out << "RequestInfo(" << info.priority_ << ", \"" << info.user_ << "\", " << info.request_count_
           << ")";
       return out;
     }
