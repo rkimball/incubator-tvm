@@ -59,7 +59,6 @@ class Summary {
   };
 
   Summary(std::string json) {
-    std::cout << __FILE__ << " " << __LINE__ << " summary " << json << std::endl;
     std::istringstream is(json);
     dmlc::JSONReader reader(&is);
     int tmp;
@@ -174,8 +173,6 @@ class RPCUtil {
     tracker_socket_.Connect(addr);
     tracker_socket_.GetPeerAddress(remote_host_, remote_port_);
     tracker_socket_.GetLocalAddress(local_host_, local_port_);
-    std::cout << "Server connect " << local_host_ << ":" << local_port_ << " to " << remote_host_
-              << ":" << remote_port_ << std::endl;
     int magic = static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC);
     if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
       // Failed to send magic so exit
@@ -285,9 +282,7 @@ class MockServer : public RPCUtil {
   }
 
   ~MockServer() {
-    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     if (!listen_socket_.IsClosed()) {
-      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       listen_socket_.Shutdown();
       listen_socket_.Close();
     }
@@ -435,7 +430,6 @@ TEST(Tracker, DeviceClose) {
   auto dev6 = std::make_shared<MockServer>(tracker_port, "abc-2");
 
   auto summary = dev1->GetSummary();
-  std::cout << summary << std::endl;
   int dev6_port = dev6->GetLocalPort();
   EXPECT_TRUE(summary.ContainsServer(dev6_port));
   Summary::Queue queue = summary.GetQueue("abc-2");
@@ -449,7 +443,6 @@ TEST(Tracker, DeviceClose) {
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   summary = dev1->GetSummary();
-  std::cout << summary << std::endl;
   EXPECT_FALSE(summary.ContainsServer(dev6_port));
   queue = summary.GetQueue("abc-2");
   EXPECT_EQ(queue.free_count, 2);
@@ -468,7 +461,6 @@ TEST(Tracker, PendingRequest) {
   client1->SendRequest("abc", 0);
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
   auto summary = dev1->GetSummary();
-  std::cout << summary << std::endl;
 
   {
     Summary::Queue queue = summary.GetQueue("abc");
@@ -485,7 +477,6 @@ TEST(Tracker, PendingRequest) {
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   summary = dev1->GetSummary();
-  std::cout << summary << std::endl;
   {
     Summary::Queue queue = summary.GetQueue("abc");
     EXPECT_EQ(queue.free_count, 0);
