@@ -80,11 +80,18 @@ void RPCTrackerObj::RemoveStaleConnections() {
   }
   for (auto conn : erase_list) {
     std::string key = conn->key_;
+    std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
     if (!key.empty()) {
       // "server:rasp3b" -> "rasp3b"
       auto pos = key.find(':');
       if (pos != std::string::npos) {
         key = key.substr(pos + 1);
+      }
+      std::cout << __FILE__ << " " << __LINE__ << " key " << key << std::endl;
+      auto scheduler = GetScheduler(key);
+      if (scheduler) {
+        std::cout << __FILE__ << " " << __LINE__ << " got scheduler for " << key << std::endl;
+        scheduler->RemoveServer(conn);
       }
       // TODO: rkimball remove values from scheduler_map
     }
@@ -175,13 +182,17 @@ std::string RPCTrackerObj::Summary() {
 }
 
 void RPCTrackerObj::Close(ConnectionInfo* connection) {
+  std::cout << __FILE__ << " " << __LINE__ << " " << *connection << std::endl;
   std::lock_guard<std::mutex> guard(mutex_);
+  std::cout << __FILE__ << " " << __LINE__ << " **************************\n";
   std::shared_ptr<ConnectionInfo> conn;
   for (auto c : connection_list_) {
     if (c.get() == connection) {
       conn = c;
     }
   }
+
+  std::cout << __FILE__ << " " << __LINE__ << " **************************\n";
   connection_list_.erase(conn);
   std::string key = conn->key_;
   if (!key.empty()) {
@@ -225,6 +236,28 @@ void RPCTrackerObj::PriorityScheduler::Remove(PutInfo value) {
   }
 }
 
+void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  std::vector<PutInfo> erase_list;
+  for (auto put : values_) {
+    if (put.conn_ == conn) {
+      erase_list.push_back(put);
+      std::cout << __FILE__ << " " << __LINE__ << " found put to erase " << put << std::endl;
+    }
+  }
+  for (auto item_to_erase : erase_list) {
+    auto it = std::find(values_.begin(), values_.end(), item_to_erase);
+    if (it != values_.end()) {
+      std::cout << __FILE__ << " " << __LINE__ << " erasing put " << item_to_erase << std::endl;
+      values_.erase(it);
+    }
+  }
+}
+
+void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
+}
+
 std::string RPCTrackerObj::PriorityScheduler::Summary() {
   std::stringstream ss;
   ss << "{\"free\": " << values_.size() << ", \"pending\": " << requests_.size() << "}";
@@ -257,7 +290,9 @@ ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int por
   connection_task_.detach();
 }
 
-ConnectionInfo::~ConnectionInfo() { Close(); }
+ConnectionInfo::~ConnectionInfo() {
+  std::cout << __FILE__ << " " << __LINE__ << " dtor " << *this << std::endl;
+  Close(); }
 
 void ConnectionInfo::Close() {
   if (!connection_.IsClosed()) {
@@ -371,6 +406,8 @@ void ConnectionInfo::ConnectionLoop() {
     if (fail) {
       return;
     }
+
+    tracker_->RemoveStaleConnections();
 
     std::cout << host_ << ":" << port_ << " >> " << json << std::endl;
 

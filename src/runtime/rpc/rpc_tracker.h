@@ -136,6 +136,11 @@ class RPCTrackerObj : public Object {
     std::shared_ptr<ConnectionInfo> conn_;
 
     bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
+    friend std::ostream& operator<<(std::ostream& out, const PutInfo& obj) {
+      out << "PutInfo(" << obj.address_ << ":" << obj.port_ << ", " << obj.match_key_
+          << ")";
+      return out;
+    }
   };
 
   /*!
@@ -153,8 +158,9 @@ class RPCTrackerObj : public Object {
     void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
     void Remove(PutInfo value);
     std::string Summary();
-
     void Schedule();
+    void RemoveServer(std::shared_ptr<ConnectionInfo> conn);
+    void RemoveClient(std::shared_ptr<ConnectionInfo> conn);
 
     std::mutex mutex_;
     std::string key_;

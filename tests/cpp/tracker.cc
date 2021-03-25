@@ -77,9 +77,7 @@ public:
   }
 
   bool ContainsServer(int port) {
-    std::cout << __FILE__ << " " << __LINE__ << " check for port " << port << std::endl;
     for (auto s : servers) {
-      std::cout << __FILE__ << " " << __LINE__ << " port " << s.port << std::endl;
       if (s.port == port) {
         return true;
       }
@@ -256,7 +254,6 @@ class MockServer : public RPCUtil {
   MockServer(int tracker_port, std::string key) : RPCUtil(tracker_port), key_{key} {
     listen_socket_.Create();
     my_port_ = listen_socket_.TryBindHost("localhost", 30000, 40000);
-    std::cout << __FILE__ << " " << __LINE__ << " new server port " << my_port_ << std::endl;
 
     std::ostringstream ss;
     ss << "[" << static_cast<int>(TRACKER_CODE::UPDATE_INFO) << ", {\"key\": \"server:" << key_
@@ -399,6 +396,7 @@ TEST(Tracker, Priority) {
   EXPECT_EQ(f4.wait_for(wait_time), std::future_status::ready);
 }
 
+// This test checks that when a server closes then it is removed from the list of servers
 TEST(Tracker, DeviceClose) {
   auto tracker =
       tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
@@ -418,10 +416,41 @@ TEST(Tracker, DeviceClose) {
   int dev6_port = dev6->GetLocalPort();
   EXPECT_TRUE(summary.ContainsServer(dev6_port));
 
-
+  std::cout << __FILE__ << " " << __LINE__ << " before delete connection\n";
   dev6 = nullptr;
-
+  std::cout << __FILE__ << " " << __LINE__ << " after delete connection\n";
   summary = dev1->GetSummary();
+  EXPECT_FALSE(summary.ContainsServer(dev6_port));
+
+  std::cout << summary << std::endl;
+}
+
+// This test checks that a pending request is removed when a client closes
+TEST(Tracker, PendingRequest) {
+  auto tracker =
+      tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
+  int tracker_port = tracker->GetPort();
+
+  // Setup mock server
+  auto dev1 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev2 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev3 = std::make_shared<MockServer>(tracker_port, "abc-1");
+  auto dev4 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  auto dev5 = std::make_shared<MockServer>(tracker_port, "abc-2");
+  auto dev6 = std::make_shared<MockServer>(tracker_port, "abc-2");
+
+  auto summary = dev1->GetSummary();
+  std::cout << summary << std::endl;
+
+  int dev6_port = dev6->GetLocalPort();
+  EXPECT_TRUE(summary.ContainsServer(dev6_port));
+
+  std::cout << __FILE__ << " " << __LINE__ << " before delete connection\n";
+  dev6 = nullptr;
+  std::cout << __FILE__ << " " << __LINE__ << " after delete connection\n";
+  summary = dev1->GetSummary();
+  EXPECT_FALSE(summary.ContainsServer(dev6_port));
+
   std::cout << summary << std::endl;
 }
 
