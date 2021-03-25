@@ -584,6 +584,13 @@ class TCPSocket : public Socket {
     getpeername(sockfd, &peer_addr, &addr_length);
     return SockaddrInfo(&peer_addr, host, port);
   }
+
+  bool GetLocalAddress(std::string& host, int& port) {
+    struct sockaddr addr;
+    socklen_t addr_length = sizeof(addr);
+    getsockname(sockfd, &addr, &addr_length);
+    return SockaddrInfo(&addr, host, port);
+  }
 };
 
 /*! \brief helper data structure to perform poll */

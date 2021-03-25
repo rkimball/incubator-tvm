@@ -160,6 +160,9 @@ class RPCUtil {
     tvm::support::SockAddr addr("localhost", tracker_port);
     tracker_socket_.Create();
     tracker_socket_.Connect(addr);
+    tracker_socket_.GetPeerAddress(remote_host_, remote_port_);
+    tracker_socket_.GetLocalAddress(local_host_, local_port_);
+    std::cout << "Server connect " << local_host_ << ":" << local_port_ << " to " << remote_host_ << ":" << remote_port_ << std::endl;
     int magic = static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC);
     if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
       // Failed to send magic so exit
@@ -234,11 +237,18 @@ class RPCUtil {
     std::string json = RecvPacket();
     Summary summary(json);
     return summary;
-}
+  }
+
+  int GetRemotePort() { return remote_port_; }
+  int GetLocalPort() { return local_port_; }
 
  protected:
   tvm::support::TCPSocket tracker_socket_;
   std::string key_;
+  int remote_port_;
+  std::string remote_host_;
+  int local_port_;
+  std::string local_host_;
 };
 
 class MockServer : public RPCUtil {
@@ -279,7 +289,7 @@ class MockServer : public RPCUtil {
     std::string status = RecvPacket();
   }
 
-  int GetPort() { return my_port_; }
+  int GetListenerPort() { return my_port_; }
 
  private:
   std::string key_;
@@ -405,7 +415,7 @@ TEST(Tracker, DeviceClose) {
   auto summary = dev1->GetSummary();
   std::cout << summary << std::endl;
 
-  int dev6_port = dev6->GetPort();
+  int dev6_port = dev6->GetLocalPort();
   EXPECT_TRUE(summary.ContainsServer(dev6_port));
 
 
