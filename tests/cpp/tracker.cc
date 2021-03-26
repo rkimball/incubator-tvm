@@ -25,11 +25,11 @@
 #include <future>
 #include <regex>
 
-#include "../../src/runtime/rpc/rpc_tracker.h"
+#include "../../src/rpc/rpc_tracker.h"
 #include "../../src/support/socket.h"
 
-using TRACKER_CODE = tvm::runtime::rpc::RPCTrackerObj::TRACKER_CODE;
-using RPC_CODE = tvm::runtime::rpc::RPCTrackerObj::RPC_CODE;
+using TRACKER_CODE = tvm::rpc::RPCTrackerObj::TRACKER_CODE;
+using RPC_CODE = tvm::rpc::RPCTrackerObj::RPC_CODE;
 
 class Summary {
  public:
@@ -355,7 +355,7 @@ bool is_ready(R const& f) {
 
 TEST(Tracker, Priority) {
   std::chrono::milliseconds wait_time(100);
-  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
@@ -416,7 +416,7 @@ TEST(Tracker, Priority) {
 
 // This test checks that when a server closes then it is removed from the list of servers
 TEST(Tracker, DeviceClose) {
-  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
@@ -449,7 +449,7 @@ TEST(Tracker, DeviceClose) {
 
 // This test checks that a pending request is removed when a client closes
 TEST(Tracker, PendingRequest) {
-  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   auto dev1 = std::make_shared<MockServer>(tracker_port, "xyz");

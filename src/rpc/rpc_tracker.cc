@@ -27,7 +27,6 @@
 #include <memory>
 
 namespace tvm {
-namespace runtime {
 namespace rpc {
 
 RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool silent) : host_{host} {
@@ -529,9 +528,8 @@ void ConnectionInfo::ConnectionLoop() {
 TVM_REGISTER_NODE_TYPE(RPCTrackerObj);
 TVM_REGISTER_GLOBAL("rpc.RPCTracker")
     .set_body_typed([](std::string host, int port, int port_end, bool silent) {
-      return tvm::runtime::rpc::RPCTracker(host, port, port_end, silent);
+      return tvm::rpc::RPCTracker(host, port, port_end, silent);
     });
 
 }  // namespace rpc
-}  // namespace runtime
 }  // namespace tvm

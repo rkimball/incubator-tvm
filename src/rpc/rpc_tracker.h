@@ -21,8 +21,8 @@
  * \file rpc_tracker.h
  * \brief RPC Tracker.
  */
-#ifndef TVM_RUNTIME_RPC_RPC_TRACKER_H_
-#define TVM_RUNTIME_RPC_RPC_TRACKER_H_
+#ifndef TVM_RPC_RPC_TRACKER_H_
+#define TVM_RPC_RPC_TRACKER_H_
 
 #include <tvm/node/reflection.h>
 #include <tvm/runtime/c_runtime_api.h>
@@ -40,10 +40,9 @@
 #include <string>
 #include <thread>
 
-#include "../../support/socket.h"
+#include "../support/socket.h"
 
 namespace tvm {
-namespace runtime {
 namespace rpc {
 
 class PutInfo;
@@ -285,7 +284,6 @@ class ConnectionInfo {
 };
 
 }  // namespace rpc
-}  // namespace runtime
 }  // namespace tvm
 
-#endif  // TVM_RUNTIME_RPC_RPC_TRACKER_H_
+#endif  // TVM_RPC_RPC_TRACKER_H_
