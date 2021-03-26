@@ -35,11 +35,10 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
 
   // Set socket so we can reuse the address later
-  // listen_sock_.SetReuseAddress();
+  listen_sock_.SetReuseAddress();
 
   listen_sock_.Listen();
   listener_task_ = std::make_unique<std::thread>(&RPCTrackerObj::ListenLoopEntry, this);
-  // listener_task_->detach();
 }
 
 RPCTrackerObj::~RPCTrackerObj() { Terminate(); }
@@ -212,37 +211,34 @@ void RPCTrackerObj::PriorityScheduler::Remove(PutInfo value) {
   }
 }
 
-void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
-  std::lock_guard<std::mutex> guard(mutex_);
-  bool erased = true;
-  while (erased) {
-    erased = false;
-    for (auto it = values_.begin(); it != values_.end(); ++it) {
-      if (it->conn_ == conn) {
-        values_.erase(it);
-        erased = true;
-        break;
+namespace {
+  template<typename T> void RemoveRemote(T& list, std::shared_ptr<ConnectionInfo> conn) {
+    bool erased = true;
+    while (erased) {
+      erased = false;
+      for (auto it = list.begin(); it != list.end(); ++it) {
+        if (it->conn_ == conn) {
+          list.erase(it);
+          erased = true;
+          break;
+        }
       }
     }
   }
+}
+
+void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  RemoveRemote(values_, conn);
 }
 
 void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
-  bool erased = true;
-  while (erased) {
-    erased = false;
-    for (auto it = requests_.begin(); it != requests_.end(); ++it) {
-      if (it->conn_ == conn) {
-        requests_.erase(it);
-        erased = true;
-        break;
-      }
-    }
-  }
+  RemoveRemote(requests_, conn);
 }
 
 std::string RPCTrackerObj::PriorityScheduler::Summary() {
+  std::lock_guard<std::mutex> guard(mutex_);
   std::stringstream ss;
   ss << "{\"free\": " << values_.size() << ", \"pending\": " << requests_.size() << "}";
   return ss.str();
