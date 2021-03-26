@@ -79,24 +79,11 @@ void RPCTrackerObj::RemoveStaleConnections() {
     }
   }
   for (auto conn : erase_list) {
-    std::string key = conn->key_;
-    if (!key.empty()) {
-      // This is a server
-      // "server:rasp3b" -> "rasp3b"
-      auto pos = key.find(':');
-      if (pos != std::string::npos) {
-        key = key.substr(pos + 1);
-      }
-      auto scheduler = GetScheduler(key);
-      if (scheduler) {
-        scheduler->RemoveServer(conn);
-      }
-    }
     // Search through requests in the schedulers
     for (auto p : scheduler_map_) {
+      p.second->RemoveServer(conn);
       p.second->RemoveClient(conn);
     }
-
     connection_list_.erase(conn);
   }
 }
@@ -192,15 +179,6 @@ void RPCTrackerObj::Close(ConnectionInfo* connection) {
   }
 
   connection_list_.erase(conn);
-  std::string key = conn->key_;
-  if (!key.empty()) {
-    // "server:rasp3b" -> "rasp3b"
-    auto pos = key.find(':');
-    if (pos != std::string::npos) {
-      key = key.substr(pos + 1);
-    }
-    // TODO: rkimball remove values from scheduler_map
-  }
 }
 
 RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
