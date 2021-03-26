@@ -259,7 +259,7 @@ class Socket {
    */
   void SetReuseAddress(bool enable = true) {
     int opt = (enable ? 1 : 0);
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int)) < 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&opt), sizeof(int)) < 0) {
       Socket::Error("SetReuseAddress");
     }
   }
