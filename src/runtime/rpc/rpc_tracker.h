@@ -243,7 +243,7 @@ class RPCTrackerObj : public Object {
 
 class RPCTracker : public ObjectRef {
  public:
-  explicit RPCTracker(std::string host, int port, int port_end, bool silent) {
+  explicit RPCTracker(std::string host, int port, int port_end, bool silent = true) {
     data_ = make_object<RPCTrackerObj>(host, port, port_end, silent);
   }
 

@@ -355,8 +355,7 @@ bool is_ready(R const& f) {
 
 TEST(Tracker, Priority) {
   std::chrono::milliseconds wait_time(100);
-  auto tracker =
-      tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
+  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server

@@ -212,20 +212,21 @@ void RPCTrackerObj::PriorityScheduler::Remove(PutInfo value) {
 }
 
 namespace {
-  template<typename T> void RemoveRemote(T& list, std::shared_ptr<ConnectionInfo> conn) {
-    bool erased = true;
-    while (erased) {
-      erased = false;
-      for (auto it = list.begin(); it != list.end(); ++it) {
-        if (it->conn_ == conn) {
-          list.erase(it);
-          erased = true;
-          break;
-        }
+template <typename T>
+void RemoveRemote(T& list, std::shared_ptr<ConnectionInfo> conn) {
+  bool erased = true;
+  while (erased) {
+    erased = false;
+    for (auto it = list.begin(); it != list.end(); ++it) {
+      if (it->conn_ == conn) {
+        list.erase(it);
+        erased = true;
+        break;
       }
     }
   }
 }
+}  // namespace
 
 void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
@@ -270,9 +271,7 @@ ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int por
   connection_task_.detach();
 }
 
-ConnectionInfo::~ConnectionInfo() {
-  Close();
-}
+ConnectionInfo::~ConnectionInfo() { Close(); }
 
 void ConnectionInfo::Close() {
   if (!connection_.IsClosed()) {
