@@ -416,8 +416,7 @@ TEST(Tracker, Priority) {
 
 // This test checks that when a server closes then it is removed from the list of servers
 TEST(Tracker, DeviceClose) {
-  auto tracker =
-      tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
+  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
@@ -450,8 +449,7 @@ TEST(Tracker, DeviceClose) {
 
 // This test checks that a pending request is removed when a client closes
 TEST(Tracker, PendingRequest) {
-  auto tracker =
-      tvm::runtime::make_object<tvm::runtime::rpc::RPCTrackerObj>("localhost", 9000, 10000);
+  tvm::runtime::rpc::RPCTracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   auto dev1 = std::make_shared<MockServer>(tracker_port, "xyz");
