@@ -36,11 +36,13 @@ def main(args):
     if args.tracker:
         url, port = args.tracker.rsplit(":", 1)
         port = int(port)
-        tracker_addr = (url, port)
+        tracker_addr = ("127.0.0.1", port)
         if not args.key:
             raise RuntimeError("Need key to present type of resource when tracker is available")
     else:
         tracker_addr = None
+
+    print("############# tracker_addr", tracker_addr)
 
     server = rpc.Server(
         args.host,

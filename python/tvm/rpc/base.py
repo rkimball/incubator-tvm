@@ -170,7 +170,8 @@ def connect_with_retry(addr, timeout=60, retry_period=5):
             sock.connect(addr)
             return sock
         except socket.error as sock_err:
-            if sock_err.args[0] not in (errno.ECONNREFUSED,):
+            print("addr", addr, "***** socket error", sock_err.args[0])
+            if sock_err.args[0] not in (errno.ECONNREFUSED):
                 raise sock_err
             period = time.time() - tstart
             if period > timeout:

@@ -33,6 +33,11 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
 
+  // If the host port is set to 0.0.0.0 then we are to listen on all available addresses.
+  // Report that the tracker is on address 127.0.0.1
+  host_ = (host_ == "0.0.0.0" ? "127.0.0.1" : host_);
+  std::cout << __FILE__ << " " << __LINE__ << " addr=" << host_ << ":" << my_port_ << std::endl;
+
   // Set socket so we can reuse the address later
   listen_sock_.SetReuseAddress();
 

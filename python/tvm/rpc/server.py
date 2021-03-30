@@ -368,6 +368,8 @@ class Server(object):
                 raise RuntimeError("Please compile with USE_RPC=1")
         except NameError:
             raise RuntimeError("Please compile with USE_RPC=1")
+        print("***** Server ***************** host", host)
+        print("***** Server ***************** tracker_addr", tracker_addr)
         self.host = host
         self.port = port
         self.libs = []
@@ -419,7 +421,7 @@ class Server(object):
                     self.port = my_port
                     break
                 except socket.error as sock_err:
-                    if sock_err.errno in [98, 48]:
+                    if sock_err.errno in [98, 48, 10098, 10048]:
                         continue
                     raise sock_err
             if not self.port:

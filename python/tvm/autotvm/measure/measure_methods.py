@@ -224,10 +224,11 @@ class RPCRunner(Runner):
         super(RPCRunner, self).__init__(timeout, n_parallel)
 
         self.key = key
-        self.host = host
+        self.host = "127.0.0.1" if not host else host
         self.port = port
         self.priority = priority
         self.timeout = timeout
+        # print("************* RPCRunner host", self.host)
 
         self.number = number
         self.repeat = repeat
@@ -397,6 +398,7 @@ class LocalRunner(RPCRunner):
 
         self.task = task
         tracker = Tracker("0.0.0.0", port=9000, port_end=10000, silent=True)
+        print("!!!!!!!!!!!!!!!! tracker.host", tracker.host)
         device_key = "$local$device$%d" % tracker.port
         server = Server(
             "0.0.0.0",
@@ -664,6 +666,7 @@ def request_remote(device_key, host=None, port=None, priority=1, timeout=60):
     host = host or os.environ["TVM_TRACKER_HOST"]
     port = port or int(os.environ["TVM_TRACKER_PORT"])
 
+    print("&&&&&&&& _rpc.connect_tracker", host, port)
     tracker = _rpc.connect_tracker(host, port)
     remote = tracker.request(device_key, priority=priority, session_timeout=timeout)
     return remote

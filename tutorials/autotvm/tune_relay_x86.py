@@ -38,6 +38,8 @@ from tvm.autotvm.tuner import XGBTuner, GATuner, RandomTuner, GridSearchTuner
 from tvm.autotvm.graph_tuner import DPTuner, PBQPTuner
 import tvm.contrib.graph_runtime as runtime
 
+print("Hello from script")
+
 #################################################################
 # Define network
 # --------------
@@ -95,6 +97,7 @@ def get_network(name, batch_size):
 # Platinum 8000 series, the target should be "llvm -mcpu=skylake-avx512".
 # For AWS EC2 c4 instance with Intel Xeon E5-2666 v3, it should be
 # "llvm -mcpu=core-avx2".
+print("============= starting script =========================")
 target = "llvm"
 
 batch_size = 1
@@ -149,7 +152,10 @@ def tune_kernels(
     tasks, measure_option, tuner="gridsearch", early_stopping=None, log_filename="tuning.log"
 ):
 
+    print("A")
+
     for i, task in enumerate(tasks):
+        print("B")
         prefix = "[Task %2d/%2d] " % (i + 1, len(tasks))
 
         # create tuner
@@ -166,6 +172,7 @@ def tune_kernels(
 
         # do tuning
         n_trial = len(task.config_space)
+        print("C")
         tuner_obj.tune(
             n_trial=n_trial,
             early_stopping=early_stopping,
@@ -175,6 +182,7 @@ def tune_kernels(
                 autotvm.callback.log_to_file(log_filename),
             ],
         )
+        print("D")
 
 
 # Use graph tuner to achieve graph level optimal schedules
@@ -198,40 +206,44 @@ def tune_and_evaluate(tuning_opt):
     # extract workloads from relay program
     print("Extract tasks...")
     mod, params, data_shape, out_shape = get_network(model_name, batch_size)
+    print("get_network", model_name, "done")
     tasks = autotvm.task.extract_from_program(
-        mod["main"], target=target, params=params, ops=(relay.op.get("nn.conv2d"),)
+        mod["main"], target=target, params=params, ops=(relay.op.get("nn.conv2d"), None)
     )
+    print("**************** autotvm.task.extract_from_program done")
 
     # run tuning tasks
     tune_kernels(tasks, **tuning_opt)
-    tune_graph(mod["main"], data_shape, log_file, graph_opt_sch_file)
+    # tune_graph(mod["main"], data_shape, log_file, graph_opt_sch_file)
 
-    # compile kernels with graph-level best records
-    with autotvm.apply_graph_best(graph_opt_sch_file):
-        print("Compile...")
-        with tvm.transform.PassContext(opt_level=3):
-            lib = relay.build_module.build(mod, target=target, params=params)
+    # # compile kernels with graph-level best records
+    # with autotvm.apply_graph_best(graph_opt_sch_file):
+    #     print("Compile...")
+    #     with tvm.transform.PassContext(opt_level=3):
+    #         lib = relay.build_module.build(mod, target=target, params=params)
 
-        # upload parameters to device
-        ctx = tvm.cpu()
-        data_tvm = tvm.nd.array((np.random.uniform(size=data_shape)).astype(dtype))
-        module = runtime.GraphModule(lib["default"](ctx))
-        module.set_input(input_name, data_tvm)
+    #     # upload parameters to device
+    #     ctx = tvm.cpu()
+    #     data_tvm = tvm.nd.array((np.random.uniform(size=data_shape)).astype(dtype))
+    #     module = runtime.GraphModule(lib["default"](ctx))
+    #     module.set_input(input_name, data_tvm)
 
-        # evaluate
-        print("Evaluate inference time cost...")
-        ftimer = module.module.time_evaluator("run", ctx, number=100, repeat=3)
-        prof_res = np.array(ftimer().results) * 1000  # convert to millisecond
-        print(
-            "Mean inference time (std dev): %.2f ms (%.2f ms)"
-            % (np.mean(prof_res), np.std(prof_res))
-        )
+    #     # evaluate
+    #     print("Evaluate inference time cost...")
+    #     ftimer = module.module.time_evaluator("run", ctx, number=100, repeat=3)
+    #     prof_res = np.array(ftimer().results) * 1000  # convert to millisecond
+    #     print(
+    #         "Mean inference time (std dev): %.2f ms (%.2f ms)"
+    #         % (np.mean(prof_res), np.std(prof_res))
+    #     )
 
 
 # We do not run the tuning in our webpage server since it takes too long.
 # Uncomment the following line to run it by yourself.
 
+print("Calling tune_and_evaluate")
 tune_and_evaluate(tuning_option)
+print("Calling tune_and_evaluate done")
 
 ######################################################################
 # Sample Output

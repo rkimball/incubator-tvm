@@ -558,11 +558,11 @@ class LocalRPCMeasureContext:
             key=device_key,
             use_popen=True,
             silent=True,
-            tracker_addr=(self.tracker.host, self.tracker.port),
+            tracker_addr=("127.0.0.1", self.tracker.port),
         )
         self.runner = RPCRunner(
             device_key,
-            host,
+            "127.0.0.1",
             self.tracker.port,
             priority,
             n_parallel,
