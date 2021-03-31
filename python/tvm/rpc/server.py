@@ -368,8 +368,6 @@ class Server(object):
                 raise RuntimeError("Please compile with USE_RPC=1")
         except NameError:
             raise RuntimeError("Please compile with USE_RPC=1")
-        print("***** Server ***************** host", host)
-        print("***** Server ***************** tracker_addr", tracker_addr)
         self.host = host
         self.port = port
         self.libs = []

@@ -45,7 +45,10 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
   listener_task_ = std::make_unique<std::thread>(&RPCTrackerObj::ListenLoopEntry, this);
 }
 
-RPCTrackerObj::~RPCTrackerObj() { Terminate(); }
+RPCTrackerObj::~RPCTrackerObj() {
+  std::cout << __FILE__ << " " << __LINE__ << " dtor addr=" << host_ << ":" << my_port_ << std::endl;
+  Terminate();
+}
 
 /*!
  * \brief ListenLoopProc The listen process.

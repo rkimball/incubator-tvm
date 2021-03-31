@@ -135,6 +135,7 @@ class Tuner(object):
             # keep best config
             for k, (inp, res) in enumerate(zip(inputs, results)):
                 config = inp.config
+                print("res.error_no", res.error_no)
                 if res.error_no == 0:
                     flops = inp.task.flop / np.mean(res.costs)
                     error_ct = 0

@@ -235,15 +235,19 @@ def _windows_compile(output, objects, options):
         cmd += options
 
     try:
+        print("Calling popen", cmd)
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         (out, _) = proc.communicate()
     except FileNotFoundError:
+        print("FileNotFoundError")
         raise RuntimeError(
             "Can not find the LLVM clang for Windows clang.exe)."
             "Make sure it's installed"
             " and the installation directory is in the %PATH% environment "
             "variable. Prebuilt binaries can be found at: https://llvm.org/"
         )
+    except Exception as err:
+        print("Another exception type", err)
     if proc.returncode != 0:
         msg = "Compilation error:\n"
         msg += " ".join(cmd) + "\n"

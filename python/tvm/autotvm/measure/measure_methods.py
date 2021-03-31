@@ -110,53 +110,67 @@ class LocalBuilder(Builder):
                 futures.append(ret)
 
             for future in futures:
-                res = future.get()
-
-                if isinstance(res, Exception):
-                    # timeout or fleet error, return MeasureResult directly
+                # pylint: disable=broad-except
+                try:
+                    res = future.result()
+                    results.append(res)
+                except TimeoutError as tout:
+                    print("*************************** future had an exception")
                     results.append(
                         MeasureResult(
-                            (res,), MeasureErrorNo.BUILD_TIMEOUT, self.timeout, time.time()
+                            (tout,), MeasureErrorNo.BUILD_TIMEOUT, self.timeout, time.time()
                         )
                     )
-                elif res.error is not None:
-                    # instantiation error
-                    if isinstance(res.error, InstantiationError):
-                        results.append(
-                            MeasureResult(
-                                (res.error,),
-                                MeasureErrorNo.INSTANTIATION_ERROR,
-                                res.time_cost,
-                                time.time(),
-                            )
-                        )
-                    else:
-                        if "InstantiationError" in str(res.error):
-                            msg = str(res.error)
-                            try:
-                                msg = msg.split("\n")[-2].split(": ")[1]
-                            except Exception:  # pylint: disable=broad-except
-                                pass
-                            results.append(
-                                MeasureResult(
-                                    (InstantiationError(msg),),
-                                    MeasureErrorNo.INSTANTIATION_ERROR,
-                                    res.time_cost,
-                                    time.time(),
-                                )
-                            )
-                        else:  # tvm error
-                            results.append(
-                                MeasureResult(
-                                    (res.error,),
-                                    MeasureErrorNo.COMPILE_HOST,
-                                    res.time_cost,
-                                    time.time(),
-                                )
-                            )
-                else:
-                    # return BuildResult
-                    results.append(res)
+                except InstantiationError as ierr:
+                    print("*************************** InstantiationError", ierr)
+
+                # res = future.result()
+
+                # if isinstance(res, Exception):
+                #     # timeout or fleet error, return MeasureResult directly
+                #     results.append(
+                #         MeasureResult(
+                #             (res,), MeasureErrorNo.BUILD_TIMEOUT, self.timeout, time.time()
+                #         )
+                #     )
+                # elif res.error is not None:
+                #     # instantiation error
+                #     if isinstance(res.error, InstantiationError):
+                #         results.append(
+                #             MeasureResult(
+                #                 (res.error,),
+                #                 MeasureErrorNo.INSTANTIATION_ERROR,
+                #                 res.time_cost,
+                #                 time.time(),
+                #             )
+                #         )
+                #     else:
+                #         if "InstantiationError" in str(res.error):
+                #             msg = str(res.error)
+                #             try:
+                #                 msg = msg.split("\n")[-2].split(": ")[1]
+                #             except Exception:  # pylint: disable=broad-except
+                #                 pass
+                #             results.append(
+                #                 MeasureResult(
+                #                     (InstantiationError(msg),),
+                #                     MeasureErrorNo.INSTANTIATION_ERROR,
+                #                     res.time_cost,
+                #                     time.time(),
+                #                 )
+                #             )
+                #         else:  # tvm error
+                #             results.append(
+                #                 MeasureResult(
+                #                     (res.error,),
+                #                     MeasureErrorNo.COMPILE_HOST,
+                #                     res.time_cost,
+                #                     time.time(),
+                #                 )
+                #             )
+                # else:
+                #     # return BuildResult
+                #     results.append(res)
 
         return results
 
@@ -314,7 +328,7 @@ class RPCRunner(Runner):
                 futures.append(ret)
 
             for future in futures:
-                res = future.get()
+                res = future.result()
                 if isinstance(res, Exception):  # executor error or timeout
                     results.append(
                         MeasureResult(
@@ -398,7 +412,6 @@ class LocalRunner(RPCRunner):
 
         self.task = task
         tracker = Tracker("0.0.0.0", port=9000, port_end=10000, silent=True)
-        print("!!!!!!!!!!!!!!!! tracker.host", tracker.host)
         device_key = "$local$device$%d" % tracker.port
         server = Server(
             "0.0.0.0",
@@ -666,7 +679,6 @@ def request_remote(device_key, host=None, port=None, priority=1, timeout=60):
     host = host or os.environ["TVM_TRACKER_HOST"]
     port = port or int(os.environ["TVM_TRACKER_PORT"])
 
-    print("&&&&&&&& _rpc.connect_tracker", host, port)
     tracker = _rpc.connect_tracker(host, port)
     remote = tracker.request(device_key, priority=priority, session_timeout=timeout)
     return remote

@@ -890,10 +890,12 @@ def _timed_eval_func(
             ctx.sync()
             costs = time_f(*args).results
         # pylint: disable=broad-except
-        except Exception:
+        except Exception as err:
+            print("_timed_eval_func exception", err)
             costs = (MAX_FLOAT,)
             error_no = MeasureErrorNo.RUNTIME_DEVICE
             error_msg = make_traceback_info()
+            print(error_msg)
 
     shutil.rmtree(os.path.dirname(build_res.filename))
     toc = time.time()
@@ -1110,10 +1112,12 @@ def _timed_rpc_run(
             remote.remove(os.path.splitext(build_res.filename)[0] + ".so")
             remote.remove("")
         # pylint: disable=broad-except
-        except Exception:
+        except Exception as err:
+            print("_timed_eval_func exception", err)
             costs = (MAX_FLOAT,)
             error_no = MeasureErrorNo.RUNTIME_DEVICE
             error_msg = make_traceback_info()
+            print(error_msg)
 
     shutil.rmtree(os.path.dirname(build_res.filename))
     toc = time.time()

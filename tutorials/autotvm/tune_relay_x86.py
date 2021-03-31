@@ -38,8 +38,6 @@ from tvm.autotvm.tuner import XGBTuner, GATuner, RandomTuner, GridSearchTuner
 from tvm.autotvm.graph_tuner import DPTuner, PBQPTuner
 import tvm.contrib.graph_runtime as runtime
 
-print("Hello from script")
-
 #################################################################
 # Define network
 # --------------
@@ -97,7 +95,6 @@ def get_network(name, batch_size):
 # Platinum 8000 series, the target should be "llvm -mcpu=skylake-avx512".
 # For AWS EC2 c4 instance with Intel Xeon E5-2666 v3, it should be
 # "llvm -mcpu=core-avx2".
-print("============= starting script =========================")
 target = "llvm"
 
 batch_size = 1
@@ -152,10 +149,7 @@ def tune_kernels(
     tasks, measure_option, tuner="gridsearch", early_stopping=None, log_filename="tuning.log"
 ):
 
-    print("A")
-
     for i, task in enumerate(tasks):
-        print("B")
         prefix = "[Task %2d/%2d] " % (i + 1, len(tasks))
 
         # create tuner
@@ -172,7 +166,6 @@ def tune_kernels(
 
         # do tuning
         n_trial = len(task.config_space)
-        print("C")
         tuner_obj.tune(
             n_trial=n_trial,
             early_stopping=early_stopping,
@@ -182,7 +175,6 @@ def tune_kernels(
                 autotvm.callback.log_to_file(log_filename),
             ],
         )
-        print("D")
 
 
 # Use graph tuner to achieve graph level optimal schedules
@@ -206,11 +198,9 @@ def tune_and_evaluate(tuning_opt):
     # extract workloads from relay program
     print("Extract tasks...")
     mod, params, data_shape, out_shape = get_network(model_name, batch_size)
-    print("get_network", model_name, "done")
     tasks = autotvm.task.extract_from_program(
         mod["main"], target=target, params=params, ops=(relay.op.get("nn.conv2d"), None)
     )
-    print("**************** autotvm.task.extract_from_program done")
 
     # run tuning tasks
     tune_kernels(tasks, **tuning_opt)

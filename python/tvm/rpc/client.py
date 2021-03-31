@@ -294,7 +294,6 @@ class TrackerSession(object):
         self.close()
 
     def _connect(self):
-        print("****** TrackerSession connect to", self._addr)
         self._sock = base.connect_with_retry(self._addr)
         self._sock.sendall(struct.pack("<i", base.RPC_TRACKER_MAGIC))
         magic = struct.unpack("<i", base.recvall(self._sock, 4))[0]

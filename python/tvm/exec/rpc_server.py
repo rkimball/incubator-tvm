@@ -42,8 +42,6 @@ def main(args):
     else:
         tracker_addr = None
 
-    print("############# tracker_addr", tracker_addr)
-
     server = rpc.Server(
         args.host,
         args.port,
