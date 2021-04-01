@@ -141,6 +141,7 @@ class RPCEndpoint::EventHandler : public dmlc::Stream {
         case kReturnReceived: {
           this->SwitchToState(kRecvPacketNumBytes);
           status = RPCCode::kReturn;
+          std::cout << __FILE__ << " " << __LINE__ << " kReturn" << std::endl;
           break;
         }
         case kCopyAckReceived: {
@@ -149,12 +150,14 @@ class RPCEndpoint::EventHandler : public dmlc::Stream {
         }
         case kShutdownReceived: {
           status = RPCCode::kShutdown;
+          std::cout << __FILE__ << " " << __LINE__ << " kShutdown" << std::endl;
         }
       }
     }
 
     std::swap(async_server_mode_, async_server_mode);
     std::swap(client_mode_, client_mode);
+    std::cout << __FILE__ << " " << __LINE__ << " return status " << static_cast<int>(status) << std::endl;
     return status;
   }
 
@@ -703,9 +706,11 @@ std::shared_ptr<RPCEndpoint> RPCEndpoint::Create(std::unique_ptr<RPCChannel> cha
   return endpt;
 }
 
-RPCEndpoint::~RPCEndpoint() { this->Shutdown(); }
+RPCEndpoint::~RPCEndpoint() {
+  this->Shutdown(); }
 
 void RPCEndpoint::Shutdown() {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCEndpoint::Shutdown " << std::endl;
   if (channel_ != nullptr) {
     RPCCode code = RPCCode::kShutdown;
     uint64_t packet_nbytes = sizeof(code);
@@ -730,15 +735,11 @@ void RPCEndpoint::Shutdown() {
 void RPCEndpoint::ServerLoop() {
   if (const auto* f = Registry::Get("tvm.rpc.server.start")) {
     (*f)();
-  } else {
-    std::cout << __FILE__ << " " << __LINE__ << " could not find tvm.rpc.server.start" << std::endl;
   }
   TVMRetValue rv;
   ICHECK(HandleUntilReturnEvent(false, [](TVMArgs) {}) == RPCCode::kShutdown);
   if (const auto* f = Registry::Get("tvm.rpc.server.shutdown")) {
     (*f)();
-  } else {
-    std::cout << __FILE__ << " " << __LINE__ << " could not find tvm.rpc.server.shutdown" << std::endl;
   }
   channel_.reset(nullptr);
 }
