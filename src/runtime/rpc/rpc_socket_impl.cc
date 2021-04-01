@@ -110,9 +110,11 @@ Module RPCClientConnect(std::string url, int port, std::string key, TVMArgs init
 
 // TVM_DLL needed for MSVC
 TVM_DLL void RPCServerLoop(int sockfd) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   support::TCPSocket sock(static_cast<support::TCPSocket::SockType>(sockfd));
   RPCEndpoint::Create(std::unique_ptr<SockChannel>(new SockChannel(sock)), "SockServerLoop", "")
       ->ServerLoop();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
 void RPCServerLoop(PackedFunc fsend, PackedFunc frecv) {
@@ -130,12 +132,16 @@ TVM_REGISTER_GLOBAL("rpc.Connect").set_body([](TVMArgs args, TVMRetValue* rv) {
 });
 
 TVM_REGISTER_GLOBAL("rpc.ServerLoop").set_body([](TVMArgs args, TVMRetValue* rv) {
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
   if (args[0].type_code() == kDLInt) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     RPCServerLoop(args[0]);
   } else {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     RPCServerLoop(args[0].operator tvm::runtime::PackedFunc(),
                   args[1].operator tvm::runtime::PackedFunc());
   }
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 });
 
 }  // namespace runtime

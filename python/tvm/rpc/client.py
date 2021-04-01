@@ -405,7 +405,7 @@ class TrackerSession(object):
         """Request a resource from tracker and run the func.
 
         This function safe-guard rare server node dropout during execution.
-        In such case, a new resource will be requested and func will be ran again.
+        In such case, a new resource will be requested and func will be run again.
 
         Parameters
         ----------
@@ -426,6 +426,7 @@ class TrackerSession(object):
         max_retry : int, optional
             Maximum number of times to retry the function before give up.
         """
+        print("*************** request_and_run")
         last_err = None
         for _ in range(max_retry):
             try:

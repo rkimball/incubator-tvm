@@ -172,6 +172,7 @@ class LocalBuilder(Builder):
                 #     # return BuildResult
                 #     results.append(res)
 
+        print("Done with build")
         return results
 
 
@@ -242,7 +243,6 @@ class RPCRunner(Runner):
         self.port = port
         self.priority = priority
         self.timeout = timeout
-        # print("************* RPCRunner host", self.host)
 
         self.number = number
         self.repeat = repeat
@@ -303,16 +303,19 @@ class RPCRunner(Runner):
             timeout=self.timeout,
         )
 
+        print("Begin running jobs")
         for i in range(0, len(measure_inputs), self.n_parallel):
             futures = []
             for measure_inp, build_res in zip(
                 measure_inputs[i : i + self.n_parallel], build_results[i : i + self.n_parallel]
             ):
+                print("start of job loop", len(measure_inp))
                 module_loader = (
                     self.module_loader
                     if self.module_loader is not None
                     else default_module_loader()
                 )
+
                 ret = self.executor.submit(
                     run_through_rpc,
                     measure_inp,
@@ -327,6 +330,9 @@ class RPCRunner(Runner):
                 )
                 futures.append(ret)
 
+                print("end of job loop")
+
+            print("waiting for futures in measure_methods run")
             for future in futures:
                 res = future.result()
                 if isinstance(res, Exception):  # executor error or timeout
@@ -338,6 +344,9 @@ class RPCRunner(Runner):
                 else:
                     results.append(res)
 
+            print("done waiting for futures in measure_methods run")
+
+        print("Done running jobs")
         return results
 
 
@@ -591,7 +600,7 @@ def run_through_rpc(
                 random_fill = remote.get_function("tvm.contrib.random.random_fill")
             except AttributeError:
                 raise AttributeError(
-                    "Please make sure USE_RANDOM is ON in the config.cmake " "on the remote devices"
+                    "Please make sure USE_RANDOM is ON in the config.cmake on the remote devices"
                 )
             args = [nd.array(np.zeros(x[0], dtype=x[1]), ctx=ctx) for x in build_result.arg_info]
             if "scatter" not in measure_input.task.name:

@@ -625,6 +625,7 @@ class RPCEndpoint::EventHandler : public dmlc::Stream {
 RPCCode RPCEndpoint::HandleUntilReturnEvent(bool client_mode, RPCSession::FEncodeReturn setreturn) {
   RPCCode code = RPCCode::kCallFunc;
   while (code != RPCCode::kReturn && code != RPCCode::kShutdown && code != RPCCode::kCopyAck) {
+    std::cout << __FILE__ << " " << __LINE__ << " HandleUntilReturnEvent " << static_cast<int>(code) << std::endl;
     while (writer_.bytes_available() != 0) {
       writer_.ReadWithCallback(
           [this](const void* data, size_t size) { return channel_->Send(data, size); },
@@ -638,12 +639,13 @@ RPCCode RPCEndpoint::HandleUntilReturnEvent(bool client_mode, RPCSession::FEncod
         if (handler_->CanCleanShutdown()) {
           return RPCCode::kShutdown;
         } else {
-          LOG(FATAL) << "Channel closes before we get neded bytes";
+          LOG(FATAL) << "Channel closes before we get needed bytes";
         }
       }
     }
     code = handler_->HandleNextEvent(client_mode, false, setreturn);
   }
+  std::cout << __FILE__ << " " << __LINE__ << " exit HandleUntilReturnEvent " << static_cast<int>(code) << std::endl;
   return code;
 }
 
@@ -728,11 +730,15 @@ void RPCEndpoint::Shutdown() {
 void RPCEndpoint::ServerLoop() {
   if (const auto* f = Registry::Get("tvm.rpc.server.start")) {
     (*f)();
+  } else {
+    std::cout << __FILE__ << " " << __LINE__ << " could not find tvm.rpc.server.start" << std::endl;
   }
   TVMRetValue rv;
   ICHECK(HandleUntilReturnEvent(false, [](TVMArgs) {}) == RPCCode::kShutdown);
   if (const auto* f = Registry::Get("tvm.rpc.server.shutdown")) {
     (*f)();
+  } else {
+    std::cout << __FILE__ << " " << __LINE__ << " could not find tvm.rpc.server.shutdown" << std::endl;
   }
   channel_.reset(nullptr);
 }

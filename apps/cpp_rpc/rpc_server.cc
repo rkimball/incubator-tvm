@@ -312,10 +312,12 @@ class RPCServer {
   static void ServerLoopProc(support::TCPSocket sock, support::SockAddr addr,
                              std::string work_dir) {
     // Server loop
+    std::cout << __FILE__ << " " << __LINE__ << " serving " << addr.AsString() << std::endl;
     const auto env = RPCEnv(work_dir);
     RPCServerLoop(int(sock.sockfd));
     LOG(INFO) << "Finish serving " << addr.AsString();
     env.CleanUp();
+    std::cout << __FILE__ << " " << __LINE__ << " finished serving " << addr.AsString() << std::endl;
   }
 
   /*!

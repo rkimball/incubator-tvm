@@ -193,6 +193,10 @@ class Tuner(object):
                 f,
             )
         GLOBAL_SCOPE.in_tuning = False
+
+        # TODO rkimball call shutdown on server in measure_batch
+        print("xxxxxxxxxxxxxxxxx", measure_batch.attach_objects)
+
         del measure_batch
 
     def reset(self):

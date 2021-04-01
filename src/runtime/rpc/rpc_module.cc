@@ -208,6 +208,7 @@ class RPCModuleNode final : public ModuleNode {
   }
 
   Module LoadModule(std::string name) {
+    std::cout << __FILE__ << " " << __LINE__ << " LoadModule " << name << std::endl;
     InitRemoteFunc(&remote_load_module_, "tvm.rpc.server.load_module");
     return remote_load_module_(name);
   }

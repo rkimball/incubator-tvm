@@ -67,7 +67,7 @@ def _server_env(load_library, work_path=None):
         """Load module from remote side."""
         path = temp.relpath(file_name)
         m = _load_module(path)
-        logger.info("load_module %s", path)
+        print("load_module ffi", path)
         return m
 
     @tvm._ffi.register_func("tvm.rpc.server.download_linked_module", override=True)
@@ -98,7 +98,7 @@ def _server_env(load_library, work_path=None):
             pass
         else:
             raise RuntimeError("Do not know how to link %s" % file_name)
-        logger.info("Send linked module %s to client", path)
+        print("Send linked module %s to client", path)
         return bytearray(open(path, "rb").read())
 
     libs = []
@@ -106,19 +106,22 @@ def _server_env(load_library, work_path=None):
     for file_name in load_library:
         file_name = find_lib_path(file_name)[0]
         libs.append(ctypes.CDLL(file_name, ctypes.RTLD_GLOBAL))
-        logger.info("Load additional library %s", file_name)
+        print("Load additional library %s", file_name)
     temp.libs = libs
     return temp
 
 
 def _serve_loop(sock, addr, load_library, work_path=None):
     """Server loop"""
+    print("Start serving ***********************", addr)
     sockfd = sock.fileno()
     temp = _server_env(load_library, work_path)
+    print("done calling _server_env")
     _ffi_api.ServerLoop(sockfd)
+    print("Done with ServerLoop")
     if not work_path:
         temp.remove()
-    logger.info("Finish serving %s", addr)
+    print("Finish serving ***********************", addr)
 
 
 def _parse_server_opt(opts):
@@ -174,7 +177,7 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
                         unmatch_period_count = 0
                     # regenerate match key if key is acquired but not used for a while
                     if unmatch_period_count * ping_period > unmatch_timeout + ping_period:
-                        logger.info("no incoming connections, regenerate key ...")
+                        print("no incoming connections, regenerate key ...")
                         matchkey = base.random_key(rpc_key + ":", old_keyset)
                         base.sendjson(
                             tracker_conn, [TrackerCode.PUT, rpc_key, (port, matchkey), custom_addr]
@@ -231,19 +234,25 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
 
         # step 3: serving
         work_path = utils.tempdir()
-        logger.info("connection from %s", addr)
+        print("connection from", addr)
         server_proc = multiprocessing.Process(
             target=_serve_loop, args=(conn, addr, load_library, work_path)
         )
 
         server_proc.start()
         # close from our side.
+        # conn.shutdown(socket.SHUT_RDWR)
         conn.close()
         # wait until server process finish or timeout
+        print("server timeout", opts.get("timeout", None))
+        print("waiting on server_proc.join")
         server_proc.join(opts.get("timeout", None))
+        if (server_proc.exitcode and server_proc.exitcode < 0):
+            print("server_proc.join timed out **************************************")
+        print("waiting on server_proc.join done")
 
         if server_proc.is_alive():
-            logger.info("Timeout in RPC session, kill..")
+            print("Timeout in RPC session, kill..1")
             # pylint: disable=import-outside-toplevel
             import psutil
 
@@ -279,13 +288,15 @@ def _connect_proxy_loop(addr, key, load_library):
             keylen = struct.unpack("<i", base.recvall(sock, 4))[0]
             remote_key = py_str(base.recvall(sock, keylen))
             opts = _parse_server_opt(remote_key.split()[1:])
-            logger.info("connected to %s", str(addr))
+            print("connected to %s", str(addr))
             process = multiprocessing.Process(target=_serve_loop, args=(sock, addr, load_library))
             process.start()
             sock.close()
+            print("process.join")
             process.join(opts.get("timeout", None))
+            print("process.join done")
             if process.is_alive():
-                logger.info("Timeout in RPC session, kill..")
+                print("Timeout in RPC session, kill..2")
                 process.terminate()
             retry_count = 0
         except (socket.error, IOError) as err:
@@ -424,7 +435,7 @@ class Server(object):
                     raise sock_err
             if not self.port:
                 raise ValueError("cannot bind to any port in [%d, %d)" % (port, port_end))
-            logger.info("bind to %s:%d", host, self.port)
+            print("bind to %s:%d", host, self.port)
             sock.listen(1)
             self.sock = sock
             self.proc = multiprocessing.Process(

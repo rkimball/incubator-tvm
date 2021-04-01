@@ -231,6 +231,7 @@ class PopenWorker:
         assert status == StatusKind.TIMEOUT
         # kill and lazily restart the process in the next send.
         self.kill()
+        print("popen recv timeout ***************************")
         raise TimeoutError()
 
 

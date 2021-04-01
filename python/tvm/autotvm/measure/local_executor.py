@@ -48,31 +48,33 @@ from . import executor
 #             return
 
 
-def _execute_func(func, queue, args, kwargs):
-    """execute function and return the result or exception to a queue"""
-    try:
-        res = func(*args, **kwargs)
-    except Exception as exc:  # pylint: disable=broad-except
-        res = exc
-    queue.put(res)
+# def _execute_func(func, queue, args, kwargs):
+#     """execute function and return the result or exception to a queue"""
+#     try:
+#         res = func(*args, **kwargs)
+#     except Exception as exc:  # pylint: disable=broad-except
+#         res = exc
+#     print("********************** execute successfully")
+#     queue.put(res)
 
 
-def call_with_timeout(queue, timeout, func, args, kwargs):
-    """A wrapper to support timeout of a function call"""
+# def call_with_timeout(queue, timeout, func, args, kwargs):
+#     """A wrapper to support timeout of a function call"""
 
-    pool = PopenPoolExecutor(max_workers=2, timeout=timeout)
-    future = pool.submit(func, *args, **kwargs)
-    future.result()
-    # # start a new process for timeout (cannot use thread because we have c function)
-    # p = Process(target=_execute_func, args=(func, queue, args, kwargs))
-    # p.start()
-    # p.join(timeout=timeout)
+#     # pool = PopenPoolExecutor(max_workers=2, timeout=timeout)
+#     # future = pool.submit(func, *args, **kwargs)
+#     # future.result()
 
-    # queue.put(executor.TimeoutError())
 
-    # kill_child_processes(p.pid)
-    # p.terminate()
-    # p.join()
+#     # start a new process for timeout (cannot use thread because we have c function)
+#     p = Process(target=_execute_func, args=(func, queue, args, kwargs))
+#     p.start()
+#     if (p.join(timeout=timeout) is None):
+#         print("before queue.put")
+#         queue.put(executor.TimeoutError())
+#         kill_child_processes(p.pid)
+#         p.terminate()
+#     # p.join()
 
 
 # class LocalFuture(executor.Future):
