@@ -157,7 +157,7 @@ class RPCEndpoint::EventHandler : public dmlc::Stream {
 
     std::swap(async_server_mode_, async_server_mode);
     std::swap(client_mode_, client_mode);
-    std::cout << __FILE__ << " " << __LINE__ << " return status " << static_cast<int>(status) << std::endl;
+    // std::cout << __FILE__ << " " << __LINE__ << " return status " << static_cast<int>(status) << std::endl;
     return status;
   }
 
@@ -698,6 +698,8 @@ void RPCEndpoint::Init() {
  */
 std::shared_ptr<RPCEndpoint> RPCEndpoint::Create(std::unique_ptr<RPCChannel> channel,
                                                  std::string name, std::string remote_key) {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCEndpoint::Create " << name << " " << remote_key << std::endl;
+
   std::shared_ptr<RPCEndpoint> endpt = std::make_shared<RPCEndpoint>();
   endpt->channel_ = std::move(channel);
   endpt->name_ = std::move(name);
@@ -977,6 +979,10 @@ class RPCClientSession : public RPCSession, public DeviceAPI {
    * \brief param endpoint The client endpoint of the session.
    */
   explicit RPCClientSession(std::shared_ptr<RPCEndpoint> endpoint) : endpoint_(endpoint) {}
+
+  ~RPCClientSession() {
+    std::cout << __FILE__ << " " << __LINE__ << " ~RPCClientSession() " << std::endl;
+  }
 
   // function overrides
   PackedFuncHandle GetFunction(const std::string& name) final {

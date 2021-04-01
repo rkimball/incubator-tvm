@@ -167,7 +167,7 @@ class RPCEndpoint {
   static std::shared_ptr<RPCEndpoint> Create(std::unique_ptr<RPCChannel> channel, std::string name,
                                              std::string remote_key);
 
- private:
+//  private:
   class EventHandler;
   // Handle events until receives a return
   // Also flushes channels so that the function advances.

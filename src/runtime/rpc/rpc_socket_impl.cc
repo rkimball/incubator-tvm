@@ -67,6 +67,7 @@ class SockChannel final : public RPCChannel {
 
 std::shared_ptr<RPCEndpoint> RPCConnect(std::string url, int port, std::string key,
                                         TVMArgs init_seq) {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCConnect " << url << ":" << port << " " << key << std::endl;
   support::TCPSocket sock;
   support::SockAddr addr(url.c_str(), port);
   sock.Create(addr.ss_family());
@@ -104,6 +105,7 @@ std::shared_ptr<RPCEndpoint> RPCConnect(std::string url, int port, std::string k
 }
 
 Module RPCClientConnect(std::string url, int port, std::string key, TVMArgs init_seq) {
+  std::cout << __FILE__ << " " << __LINE__ << " RPCClientConnect " << url << ":" << port << " " << key << std::endl;
   auto endpt = RPCConnect(url, port, "client:" + key, init_seq);
   return CreateRPCSessionModule(CreateClientSession(endpt));
 }
@@ -112,8 +114,10 @@ Module RPCClientConnect(std::string url, int port, std::string key, TVMArgs init
 TVM_DLL void RPCServerLoop(int sockfd) {
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
   support::TCPSocket sock(static_cast<support::TCPSocket::SockType>(sockfd));
-  RPCEndpoint::Create(std::unique_ptr<SockChannel>(new SockChannel(sock)), "SockServerLoop", "")
-      ->ServerLoop();
+  auto ep = RPCEndpoint::Create(std::unique_ptr<SockChannel>(new SockChannel(sock)), "SockServerLoop", "");
+  std::cout << __FILE__ << " " << __LINE__ << " " << ep->name_ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " " << ep->remote_key_ << std::endl;
+  ep->ServerLoop();
   std::cout << __FILE__ << " " << __LINE__ << std::endl;
 }
 
