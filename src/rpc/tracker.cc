@@ -29,6 +29,115 @@
 namespace tvm {
 namespace rpc {
 
+class PutInfo;
+
+/*!
+ * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
+ *
+ * Each instance of this class handles a single socket connection to the RPC Tracker.
+ */
+class ConnectionInfo {
+ public:
+  ConnectionInfo(TrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
+  ~ConnectionInfo();
+  TrackerObj* tracker_;
+  std::thread connection_task_;
+  std::string host_;
+  int port_;
+  support::TCPSocket connection_;
+  std::string key_;
+  std::set<std::string> pending_match_keys_;
+  std::set<std::shared_ptr<PutInfo>> put_values_;
+  bool active_ = true;
+
+  void ConnectionLoopEntry();
+  void ConnectionLoop();
+  void ProcessMessage(std::string json);
+  int SendStatus(std::string status);
+  int SendResponse(TrackerObj::TRACKER_CODE value);
+  int RecvAll(void* data, size_t length);
+  int SendAll(const void* data, size_t length);
+  void Close();
+  void ShutdownThread();
+
+  friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
+    out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
+    return out;
+  }
+};
+
+/*!
+ * \brief The RequestInfo class tracking information from REQUEST messages.
+ *
+ * The class contains information for tracking an RPC Request call.
+ */
+class RequestInfo {
+ public:
+  RequestInfo() = default;
+  RequestInfo(const RequestInfo&) = default;
+  RequestInfo(std::string user, int priority, int request_count,
+              std::shared_ptr<ConnectionInfo> conn)
+      : user_{user}, priority_{priority}, request_count_{request_count}, conn_{conn} {}
+
+  friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
+    out << "RequestInfo(" << info.priority_ << ", \"" << info.user_ << "\", " << info.request_count_
+        << ")";
+    return out;
+  }
+  std::string user_;
+  int priority_;
+  int request_count_;
+  std::shared_ptr<ConnectionInfo> conn_;
+};
+
+/*!
+ * \brief The PutInfo class tracks the information from PUT messages.
+ *
+ * This class contains information for tracking an RPC Put call.
+ */
+class PutInfo {
+ public:
+  PutInfo(std::string address, int port, std::string match_key,
+          std::shared_ptr<ConnectionInfo> conn)
+      : address_{address}, port_{port}, match_key_{match_key}, conn_{conn} {}
+  std::string address_;
+  int port_;
+  std::string match_key_;
+  std::shared_ptr<ConnectionInfo> conn_;
+
+  bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
+  friend std::ostream& operator<<(std::ostream& out, const PutInfo& obj) {
+    out << "PutInfo(" << obj.address_ << ":" << obj.port_ << ", " << obj.match_key_ << ")";
+    return out;
+  }
+};
+
+/*!
+ * \brief The PriorityScheduler handles request messages in a priority order.
+ *
+ * The priority is passed in the REQUEST message with higher numeric values being processed
+ * first.
+ */
+class PriorityScheduler {
+ public:
+  PriorityScheduler(std::string key);
+  ~PriorityScheduler();
+  void Put(std::string address, int port, std::string match_key,
+           std::shared_ptr<ConnectionInfo> conn);
+  void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
+  void Remove(PutInfo value);
+  std::string Summary();
+  void Schedule();
+  void RemoveServer(std::shared_ptr<ConnectionInfo> conn);
+  void RemoveClient(std::shared_ptr<ConnectionInfo> conn);
+
+  std::mutex mutex_;
+  std::string key_;
+  size_t request_count_ = 0;
+  std::deque<PutInfo> values_;
+  std::deque<RequestInfo> requests_;
+};
+
 TrackerObj::TrackerObj(std::string host, int port, int port_end, bool silent) : host_{host} {
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
@@ -114,8 +223,8 @@ void TrackerObj::Terminate() {
   connection_list_.clear();
 }
 
-std::shared_ptr<TrackerObj::PriorityScheduler> TrackerObj::GetScheduler(std::string key) {
-  std::shared_ptr<TrackerObj::PriorityScheduler> scheduler;
+std::shared_ptr<PriorityScheduler> TrackerObj::GetScheduler(std::string key) {
+  std::shared_ptr<PriorityScheduler> scheduler;
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
@@ -179,29 +288,27 @@ void TrackerObj::Close(ConnectionInfo* connection) {
   connection_list_.erase(conn);
 }
 
-TrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
+PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
 
-TrackerObj::PriorityScheduler::~PriorityScheduler() {}
+PriorityScheduler::~PriorityScheduler() {}
 
-void TrackerObj::PriorityScheduler::Request(std::string user, int priority,
-                                            std::shared_ptr<ConnectionInfo> conn) {
+void PriorityScheduler::Request(std::string user, int priority,
+                                std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   requests_.emplace_back(user, priority, request_count_++, conn);
   std::sort(requests_.begin(), requests_.end(),
-            [](const TrackerObj::RequestInfo& a, const TrackerObj::RequestInfo& b) {
-              return a.priority_ > b.priority_;
-            });
+            [](const RequestInfo& a, const RequestInfo& b) { return a.priority_ > b.priority_; });
   Schedule();
 }
 
-void TrackerObj::PriorityScheduler::Put(std::string address, int port, std::string match_key,
-                                        std::shared_ptr<ConnectionInfo> conn) {
+void PriorityScheduler::Put(std::string address, int port, std::string match_key,
+                            std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   values_.emplace_back(address, port, match_key, conn);
   Schedule();
 }
 
-void TrackerObj::PriorityScheduler::Remove(PutInfo value) {
+void PriorityScheduler::Remove(PutInfo value) {
   std::lock_guard<std::mutex> guard(mutex_);
   auto it = std::find(values_.begin(), values_.end(), value);
   if (it != values_.end()) {
@@ -227,31 +334,31 @@ void RemoveRemote(T& list, std::shared_ptr<ConnectionInfo> conn) {
 }
 }  // namespace
 
-void TrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
+void PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   RemoveRemote(values_, conn);
 }
 
-void TrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
+void PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   RemoveRemote(requests_, conn);
 }
 
-std::string TrackerObj::PriorityScheduler::Summary() {
+std::string PriorityScheduler::Summary() {
   std::lock_guard<std::mutex> guard(mutex_);
   std::stringstream ss;
   ss << "{\"free\": " << values_.size() << ", \"pending\": " << requests_.size() << "}";
   return ss.str();
 }
 
-void TrackerObj::PriorityScheduler::Schedule() {
+void PriorityScheduler::Schedule() {
   while (!requests_.empty() && !values_.empty()) {
     PutInfo& pi = values_[0];
     RequestInfo& request = requests_[0];
     try {
       std::stringstream ss;
-      ss << "[" << static_cast<int>(TRACKER_CODE::SUCCESS) << ", [\"" << pi.address_ << "\", "
-         << pi.port_ << ", \"" << pi.match_key_ << "\"]]";
+      ss << "[" << static_cast<int>(TrackerObj::TRACKER_CODE::SUCCESS) << ", [\"" << pi.address_
+         << "\", " << pi.port_ << ", \"" << pi.match_key_ << "\"]]";
       request.conn_->SendStatus(ss.str());
       pi.conn_->pending_match_keys_.erase(pi.match_key_);
     } catch (...) {

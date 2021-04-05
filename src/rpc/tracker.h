@@ -45,8 +45,8 @@
 namespace tvm {
 namespace rpc {
 
-class PutInfo;
 class ConnectionInfo;
+class PriorityScheduler;
 
 /*!
  * \brief The main RPC Tracker class.
@@ -95,78 +95,6 @@ class TrackerObj : public Object {
   };
 
  private:
-  /*!
-   * \brief The RequestInfo class tracking information from REQUEST messages.
-   *
-   * The class contains information for tracking an RPC Request call.
-   */
-  class RequestInfo {
-   public:
-    RequestInfo() = default;
-    RequestInfo(const RequestInfo&) = default;
-    RequestInfo(std::string user, int priority, int request_count,
-                std::shared_ptr<ConnectionInfo> conn)
-        : user_{user}, priority_{priority}, request_count_{request_count}, conn_{conn} {}
-
-    friend std::ostream& operator<<(std::ostream& out, const RequestInfo& info) {
-      out << "RequestInfo(" << info.priority_ << ", \"" << info.user_ << "\", "
-          << info.request_count_ << ")";
-      return out;
-    }
-    std::string user_;
-    int priority_;
-    int request_count_;
-    std::shared_ptr<ConnectionInfo> conn_;
-  };
-
-  /*!
-   * \brief The PutInfo class tracks the information from PUT messages.
-   *
-   * This class contains information for tracking an RPC Put call.
-   */
-  class PutInfo {
-   public:
-    PutInfo(std::string address, int port, std::string match_key,
-            std::shared_ptr<ConnectionInfo> conn)
-        : address_{address}, port_{port}, match_key_{match_key}, conn_{conn} {}
-    std::string address_;
-    int port_;
-    std::string match_key_;
-    std::shared_ptr<ConnectionInfo> conn_;
-
-    bool operator==(const PutInfo& pi) { return pi.match_key_ == match_key_; }
-    friend std::ostream& operator<<(std::ostream& out, const PutInfo& obj) {
-      out << "PutInfo(" << obj.address_ << ":" << obj.port_ << ", " << obj.match_key_ << ")";
-      return out;
-    }
-  };
-
-  /*!
-   * \brief The PriorityScheduler handles request messages in a priority order.
-   *
-   * The priority is passed in the REQUEST message with higher numeric values being processed
-   * first.
-   */
-  class PriorityScheduler {
-   public:
-    PriorityScheduler(std::string key);
-    ~PriorityScheduler();
-    void Put(std::string address, int port, std::string match_key,
-             std::shared_ptr<ConnectionInfo> conn);
-    void Request(std::string user, int priority, std::shared_ptr<ConnectionInfo> conn);
-    void Remove(PutInfo value);
-    std::string Summary();
-    void Schedule();
-    void RemoveServer(std::shared_ptr<ConnectionInfo> conn);
-    void RemoveClient(std::shared_ptr<ConnectionInfo> conn);
-
-    std::mutex mutex_;
-    std::string key_;
-    size_t request_count_ = 0;
-    std::deque<PutInfo> values_;
-    std::deque<RequestInfo> requests_;
-  };
-
   /*!
    * \brief This method is the loop over the listen call.
    *
@@ -247,41 +175,6 @@ class Tracker : public ObjectRef {
   }
 
   TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(Tracker, ObjectRef, TrackerObj);
-};
-
-/*!
- * \brief The ConnectionInfo class tracks each connection to the RPC Tracker.
- *
- * Each instance of this class handles a single socket connection to the RPC Tracker.
- */
-class ConnectionInfo {
- public:
-  ConnectionInfo(TrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
-  ~ConnectionInfo();
-  TrackerObj* tracker_;
-  std::thread connection_task_;
-  std::string host_;
-  int port_;
-  support::TCPSocket connection_;
-  std::string key_;
-  std::set<std::string> pending_match_keys_;
-  std::set<std::shared_ptr<PutInfo>> put_values_;
-  bool active_ = true;
-
-  void ConnectionLoopEntry();
-  void ConnectionLoop();
-  void ProcessMessage(std::string json);
-  int SendStatus(std::string status);
-  int SendResponse(TrackerObj::TRACKER_CODE value);
-  int RecvAll(void* data, size_t length);
-  int SendAll(const void* data, size_t length);
-  void Close();
-  void ShutdownThread();
-
-  friend std::ostream& operator<<(std::ostream& out, const ConnectionInfo& info) {
-    out << "ConnectionInfo(" << info.host_ << ":" << info.port_ << " key=" << info.key_ << ")";
-    return out;
-  }
 };
 
 }  // namespace rpc

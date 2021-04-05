@@ -356,7 +356,7 @@ bool is_ready(R const& f) {
 
 TEST(Tracker, Priority) {
   std::chrono::milliseconds wait_time(100);
-  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::Tracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
@@ -417,7 +417,7 @@ TEST(Tracker, Priority) {
 
 // This test checks that when a server closes then it is removed from the list of servers
 TEST(Tracker, DeviceClose) {
-  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::Tracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   // Setup mock server
@@ -450,7 +450,7 @@ TEST(Tracker, DeviceClose) {
 
 // This test checks that a pending request is removed when a client closes
 TEST(Tracker, PendingRequest) {
-  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::Tracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
 
   auto dev1 = std::make_shared<MockServer>(tracker_port, "xyz");
@@ -483,7 +483,7 @@ TEST(Tracker, PendingRequest) {
 }
 
 TEST(Tracker, ErrorHandling) {
-  tvm::rpc::RPCTracker tracker("localhost", 9000, 10000);
+  tvm::rpc::Tracker tracker("localhost", 9000, 10000);
   int tracker_port = tracker->GetPort();
   std::string status;
 
