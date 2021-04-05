@@ -16,8 +16,6 @@
 # under the License.
 """RPC Tracker, tracks and distributes the TVM RPC resources.
 
-This folder implemements the tracker server logic.
-
 Note
 ----
 Tracker is a TCP based rest api with the following protocol:
@@ -46,7 +44,7 @@ from tvm.runtime import Object
 from . import _ffi_api
 
 
-@tvm._ffi.register_object("rpc.RPCTracker")
+@tvm._ffi.register_object("rpc.Tracker")
 class Tracker(Object):
     def __init__(self, host, port=9190, port_end=9199, silent=False):
-        self.__init_handle_by_constructor__(_ffi_api.RPCTracker, host, port, port_end, silent)
+        self.__init_handle_by_constructor__(_ffi_api.Tracker, host, port, port_end, silent)
