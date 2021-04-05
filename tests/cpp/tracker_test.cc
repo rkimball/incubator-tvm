@@ -17,6 +17,8 @@
  * under the License.
  */
 
+#include "../../src/rpc/tracker.h"
+
 #include <gtest/gtest.h>
 #include <tvm/te/operation.h>
 #include <tvm/topi/elemwise.h>
@@ -25,11 +27,10 @@
 #include <future>
 #include <regex>
 
-#include "../../src/rpc/tracker.h"
 #include "../../src/support/socket.h"
 
-using TRACKER_CODE = tvm::rpc::RPCTrackerObj::TRACKER_CODE;
-using RPC_CODE = tvm::rpc::RPCTrackerObj::RPC_CODE;
+using TRACKER_CODE = tvm::rpc::TrackerObj::TRACKER_CODE;
+using RPC_CODE = tvm::rpc::TrackerObj::RPC_CODE;
 
 class Summary {
  public:

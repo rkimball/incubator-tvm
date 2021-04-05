@@ -29,7 +29,7 @@
 namespace tvm {
 namespace rpc {
 
-RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool silent) : host_{host} {
+TrackerObj::TrackerObj(std::string host, int port, int port_end, bool silent) : host_{host} {
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
 
@@ -37,15 +37,15 @@ RPCTrackerObj::RPCTrackerObj(std::string host, int port, int port_end, bool sile
   listen_sock_.SetReuseAddress();
 
   listen_sock_.Listen();
-  listener_task_ = std::make_unique<std::thread>(&RPCTrackerObj::ListenLoopEntry, this);
+  listener_task_ = std::make_unique<std::thread>(&TrackerObj::ListenLoopEntry, this);
 }
 
-RPCTrackerObj::~RPCTrackerObj() { Terminate(); }
+TrackerObj::~TrackerObj() { Terminate(); }
 
 /*!
  * \brief ListenLoopProc The listen process.
  */
-void RPCTrackerObj::ListenLoopEntry() {
+void TrackerObj::ListenLoopEntry() {
   active_ = true;
   while (active_) {
     support::TCPSocket connection;
@@ -66,7 +66,7 @@ void RPCTrackerObj::ListenLoopEntry() {
   }
 }
 
-void RPCTrackerObj::RemoveStaleConnections() {
+void TrackerObj::RemoveStaleConnections() {
   // Check the connection_list_ for stale connections
   std::lock_guard<std::mutex> guard(mutex_);
   std::set<std::shared_ptr<ConnectionInfo>> erase_list;
@@ -86,14 +86,14 @@ void RPCTrackerObj::RemoveStaleConnections() {
   }
 }
 
-int RPCTrackerObj::GetPort() const { return my_port_; }
+int TrackerObj::GetPort() const { return my_port_; }
 
-void RPCTrackerObj::Stop() {
+void TrackerObj::Stop() {
   // For now call Terminate
   Terminate();
 }
 
-void RPCTrackerObj::Terminate() {
+void TrackerObj::Terminate() {
   // First shutdown the listen socket so we don't get any new connections
   listen_sock_.Shutdown();
   listen_sock_.Close();
@@ -114,8 +114,8 @@ void RPCTrackerObj::Terminate() {
   connection_list_.clear();
 }
 
-std::shared_ptr<RPCTrackerObj::PriorityScheduler> RPCTrackerObj::GetScheduler(std::string key) {
-  std::shared_ptr<RPCTrackerObj::PriorityScheduler> scheduler;
+std::shared_ptr<TrackerObj::PriorityScheduler> TrackerObj::GetScheduler(std::string key) {
+  std::shared_ptr<TrackerObj::PriorityScheduler> scheduler;
   if (scheduler_map_.find(key) == scheduler_map_.end()) {
     // There is no scheduler for this key yet so add one
     scheduler_map_.insert({key, std::make_shared<PriorityScheduler>(key)});
@@ -127,8 +127,8 @@ std::shared_ptr<RPCTrackerObj::PriorityScheduler> RPCTrackerObj::GetScheduler(st
   return scheduler;
 }
 
-void RPCTrackerObj::Put(std::string key, std::string address, int port, std::string match_key,
-                        ConnectionInfo* connection) {
+void TrackerObj::Put(std::string key, std::string address, int port, std::string match_key,
+                     ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
   std::shared_ptr<ConnectionInfo> conn;
   for (auto c : connection_list_) {
@@ -141,8 +141,8 @@ void RPCTrackerObj::Put(std::string key, std::string address, int port, std::str
   }
 }
 
-void RPCTrackerObj::Request(std::string key, std::string user, int priority,
-                            ConnectionInfo* connection) {
+void TrackerObj::Request(std::string key, std::string user, int priority,
+                         ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
   std::shared_ptr<ConnectionInfo> conn;
   for (auto c : connection_list_) {
@@ -155,7 +155,7 @@ void RPCTrackerObj::Request(std::string key, std::string user, int priority,
   }
 }
 
-std::string RPCTrackerObj::Summary() {
+std::string TrackerObj::Summary() {
   std::stringstream ss;
   int count = scheduler_map_.size();
   for (auto p : scheduler_map_) {
@@ -167,7 +167,7 @@ std::string RPCTrackerObj::Summary() {
   return ss.str();
 }
 
-void RPCTrackerObj::Close(ConnectionInfo* connection) {
+void TrackerObj::Close(ConnectionInfo* connection) {
   std::lock_guard<std::mutex> guard(mutex_);
   std::shared_ptr<ConnectionInfo> conn;
   for (auto c : connection_list_) {
@@ -179,29 +179,29 @@ void RPCTrackerObj::Close(ConnectionInfo* connection) {
   connection_list_.erase(conn);
 }
 
-RPCTrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
+TrackerObj::PriorityScheduler::PriorityScheduler(std::string key) : key_{key} {}
 
-RPCTrackerObj::PriorityScheduler::~PriorityScheduler() {}
+TrackerObj::PriorityScheduler::~PriorityScheduler() {}
 
-void RPCTrackerObj::PriorityScheduler::Request(std::string user, int priority,
-                                               std::shared_ptr<ConnectionInfo> conn) {
+void TrackerObj::PriorityScheduler::Request(std::string user, int priority,
+                                            std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   requests_.emplace_back(user, priority, request_count_++, conn);
   std::sort(requests_.begin(), requests_.end(),
-            [](const RPCTrackerObj::RequestInfo& a, const RPCTrackerObj::RequestInfo& b) {
+            [](const TrackerObj::RequestInfo& a, const TrackerObj::RequestInfo& b) {
               return a.priority_ > b.priority_;
             });
   Schedule();
 }
 
-void RPCTrackerObj::PriorityScheduler::Put(std::string address, int port, std::string match_key,
-                                           std::shared_ptr<ConnectionInfo> conn) {
+void TrackerObj::PriorityScheduler::Put(std::string address, int port, std::string match_key,
+                                        std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   values_.emplace_back(address, port, match_key, conn);
   Schedule();
 }
 
-void RPCTrackerObj::PriorityScheduler::Remove(PutInfo value) {
+void TrackerObj::PriorityScheduler::Remove(PutInfo value) {
   std::lock_guard<std::mutex> guard(mutex_);
   auto it = std::find(values_.begin(), values_.end(), value);
   if (it != values_.end()) {
@@ -227,24 +227,24 @@ void RemoveRemote(T& list, std::shared_ptr<ConnectionInfo> conn) {
 }
 }  // namespace
 
-void RPCTrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
+void TrackerObj::PriorityScheduler::RemoveServer(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   RemoveRemote(values_, conn);
 }
 
-void RPCTrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
+void TrackerObj::PriorityScheduler::RemoveClient(std::shared_ptr<ConnectionInfo> conn) {
   std::lock_guard<std::mutex> guard(mutex_);
   RemoveRemote(requests_, conn);
 }
 
-std::string RPCTrackerObj::PriorityScheduler::Summary() {
+std::string TrackerObj::PriorityScheduler::Summary() {
   std::lock_guard<std::mutex> guard(mutex_);
   std::stringstream ss;
   ss << "{\"free\": " << values_.size() << ", \"pending\": " << requests_.size() << "}";
   return ss.str();
 }
 
-void RPCTrackerObj::PriorityScheduler::Schedule() {
+void TrackerObj::PriorityScheduler::Schedule() {
   while (!requests_.empty() && !values_.empty()) {
     PutInfo& pi = values_[0];
     RequestInfo& request = requests_[0];
@@ -263,7 +263,7 @@ void RPCTrackerObj::PriorityScheduler::Schedule() {
   }
 }
 
-ConnectionInfo::ConnectionInfo(RPCTrackerObj* tracker, std::string host, int port,
+ConnectionInfo::ConnectionInfo(TrackerObj* tracker, std::string host, int port,
                                support::TCPSocket connection)
     : tracker_{tracker}, host_{host}, port_{port}, connection_{connection} {
   connection_task_ = std::thread(&ConnectionInfo::ConnectionLoopEntry, this);
@@ -318,7 +318,7 @@ int ConnectionInfo::SendAll(const void* data, size_t length) {
   return length;
 }
 
-int ConnectionInfo::SendResponse(RPCTrackerObj::TRACKER_CODE value) {
+int ConnectionInfo::SendResponse(TrackerObj::TRACKER_CODE value) {
   std::stringstream ss;
   ss << static_cast<int>(value);
   std::string status = ss.str();
@@ -353,7 +353,7 @@ void ConnectionInfo::ConnectionLoop() {
     // Error setting up connection
     return;
   }
-  if (magic != static_cast<int>(RPCTrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
+  if (magic != static_cast<int>(TrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
     // Not a tracker connection so close connection and exit
     return;
   }
@@ -386,7 +386,7 @@ void ConnectionInfo::ConnectionLoop() {
     try {
       ProcessMessage(json);
     } catch (std::exception err) {
-      SendResponse(RPCTrackerObj::TRACKER_CODE::FAIL);
+      SendResponse(TrackerObj::TRACKER_CODE::FAIL);
     }
   }
 }
@@ -404,19 +404,19 @@ void ConnectionInfo::ProcessMessage(std::string json) {
   reader.NextArrayItem();
   reader.ReadNumber(&tmp);
   reader.NextArrayItem();
-  switch (static_cast<RPCTrackerObj::TRACKER_CODE>(tmp)) {
-    case RPCTrackerObj::TRACKER_CODE::FAIL:
+  switch (static_cast<TrackerObj::TRACKER_CODE>(tmp)) {
+    case TrackerObj::TRACKER_CODE::FAIL:
       break;
-    case RPCTrackerObj::TRACKER_CODE::SUCCESS:
+    case TrackerObj::TRACKER_CODE::SUCCESS:
       break;
-    case RPCTrackerObj::TRACKER_CODE::PING:
-      if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1) {
+    case TrackerObj::TRACKER_CODE::PING:
+      if (SendResponse(TrackerObj::TRACKER_CODE::SUCCESS) == -1) {
         // Failed to send response so connection broken
         return;
       }
       break;
-    case RPCTrackerObj::TRACKER_CODE::STOP:
-      if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1) {
+    case TrackerObj::TRACKER_CODE::STOP:
+      if (SendResponse(TrackerObj::TRACKER_CODE::SUCCESS) == -1) {
         // Failed to send response so connection broken
         return;
       }
@@ -425,7 +425,7 @@ void ConnectionInfo::ProcessMessage(std::string json) {
         tracker->Stop();
       }
       break;
-    case RPCTrackerObj::TRACKER_CODE::PUT: {
+    case TrackerObj::TRACKER_CODE::PUT: {
       std::string key;
       int port;
       std::string match_key;
@@ -455,13 +455,13 @@ void ConnectionInfo::ProcessMessage(std::string json) {
         tracker->Put(key, addr, port, match_key, this);
       }
       // put_values_.insert(put_info);
-      if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1) {
+      if (SendResponse(TrackerObj::TRACKER_CODE::SUCCESS) == -1) {
         // Failed to send response so connection broken
         return;
       }
       break;
     }
-    case RPCTrackerObj::TRACKER_CODE::REQUEST: {
+    case TrackerObj::TRACKER_CODE::REQUEST: {
       std::string key;
       std::string user;
       int priority;
@@ -474,24 +474,24 @@ void ConnectionInfo::ProcessMessage(std::string json) {
       tracker_->Request(key, user, priority, this);
       break;
     }
-    case RPCTrackerObj::TRACKER_CODE::UPDATE_INFO: {
+    case TrackerObj::TRACKER_CODE::UPDATE_INFO: {
       std::string key;
       std::string value;
       reader.BeginObject();
       reader.NextObjectItem(&key);
       reader.Read(&value);
       key_ = value;
-      if (SendResponse(RPCTrackerObj::TRACKER_CODE::SUCCESS) == -1) {
+      if (SendResponse(TrackerObj::TRACKER_CODE::SUCCESS) == -1) {
         // Failed to send response so connection broken
         return;
       }
       break;
     }
-    case RPCTrackerObj::TRACKER_CODE::SUMMARY: {
+    case TrackerObj::TRACKER_CODE::SUMMARY: {
       if (auto tracker = tracker_) {
         std::stringstream ss;
-        ss << "[" << static_cast<int>(RPCTrackerObj::TRACKER_CODE::SUCCESS)
-           << ", {\"queue_info\": {" << tracker->Summary() << "}, ";
+        ss << "[" << static_cast<int>(TrackerObj::TRACKER_CODE::SUCCESS) << ", {\"queue_info\": {"
+           << tracker->Summary() << "}, ";
         ss << "\"server_info\": [";
         int count = 0;
         {
@@ -514,7 +514,7 @@ void ConnectionInfo::ProcessMessage(std::string json) {
       }
       break;
     }
-    case RPCTrackerObj::TRACKER_CODE::GET_PENDING_MATCHKEYS: {
+    case TrackerObj::TRACKER_CODE::GET_PENDING_MATCHKEYS: {
       std::stringstream ss;
       ss << "[";
       int count = 0;
@@ -532,15 +532,15 @@ void ConnectionInfo::ProcessMessage(std::string json) {
       break;
     }
     default:
-      SendResponse(RPCTrackerObj::TRACKER_CODE::FAIL);
+      SendResponse(TrackerObj::TRACKER_CODE::FAIL);
       break;
   }
 }
 
-TVM_REGISTER_NODE_TYPE(RPCTrackerObj);
-TVM_REGISTER_GLOBAL("rpc.RPCTracker")
+TVM_REGISTER_NODE_TYPE(TrackerObj);
+TVM_REGISTER_GLOBAL("rpc.Tracker")
     .set_body_typed([](std::string host, int port, int port_end, bool silent) {
-      return tvm::rpc::RPCTracker(host, port, port_end, silent);
+      return tvm::rpc::Tracker(host, port, port_end, silent);
     });
 
 }  // namespace rpc

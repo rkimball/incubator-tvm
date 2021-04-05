@@ -18,7 +18,7 @@
  */
 
 /*!
- * \file rpc_tracker.h
+ * \file tracker.h
  * \brief RPC Tracker.
  */
 #ifndef TVM_RPC_TRACKER_H_
@@ -53,13 +53,13 @@ class ConnectionInfo;
  *
  * This is the actual implementation of the Tracker.
  */
-class RPCTrackerObj : public Object {
+class TrackerObj : public Object {
   friend class ConnectionInfo;
 
  public:
-  RPCTrackerObj() {}
-  RPCTrackerObj(std::string host, int port, int port_end, bool silent = true);
-  ~RPCTrackerObj();
+  TrackerObj() {}
+  TrackerObj(std::string host, int port, int port_end, bool silent = true);
+  ~TrackerObj();
   void Stop();
   void Terminate();
   int GetPort() const;
@@ -216,7 +216,7 @@ class RPCTrackerObj : public Object {
   std::set<std::shared_ptr<ConnectionInfo>> connection_list_;
 
   /*!
-   * \brief The mutex used to lock access to the RPCTrackerObj.
+   * \brief The mutex used to lock access to the TrackerObj.
    *
    * Since connections run in separate threads and interact with the Tracker we need
    * a mutex to keep things safe.
@@ -226,8 +226,8 @@ class RPCTrackerObj : public Object {
   bool active_;
 
  public:
-  static constexpr const char* _type_key = "rpc.RPCTracker";
-  TVM_DECLARE_BASE_OBJECT_INFO(RPCTrackerObj, Object);
+  static constexpr const char* _type_key = "rpc.Tracker";
+  TVM_DECLARE_BASE_OBJECT_INFO(TrackerObj, Object);
 };
 
 /*!
@@ -240,13 +240,13 @@ class RPCTrackerObj : public Object {
  *  by forward requests to another RPCSession.
  */
 
-class RPCTracker : public ObjectRef {
+class Tracker : public ObjectRef {
  public:
-  explicit RPCTracker(std::string host, int port, int port_end, bool silent = true) {
-    data_ = make_object<RPCTrackerObj>(host, port, port_end, silent);
+  explicit Tracker(std::string host, int port, int port_end, bool silent = true) {
+    data_ = make_object<TrackerObj>(host, port, port_end, silent);
   }
 
-  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(RPCTracker, ObjectRef, RPCTrackerObj);
+  TVM_DEFINE_MUTABLE_OBJECT_REF_METHODS(Tracker, ObjectRef, TrackerObj);
 };
 
 /*!
@@ -256,9 +256,9 @@ class RPCTracker : public ObjectRef {
  */
 class ConnectionInfo {
  public:
-  ConnectionInfo(RPCTrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
+  ConnectionInfo(TrackerObj* tracker, std::string host, int port, support::TCPSocket connection);
   ~ConnectionInfo();
-  RPCTrackerObj* tracker_;
+  TrackerObj* tracker_;
   std::thread connection_task_;
   std::string host_;
   int port_;
@@ -272,7 +272,7 @@ class ConnectionInfo {
   void ConnectionLoop();
   void ProcessMessage(std::string json);
   int SendStatus(std::string status);
-  int SendResponse(RPCTrackerObj::TRACKER_CODE value);
+  int SendResponse(TrackerObj::TRACKER_CODE value);
   int RecvAll(void* data, size_t length);
   int SendAll(const void* data, size_t length);
   void Close();
