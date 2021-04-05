@@ -21,8 +21,8 @@
  * \file rpc_tracker.h
  * \brief RPC Tracker.
  */
-#ifndef TVM_RPC_RPC_TRACKER_H_
-#define TVM_RPC_RPC_TRACKER_H_
+#ifndef TVM_RPC_TRACKER_H_
+#define TVM_RPC_TRACKER_H_
 
 #include <tvm/node/reflection.h>
 #include <tvm/runtime/c_runtime_api.h>
@@ -287,4 +287,4 @@ class ConnectionInfo {
 }  // namespace rpc
 }  // namespace tvm
 
-#endif  // TVM_RPC_RPC_TRACKER_H_
+#endif  // TVM_RPC_TRACKER_H_

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include "rpc_tracker.h"
+#include "tracker.h"
 
 #include <dmlc/json.h>
 #include <tvm/runtime/registry.h>

@@ -25,7 +25,7 @@
 #include <future>
 #include <regex>
 
-#include "../../src/rpc/rpc_tracker.h"
+#include "../../src/rpc/tracker.h"
 #include "../../src/support/socket.h"
 
 using TRACKER_CODE = tvm::rpc::RPCTrackerObj::TRACKER_CODE;
