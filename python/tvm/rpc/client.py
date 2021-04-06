@@ -391,6 +391,7 @@ class TrackerSession(object):
                 if value[0] != base.TrackerCode.SUCCESS:
                     raise RuntimeError("Invalid return value %s" % str(value))
                 url, port, matchkey = value[1]
+                print("******* connect from request")
                 return connect(url, port, matchkey, session_timeout)
             except socket.error as err:
                 self.close()
@@ -493,6 +494,7 @@ def connect(url, port, key="", session_timeout=0, session_constructor_args=None)
                 "rpc.Connect", internal_url, internal_port, internal_key])
 
     """
+    print("*************************** connect to rpc server", url, port, key)
     try:
         if session_timeout:
             key += " -timeout=%s" % str(session_timeout)

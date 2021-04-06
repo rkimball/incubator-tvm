@@ -245,11 +245,11 @@ def _listen_loop(sock, port, rpc_key, tracker_addr, load_library, custom_addr):
         conn.close()
         # wait until server process finish or timeout
         print("server timeout", opts.get("timeout", None))
-        print("waiting on server_proc.join")
+        print(time.time(), "waiting on server_proc.join")
         server_proc.join(opts.get("timeout", None))
         if (server_proc.exitcode and server_proc.exitcode < 0):
             print("server_proc.join timed out **************************************")
-        print("waiting on server_proc.join done")
+        print(time.time(), "waiting on server_proc.join done")
 
         if server_proc.is_alive():
             print("Timeout in RPC session, kill..1")

@@ -275,6 +275,7 @@ class RPCRunner(Runner):
             or "rocm" in self.task.target.keys
             or "vulkan" in self.task.target.keys
         ):
+            print("***** request_remote1")
             remote = request_remote(self.key, self.host, self.port)
             ctx = remote.context(str(self.task.target), 0)
             max_dims = ctx.max_thread_dimensions
@@ -303,13 +304,13 @@ class RPCRunner(Runner):
             timeout=self.timeout,
         )
 
-        print("Begin running jobs")
+        print(time.time(), "Begin running jobs")
         for i in range(0, len(measure_inputs), self.n_parallel):
             futures = []
             for measure_inp, build_res in zip(
                 measure_inputs[i : i + self.n_parallel], build_results[i : i + self.n_parallel]
             ):
-                print("start of job loop", len(measure_inp))
+                print(time.time(), "start of job loop", len(measure_inp))
                 module_loader = (
                     self.module_loader
                     if self.module_loader is not None
@@ -330,11 +331,13 @@ class RPCRunner(Runner):
                 )
                 futures.append(ret)
 
-                print("end of job loop")
+                print(time.time(), "end of job loop")
 
-            print("waiting for futures in measure_methods run")
+            print(time.time(), "waiting for futures in measure_methods run")
             for future in futures:
+                print(time.time(), "waiting for future")
                 res = future.result()
+                print(time.time(), "waiting for future done")
                 if isinstance(res, Exception):  # executor error or timeout
                     results.append(
                         MeasureResult(
@@ -344,9 +347,9 @@ class RPCRunner(Runner):
                 else:
                     results.append(res)
 
-            print("done waiting for futures in measure_methods run")
+            print(time.time(), "done waiting for futures in measure_methods run")
 
-        print("Done running jobs")
+        print(time.time(), "Done running jobs")
         return results
 
 
@@ -625,7 +628,10 @@ def run_through_rpc(
         errno = MeasureErrorNo.RUNTIME_DEVICE
     tstamp = time.time()
     time.sleep(cooldown_interval)
-    return MeasureResult(costs, errno, tstamp - tic + build_result.time_cost, tstamp)
+    print("start MeasureResult")
+    rc = MeasureResult(costs, errno, tstamp - tic + build_result.time_cost, tstamp)
+    print("Done with run_through_rpc")
+    return rc
 
 
 def default_module_loader(pre_load_function=None):
@@ -645,19 +651,23 @@ def default_module_loader(pre_load_function=None):
 
     @contextlib.contextmanager
     def default_module_loader_mgr(remote_kwargs, build_result):
+        print("***** request_remote2")
         remote = request_remote(**remote_kwargs)
         if pre_load_function is not None:
             pre_load_function(remote, build_result)
 
         remote.upload(build_result.filename)
         try:
+            print("***** before yield")
             yield remote, remote.load_module(os.path.split(build_result.filename)[1])
-
+            print("***** after yield")
         finally:
+            print("***** finally")
             # clean up remote files
             remote.remove(build_result.filename)
             remote.remove(os.path.splitext(build_result.filename)[0] + ".so")
             remote.remove("")
+            del remote
 
     return default_module_loader_mgr
 
@@ -685,6 +695,7 @@ def request_remote(device_key, host=None, port=None, priority=1, timeout=60):
     session: RPCSession
     """
     # connect to the tracker
+    print("***** request_remote")
     host = host or os.environ["TVM_TRACKER_HOST"]
     port = port or int(os.environ["TVM_TRACKER_PORT"])
 
