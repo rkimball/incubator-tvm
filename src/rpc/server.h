@@ -46,6 +46,8 @@
 namespace tvm {
 namespace rpc {
 
+class ServerConnection;
+
 /*!
  * \brief The main RPC Server class.
  *
@@ -119,6 +121,7 @@ class ServerObj : public Object {
   int my_port_;
 
   std::string host_;
+  std::string key_;
 
   /*!
    * \brief The port on which the RPC Server is listening.
@@ -139,6 +142,8 @@ class ServerObj : public Object {
   std::mutex mutex_;
 
   bool active_;
+
+  std::set<std::shared_ptr<ServerConnection>> connection_list_;
 
  public:
   static constexpr const char* _type_key = "rpc.Server";
