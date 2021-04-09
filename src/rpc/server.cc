@@ -26,6 +26,7 @@
 #include <iostream>
 #include <memory>
 #include <regex>
+#include <poll.h>
 
 #include "tracker.h"
 #include "base.h"
@@ -83,13 +84,28 @@ void ServerObj::ListenLoopEntry() {
         // There is a track address but it is not yet connected
         std::cout << __FILE__ << " " << __LINE__ << " connect to tracker unsupported " << std::endl;
       }
-      connection = listen_sock_.Accept();
+
+      int numfds = 1;
+      const int timeout_ms = 1000;
+      pollfd poll_set[1];
+      memset(poll_set, '\0', sizeof(poll_set));
+      poll_set[0].fd = listen_sock_.sockfd;
+      poll_set[0].events = POLLIN;
+      poll(poll_set, numfds, timeout_ms);
+      std::cout << __FILE__ << " " << __LINE__ << " post poll" << std::endl;
+      if( poll_set[0].revents & POLLIN ) {
+        // index 0 is the listener socket
+        std::cout << __FILE__ << " " << __LINE__ << " POLLIN event" << std::endl;
+        connection = listen_sock_.Accept();
+        std::cout << __FILE__ << " " << __LINE__ << " new connection " << std::endl;
+        connection_list_.emplace(std::make_shared<ServerConnection>(connection));
+      } else {
+        std::cout << __FILE__ << " " << __LINE__ << " timout" << std::endl;
+      }
     } catch (std::exception err) {
       break;
     }
 
-    std::cout << __FILE__ << " " << __LINE__ << " new connection " << std::endl;
-    connection_list_.emplace(std::make_shared<ServerConnection>(connection));
   }
 
   //   RemoveStaleConnections();
@@ -149,7 +165,6 @@ void ServerConnection::ConnectionLoopEntry() {
   }
 
   while (true) {
-    bool fail = false;
     std::string json;
     try {
       json = ReceivePacket();
