@@ -42,6 +42,7 @@
 #include <thread>
 
 #include "../support/socket.h"
+#include "util.h"
 
 namespace tvm {
 namespace rpc {
@@ -114,6 +115,7 @@ class ServerObj : public Object {
    * this new connection thread this method returns to listen for new connections.
    */
   void ListenLoopEntry();
+  void RegisterWithTracker();
 
   /*!
    * \brief The port in use by the RPC Server.
@@ -144,6 +146,11 @@ class ServerObj : public Object {
   bool active_;
 
   std::set<std::shared_ptr<ServerConnection>> connection_list_;
+
+  std::unique_ptr<support::TCPSocket> tracker_conn_;
+  IPAddress tracker_addr_;
+  IPAddress custom_addr_;
+  std::string load_library_;
 
  public:
   static constexpr const char* _type_key = "rpc.Server";

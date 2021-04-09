@@ -25,13 +25,15 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <regex>
 
 #include "tracker.h"
+#include "base.h"
 
 namespace tvm {
 namespace rpc {
 
-class ServerConnection {
+class ServerConnection : public RPCBase {
  public:
   ServerConnection(support::TCPSocket conn);
   ~ServerConnection();
@@ -40,27 +42,28 @@ class ServerConnection {
   void ProcessMessage(std::string json);
 
  private:
-  int RecvAll(void* data, size_t length);
-  int SendAll(const void* data, size_t length);
-
   std::thread connection_task_;
   std::string host_;
   int port_;
-  support::TCPSocket connection_;
 };
 
 ServerObj::ServerObj(std::string host, int port, int port_end, bool is_proxy, bool use_popen,
                      std::string tracker_host, int tracker_port, std::string key,
                      std::string load_library, std::string custom_host, int custom_port,
                      bool silent)
-    : host_{host}, key_{key} {
+    : host_{host}, key_{key}, tracker_addr_{tracker_host, tracker_port}, custom_addr_{custom_host, custom_port}, load_library_{load_library} {
   if (host == "" || host == "0.0.0.0" || host == "localhost") {
     host_ = host;
   }
 
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
-  std::cout << __FILE__ << " " << __LINE__ << " Server bound to port " << my_port_ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " Server bound to port " << my_port_ << ", key " << key_ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " tracker at " << tracker_host << ":" << tracker_port << std::endl;
+
+  if (tracker_host != "") {
+    RegisterWithTracker();
+  }
 
   // Set socket so we can reuse the address later
   listen_sock_.SetReuseAddress();
@@ -76,6 +79,10 @@ void ServerObj::ListenLoopEntry() {
   while (active_) {
     support::TCPSocket connection;
     try {
+      if (tracker_conn_ == nullptr && tracker_addr_) {
+        // There is a track address but it is not yet connected
+        std::cout << __FILE__ << " " << __LINE__ << " connect to tracker unsupported " << std::endl;
+      }
       connection = listen_sock_.Accept();
     } catch (std::exception err) {
       break;
@@ -102,6 +109,11 @@ void ServerObj::Terminate() {}
 
 int ServerObj::GetPort() const { return my_port_; }
 
+void ServerObj::RegisterWithTracker(){
+  std::cout << __FILE__ << " " << __LINE__ << " RegisterWithTracker unimplemented " << std::endl;
+  exit(-1);
+}
+
 TVM_REGISTER_NODE_TYPE(ServerObj);
 TVM_REGISTER_GLOBAL("rpc.Server")
     .set_body_typed([](std::string host, int port, int port_end, bool is_proxy, bool use_popen,
@@ -112,47 +124,16 @@ TVM_REGISTER_GLOBAL("rpc.Server")
                               key, load_library, custom_host, custom_port, silent);
     });
 
-ServerConnection::ServerConnection(support::TCPSocket conn) : connection_{conn} {
+ServerConnection::ServerConnection(support::TCPSocket conn) : RPCBase{conn} {
   connection_task_ = std::thread(&ServerConnection::ConnectionLoopEntry, this);
   connection_task_.detach();
 }
 
 ServerConnection::~ServerConnection() {}
 
-int ServerConnection::RecvAll(void* data, size_t length) {
-  char* buf = static_cast<char*>(data);
-  size_t remainder = length;
-  while (remainder > 0) {
-    int read_length = connection_.Recv(buf, remainder);
-    if (read_length <= 0) {
-      return -1;
-    }
-    remainder -= read_length;
-    buf += read_length;
-  }
-  return length;
-}
-
-int ServerConnection::SendAll(const void* data, size_t length) {
-  if (connection_.IsClosed()) {
-    return -1;
-  }
-  const char* buf = static_cast<const char*>(data);
-  size_t remainder = length;
-  while (remainder > 0) {
-    int send_length = connection_.Send(buf, remainder);
-    if (send_length <= 0) {
-      return -1;
-    }
-    remainder -= send_length;
-    buf += send_length;
-  }
-  return length;
-}
-
 void ServerConnection::ConnectionLoopEntry() {
   // Do magic handshake
-  int magic = 0;
+  int32_t magic = 0;
   if (RecvAll(&magic, sizeof(magic)) == -1) {
     // Error setting up connection
     return;
@@ -168,23 +149,11 @@ void ServerConnection::ConnectionLoopEntry() {
   }
 
   while (true) {
-    std::string json;
     bool fail = false;
+    std::string json;
     try {
-      int length = 0;
-      if (RecvAll(&length, sizeof(length)) != sizeof(length)) {
-        fail = true;
-      }
-      json.resize(length);
-      if (!fail && RecvAll(&json[0], length) != length) {
-        fail = true;
-      }
+      json = ReceivePacket();
     } catch (std::exception err) {
-      fail = true;
-      // This means that the connection has gone down. Tell the tracker to remove it.
-    }
-
-    if (fail) {
       return;
     }
 
@@ -200,6 +169,12 @@ void ServerConnection::ConnectionLoop() {}
 
 void ServerConnection::ProcessMessage(std::string json) {
   std::cout << __FILE__ << " " << __LINE__ << " msg " << json << std::endl;
+  static std::regex client_reg("client:(.*)");
+  std::smatch sm;
+  if (std::regex_match(json, sm, client_reg)) {
+    std::cout << __FILE__ << " " << __LINE__ << " client " << sm[1] << std::endl;
+    // SendResponse("server:");
+  }
 }
 
 }  // namespace rpc
