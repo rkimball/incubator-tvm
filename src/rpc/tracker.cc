@@ -460,7 +460,7 @@ void ConnectionInfo::ConnectionLoop() {
     // Error setting up connection
     return;
   }
-  if (magic != static_cast<int>(TrackerObj::RPC_CODE::RPC_TRACKER_MAGIC)) {
+  if (magic != static_cast<int>(RPC_CODE::RPC_TRACKER_MAGIC)) {
     // Not a tracker connection so close connection and exit
     return;
   }

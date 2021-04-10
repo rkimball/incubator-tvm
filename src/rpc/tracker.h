@@ -21,8 +21,8 @@
  * \file tracker.h
  * \brief RPC Tracker.
  */
-#ifndef TVM_RPC_TRACKER_H_
-#define TVM_RPC_TRACKER_H_
+#ifndef SRC_RPC_TRACKER_H_
+#define SRC_RPC_TRACKER_H_
 
 #include <tvm/node/reflection.h>
 #include <tvm/runtime/c_runtime_api.h>
@@ -41,6 +41,7 @@
 #include <thread>
 
 #include "../support/socket.h"
+#include "base.h"
 
 namespace tvm {
 namespace rpc {
@@ -68,19 +69,6 @@ class TrackerObj : public Object {
     av->Visit("port", &my_port_);
     av->Visit("host", &host_);
   }
-
-  enum class RPC_CODE : int {
-    // Magic header for RPC data plane
-    RPC_MAGIC = 0xFF271,
-    // magic header for RPC tracker(control plane)
-    RPC_TRACKER_MAGIC = 0x2F271,
-    // sucess response
-    RPC_CODE_SUCCESS = RPC_MAGIC + 0,
-    // duplicate key in proxy
-    RPC_CODE_DUPLICATE = RPC_MAGIC + 1,
-    // cannot found matched key in server
-    RPC_CODE_MISMATCH = RPC_MAGIC + 2
-  };
 
   enum class TRACKER_CODE : int {
     FAIL = -1,
@@ -180,4 +168,4 @@ class Tracker : public ObjectRef {
 }  // namespace rpc
 }  // namespace tvm
 
-#endif  // TVM_RPC_TRACKER_H_
+#endif  // SRC_RPC_TRACKER_H_

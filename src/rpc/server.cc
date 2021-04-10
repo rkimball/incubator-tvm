@@ -20,16 +20,16 @@
 #include "server.h"
 
 #include <dmlc/json.h>
+#include <poll.h>
 #include <tvm/runtime/registry.h>
 
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <regex>
-#include <poll.h>
 
-#include "tracker.h"
 #include "base.h"
+#include "tracker.h"
 
 namespace tvm {
 namespace rpc {
@@ -52,15 +52,21 @@ ServerObj::ServerObj(std::string host, int port, int port_end, bool is_proxy, bo
                      std::string tracker_host, int tracker_port, std::string key,
                      std::string load_library, std::string custom_host, int custom_port,
                      bool silent)
-    : host_{host}, key_{key}, tracker_addr_{tracker_host, tracker_port}, custom_addr_{custom_host, custom_port}, load_library_{load_library} {
+    : host_{host},
+      key_{key},
+      tracker_addr_{tracker_host, tracker_port},
+      custom_addr_{custom_host, custom_port},
+      load_library_{load_library} {
   if (host == "" || host == "0.0.0.0" || host == "localhost") {
     host_ = host;
   }
 
   listen_sock_.Create();
   my_port_ = listen_sock_.TryBindHost(host_, port, port_end);
-  std::cout << __FILE__ << " " << __LINE__ << " Server bound to port " << my_port_ << ", key " << key_ << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << " tracker at " << tracker_host << ":" << tracker_port << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " Server bound to port " << my_port_ << ", key "
+            << key_ << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " tracker at " << tracker_host << ":" << tracker_port
+            << std::endl;
 
   if (tracker_host != "") {
     RegisterWithTracker();
@@ -85,27 +91,26 @@ void ServerObj::ListenLoopEntry() {
         std::cout << __FILE__ << " " << __LINE__ << " connect to tracker unsupported " << std::endl;
       }
 
-      int numfds = 1;
-      const int timeout_ms = 1000;
-      pollfd poll_set[1];
-      memset(poll_set, '\0', sizeof(poll_set));
-      poll_set[0].fd = listen_sock_.sockfd;
-      poll_set[0].events = POLLIN;
-      poll(poll_set, numfds, timeout_ms);
-      std::cout << __FILE__ << " " << __LINE__ << " post poll" << std::endl;
-      if( poll_set[0].revents & POLLIN ) {
-        // index 0 is the listener socket
-        std::cout << __FILE__ << " " << __LINE__ << " POLLIN event" << std::endl;
-        connection = listen_sock_.Accept();
-        std::cout << __FILE__ << " " << __LINE__ << " new connection " << std::endl;
-        connection_list_.emplace(std::make_shared<ServerConnection>(connection));
-      } else {
-        std::cout << __FILE__ << " " << __LINE__ << " timout" << std::endl;
-      }
+      connection = AcceptWithTimeout(listen_sock_, 1000, []() {
+        std::cout << __FILE__ << " " << __LINE__ << " timeout " << std::endl;
+      });
+      // int numfds = 1;
+      // const int timeout_ms = 1000;
+      // pollfd poll_set[1];
+      // memset(poll_set, '\0', sizeof(poll_set));
+      // poll_set[0].fd = listen_sock_.sockfd;
+      // poll_set[0].events = POLLIN;
+      // poll(poll_set, numfds, timeout_ms);
+      // if( poll_set[0].revents & POLLIN ) {
+      //   // index 0 is the listener socket
+      //   connection = listen_sock_.Accept();
+      //   connection_list_.emplace(std::make_shared<ServerConnection>(connection));
+      // } else {
+      //   // Timeout, send ping to other peer
+      // }
     } catch (std::exception err) {
       break;
     }
-
   }
 
   //   RemoveStaleConnections();
@@ -125,7 +130,7 @@ void ServerObj::Terminate() {}
 
 int ServerObj::GetPort() const { return my_port_; }
 
-void ServerObj::RegisterWithTracker(){
+void ServerObj::RegisterWithTracker() {
   std::cout << __FILE__ << " " << __LINE__ << " RegisterWithTracker unimplemented " << std::endl;
   exit(-1);
 }
@@ -148,21 +153,7 @@ ServerConnection::ServerConnection(support::TCPSocket conn) : RPCBase{conn} {
 ServerConnection::~ServerConnection() {}
 
 void ServerConnection::ConnectionLoopEntry() {
-  // Do magic handshake
-  int32_t magic = 0;
-  if (RecvAll(&magic, sizeof(magic)) == -1) {
-    // Error setting up connection
-    return;
-  }
-  std::cout << __FILE__ << " " << __LINE__ << " connection magic " << magic << std::endl;
-  if (magic != static_cast<int>(TrackerObj::RPC_CODE::RPC_MAGIC)) {
-    // Not a tracker connection so close connection and exit
-    return;
-  }
-  if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
-    // Failed to send magic so exit
-    return;
-  }
+  MagicHandshake(RPC_CODE::RPC_MAGIC);
 
   while (true) {
     std::string json;

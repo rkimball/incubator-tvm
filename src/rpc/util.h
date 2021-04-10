@@ -23,15 +23,13 @@
 #include <string>
 
 class IPAddress {
-public:
-    IPAddress() : host_{}, port_{-1}{}
+ public:
+  IPAddress() : host_{}, port_{-1} {}
   IPAddress(std::string host, int port) : host_{host}, port_{port} {}
   std::string host_;
   int port_;
-  bool is_valid() {
-    return !host_.empty() && port_ >= 0 && port_ < 0xFFFF;
-  }
+  bool is_valid() { return !host_.empty() && port_ >= 0 && port_ < 0xFFFF; }
   operator bool() { return is_valid(); }
 };
 
-#endif // SRC_RPC_UTIL_H_
+#endif  // SRC_RPC_UTIL_H_

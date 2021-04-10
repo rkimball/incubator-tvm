@@ -72,5 +72,39 @@ void RPCBase::SendPacket(std::string data) {
   SendAll(data.data(), length);
 }
 
+bool RPCBase::MagicHandshake(RPC_CODE code) {
+  int32_t magic = 0;
+  if (RecvAll(&magic, sizeof(magic)) == -1) {
+    // Error setting up connection
+    return false;
+  }
+  if (magic != static_cast<int>(code)) {
+    return false;
+  }
+  if (SendAll(&magic, sizeof(magic)) != sizeof(magic)) {
+    // Failed to send magic
+    return false;
+  }
+  return true;
+}
+
+support::TCPSocket AcceptWithTimeout(support::TCPSocket listen_sock, int timeout_ms,
+                                     std::function<void()> timeout_callback) {
+  int numfds = 1;
+  pollfd poll_set[1];
+  memset(poll_set, '\0', sizeof(poll_set));
+  poll_set[0].fd = listen_sock.sockfd;
+  poll_set[0].events = POLLIN;
+  while (true) {
+    poll(poll_set, numfds, timeout_ms);
+    if (poll_set[0].revents & POLLIN) {
+      break;
+    } else if (timeout_callback) {
+      timeout_callback();
+    }
+  }
+  return listen_sock.Accept();
+}
+
 }  // namespace rpc
 }  // namespace tvm
