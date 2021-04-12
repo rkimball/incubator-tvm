@@ -20,6 +20,9 @@
 #ifndef SRC_RPC_UTIL_H_
 #define SRC_RPC_UTIL_H_
 
+#include <istream>
+#include <ostream>
+#include <streambuf>
 #include <string>
 
 class IPAddress {
@@ -31,5 +34,44 @@ class IPAddress {
   bool is_valid() { return !host_.empty() && port_ >= 0 && port_ < 0xFFFF; }
   operator bool() { return is_valid(); }
 };
+
+// class IMemBuf: std::streambuf
+// {
+// public:
+// 	IMemBuf(const char* base, size_t size)
+// 	{
+// 		char* p(const_cast<char*>(base));
+// 		this->setg(p, p, p + size);
+// 	}
+// };
+
+// class IMemStream: virtual IMemBuf, std::istream
+// {
+// public:
+// 	IMemStream(const char* mem, size_t size) :
+// 		IMemBuf(mem, size),
+// 		std::istream(static_cast<std::streambuf*>(this))
+// 	{
+// 	}
+// };
+
+// class OMemBuf: std::streambuf
+// {
+// public:
+// 	OMemBuf(char* base, size_t size)
+// 	{
+// 		this->setp(base, base + size);
+// 	}
+// };
+
+// class OMemStream: virtual OMemBuf, std::ostream
+// {
+// public:
+// 	OMemStream(char* mem, size_t size) :
+// 		OMemBuf(mem, size),
+// 		std::ostream(static_cast<std::streambuf*>(this))
+// 	{
+// 	}
+// };
 
 #endif  // SRC_RPC_UTIL_H_

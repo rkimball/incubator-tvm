@@ -24,9 +24,9 @@
 #include <tvm/runtime/registry.h>
 
 #include <iomanip>
-#include <iostream>
 #include <memory>
 #include <regex>
+#include <sstream>
 
 #include "base.h"
 #include "tracker.h"
@@ -40,7 +40,7 @@ class ServerConnection : public RPCBase {
   ~ServerConnection();
   void ConnectionLoopEntry();
   void ConnectionLoop();
-  void ProcessMessage(std::string json);
+  void ProcessPacket(std::stringstream& packet);
   bool InitiateRPCSession();
 
  private:
@@ -122,7 +122,8 @@ TVM_REGISTER_GLOBAL("rpc.Server")
                               key, load_library, custom_host, custom_port, silent);
     });
 
-ServerConnection::ServerConnection(support::TCPSocket conn, std::string key) : RPCBase{conn}, key_{key} {
+ServerConnection::ServerConnection(support::TCPSocket conn, std::string key)
+    : RPCBase{conn}, key_{key} {
   connection_task_ = std::thread(&ServerConnection::ConnectionLoopEntry, this);
   connection_task_.detach();
 }
@@ -135,14 +136,15 @@ void ServerConnection::ConnectionLoopEntry() {
 
   while (true) {
     std::string json;
+    std::stringstream packet;
     try {
-      json = ReceiveJSON();
+      packet = ReceivePacket();
     } catch (std::exception err) {
       return;
     }
 
     try {
-      ProcessMessage(json);
+      ProcessPacket(packet);
     } catch (std::exception err) {
       // SendResponse(TrackerObj::TRACKER_CODE::FAIL);
     }
@@ -158,7 +160,7 @@ bool ServerConnection::InitiateRPCSession() {
     std::smatch sm;
     if (std::regex_match(json, sm, client_reg)) {
       std::cout << __FILE__ << " " << __LINE__ << " client " << sm[1] << std::endl;
-      SendJSON("server:"+key_);
+      SendJSON("server:" + key_);
       rc = true;
     }
   } catch (std::exception err) {
@@ -169,7 +171,12 @@ bool ServerConnection::InitiateRPCSession() {
 
 void ServerConnection::ConnectionLoop() {}
 
-void ServerConnection::ProcessMessage(std::string json) {
+void ServerConnection::ProcessPacket(std::stringstream& packet) {
+  int32_t code;
+  std::cout << __FILE__ << " " << __LINE__ << " offset " << packet.tellg() << std::endl;
+  packet.read(reinterpret_cast<char*>(&code), sizeof(code));
+  std::cout << __FILE__ << " " << __LINE__ << " offset " << packet.tellg() << std::endl;
+  std::cout << __FILE__ << " " << __LINE__ << " code=" << code << std::endl;
 }
 
 }  // namespace rpc

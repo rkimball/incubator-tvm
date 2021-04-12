@@ -19,6 +19,8 @@
 
 #include "base.h"
 
+#include <vector>
+
 namespace tvm {
 namespace rpc {
 
@@ -57,11 +59,11 @@ std::string RPCBase::ReceiveJSON() {
   std::string data;
   int32_t length = 0;
   if (RecvAll(&length, sizeof(length)) != sizeof(length)) {
-    throw std::runtime_error("Error receiving packet");
+    throw std::runtime_error("Error receiving json");
   }
   data.resize(length);
   if (RecvAll(&data[0], length) != length) {
-    throw std::runtime_error("Error receiving packet");
+    throw std::runtime_error("Error receiving json");
   }
   return data;
 }
@@ -70,6 +72,24 @@ void RPCBase::SendJSON(std::string data) {
   int32_t length = data.size();
   SendAll(&length, sizeof(length));
   SendAll(data.data(), length);
+}
+
+std::stringstream RPCBase::ReceivePacket() {
+  std::stringstream ss(std::ios_base::in | std::ios_base::out | std::ios_base::binary);
+  int64_t length = 0;
+  if (RecvAll(&length, sizeof(length)) != sizeof(length)) {
+    throw std::runtime_error("Error receiving packet");
+  }
+  std::cout << __FILE__ << " " << __LINE__ << " length=" << length << std::endl;
+  // Read length's worth of data
+  std::vector<char> buffer;
+  buffer.resize(length);
+  if (RecvAll(buffer.data(), length) != length) {
+    throw std::runtime_error("Error receiving packet");
+  }
+  ss.write(buffer.data(), length);
+  ss.seekg(0);
+  return ss;
 }
 
 bool RPCBase::MagicHandshake(RPC_CODE code) {

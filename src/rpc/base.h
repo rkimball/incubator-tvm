@@ -21,6 +21,7 @@
 #define SRC_RPC_BASE_H_
 
 #include <functional>
+#include <sstream>
 
 #include "../support/socket.h"
 
@@ -47,6 +48,8 @@ class RPCBase {
   int SendAll(const void* data, size_t length);
   std::string ReceiveJSON();
   void SendJSON(std::string data);
+  std::stringstream ReceivePacket();
+  void SendPacket(std::stringstream);
 
   bool MagicHandshake(RPC_CODE);
 
