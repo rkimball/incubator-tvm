@@ -115,6 +115,11 @@ inline const char* RPCCodeToString(RPCCode code) {
   }
 }
 
+inline std::ostream& operator<<(std::ostream& out, const RPCCode code) {
+  out << RPCCodeToString(code);
+  return out;
+}
+
 /*!
  * \brief Convert RPC server status to string.
  * \param status The status.
@@ -152,6 +157,11 @@ inline const char* RPCServerStatusToString(RPCServerStatus status) {
     default:
       return "";
   }
+}
+
+inline std::ostream& operator<<(std::ostream& out, const RPCServerStatus status) {
+  out << RPCServerStatusToString(status);
+  return out;
 }
 
 /*!

@@ -92,7 +92,7 @@ std::stringstream RPCBase::ReceivePacket() {
   return ss;
 }
 
-bool RPCBase::MagicHandshake(RPC_CODE code) {
+bool RPCBase::MagicHandshake(RPC_TRANSPORT_CODE code) {
   int32_t magic = 0;
   if (RecvAll(&magic, sizeof(magic)) == -1) {
     // Error setting up connection

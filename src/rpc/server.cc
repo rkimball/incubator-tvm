@@ -30,6 +30,7 @@
 
 #include "base.h"
 #include "tracker.h"
+#include "../runtime/minrpc/rpc_reference.h"
 
 namespace tvm {
 namespace rpc {
@@ -131,7 +132,7 @@ ServerConnection::ServerConnection(support::TCPSocket conn, std::string key)
 ServerConnection::~ServerConnection() {}
 
 void ServerConnection::ConnectionLoopEntry() {
-  MagicHandshake(RPC_CODE::RPC_MAGIC);
+  MagicHandshake(RPC_TRANSPORT_CODE::RPC_MAGIC);
   InitiateRPCSession();
 
   while (true) {
@@ -172,11 +173,50 @@ bool ServerConnection::InitiateRPCSession() {
 void ServerConnection::ConnectionLoop() {}
 
 void ServerConnection::ProcessPacket(std::stringstream& packet) {
-  int32_t code;
+  runtime::RPCCode code;
   std::cout << __FILE__ << " " << __LINE__ << " offset " << packet.tellg() << std::endl;
   packet.read(reinterpret_cast<char*>(&code), sizeof(code));
   std::cout << __FILE__ << " " << __LINE__ << " offset " << packet.tellg() << std::endl;
   std::cout << __FILE__ << " " << __LINE__ << " code=" << code << std::endl;
+
+  switch(code) {
+  case runtime::RPCCode::kNone:
+    break;
+  case runtime::RPCCode::kShutdown:
+    break;
+  case runtime::RPCCode::kInitServer:
+    break;
+  case runtime::RPCCode::kCallFunc:
+    break;
+  case runtime::RPCCode::kReturn:
+    break;
+  case runtime::RPCCode::kException:
+    break;
+  case runtime::RPCCode::kCopyFromRemote:
+    break;
+  case runtime::RPCCode::kCopyToRemote:
+    break;
+  case runtime::RPCCode::kCopyAck:
+    break;
+  case runtime::RPCCode::kGetGlobalFunc:
+    break;
+  case runtime::RPCCode::kFreeHandle:
+    break;
+  case runtime::RPCCode::kDevSetDevice:
+    break;
+  case runtime::RPCCode::kDevGetAttr:
+    break;
+  case runtime::RPCCode::kDevAllocData:
+    break;
+  case runtime::RPCCode::kDevFreeData:
+    break;
+  case runtime::RPCCode::kDevStreamSync:
+    break;
+  case runtime::RPCCode::kCopyAmongRemote:
+    break;
+  case runtime::RPCCode::kDevAllocDataWithScope:
+    break;
+  }
 }
 
 }  // namespace rpc

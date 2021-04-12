@@ -28,7 +28,7 @@
 namespace tvm {
 namespace rpc {
 
-enum class RPC_CODE : int {
+enum class RPC_TRANSPORT_CODE : int {
   // Magic header for RPC data plane
   RPC_MAGIC = 0xFF271,
   // magic header for RPC tracker(control plane)
@@ -51,7 +51,7 @@ class RPCBase {
   std::stringstream ReceivePacket();
   void SendPacket(std::stringstream);
 
-  bool MagicHandshake(RPC_CODE);
+  bool MagicHandshake(RPC_TRANSPORT_CODE);
 
  protected:
   support::TCPSocket connection_;
