@@ -75,9 +75,12 @@ std::shared_ptr<RPCEndpoint> RPCConnect(std::string url, int port, std::string k
   std::ostringstream os;
   int code = kRPCMagic;
   int keylen = static_cast<int>(key.length());
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   ICHECK_EQ(sock.SendAll(&code, sizeof(code)), sizeof(code));
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   ICHECK_EQ(sock.SendAll(&keylen, sizeof(keylen)), sizeof(keylen));
   if (keylen != 0) {
+    std::cout << __FILE__ << " " << __LINE__ << " " << key << std::endl;
     ICHECK_EQ(sock.SendAll(key.c_str(), keylen), keylen);
   }
   ICHECK_EQ(sock.RecvAll(&code, sizeof(code)), sizeof(code));
@@ -96,15 +99,20 @@ std::shared_ptr<RPCEndpoint> RPCConnect(std::string url, int port, std::string k
   if (keylen != 0) {
     remote_key.resize(keylen);
     ICHECK_EQ(sock.RecvAll(&remote_key[0], keylen), keylen);
+    std::cout << __FILE__ << " " << __LINE__ << " " << remote_key << std::endl;
   }
   auto endpt =
       RPCEndpoint::Create(std::unique_ptr<SockChannel>(new SockChannel(sock)), key, remote_key);
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   endpt->InitRemoteSession(init_seq);
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   return endpt;
 }
 
 Module RPCClientConnect(std::string url, int port, std::string key, TVMArgs init_seq) {
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   auto endpt = RPCConnect(url, port, "client:" + key, init_seq);
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   return CreateRPCSessionModule(CreateClientSession(endpt));
 }
 

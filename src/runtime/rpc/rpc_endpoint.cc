@@ -754,6 +754,7 @@ int RPCEndpoint::ServerAsyncIOEventHandler(const std::string& in_bytes, int even
 }
 
 void RPCEndpoint::InitRemoteSession(TVMArgs args) {
+  std::cout << __FILE__ << " " << __LINE__ << " " << std::endl;
   std::lock_guard<std::mutex> lock(mutex_);
   RPCCode code = RPCCode::kInitServer;
   std::string protocol_ver = kRPCProtocolVer;

@@ -36,16 +36,18 @@ namespace rpc {
 
 class ServerConnection : public RPCBase {
  public:
-  ServerConnection(support::TCPSocket conn);
+  ServerConnection(support::TCPSocket conn, std::string key);
   ~ServerConnection();
   void ConnectionLoopEntry();
   void ConnectionLoop();
   void ProcessMessage(std::string json);
+  bool InitiateRPCSession();
 
  private:
   std::thread connection_task_;
   std::string host_;
-  int port_;
+  // int port_;
+  std::string key_;
 };
 
 ServerObj::ServerObj(std::string host, int port, int port_end, bool is_proxy, bool use_popen,
@@ -58,7 +60,7 @@ ServerObj::ServerObj(std::string host, int port, int port_end, bool is_proxy, bo
       custom_addr_{custom_host, custom_port},
       load_library_{load_library} {
   if (host == "" || host == "0.0.0.0" || host == "localhost") {
-    host_ = host;
+    host_ = "127.0.0.1";
   }
 
   listen_sock_.Create();
@@ -68,60 +70,35 @@ ServerObj::ServerObj(std::string host, int port, int port_end, bool is_proxy, bo
   std::cout << __FILE__ << " " << __LINE__ << " tracker at " << tracker_host << ":" << tracker_port
             << std::endl;
 
-  if (tracker_host != "") {
-    RegisterWithTracker();
-  }
-
   // Set socket so we can reuse the address later
   listen_sock_.SetReuseAddress();
 
-  listen_sock_.Listen();
   listener_task_ = std::make_unique<std::thread>(&ServerObj::ListenLoopEntry, this);
 }
 
 ServerObj::~ServerObj() {}
 
 void ServerObj::ListenLoopEntry() {
+  listen_sock_.Listen();
   active_ = true;
   while (active_) {
     support::TCPSocket connection;
     try {
       if (tracker_conn_ == nullptr && tracker_addr_) {
-        // There is a track address but it is not yet connected
+        // There is a tracker address but it is not yet connected
         std::cout << __FILE__ << " " << __LINE__ << " connect to tracker unsupported " << std::endl;
+        RegisterWithTracker();
       }
 
       connection = AcceptWithTimeout(listen_sock_, 1000, []() {
         std::cout << __FILE__ << " " << __LINE__ << " timeout " << std::endl;
       });
-      // int numfds = 1;
-      // const int timeout_ms = 1000;
-      // pollfd poll_set[1];
-      // memset(poll_set, '\0', sizeof(poll_set));
-      // poll_set[0].fd = listen_sock_.sockfd;
-      // poll_set[0].events = POLLIN;
-      // poll(poll_set, numfds, timeout_ms);
-      // if( poll_set[0].revents & POLLIN ) {
-      //   // index 0 is the listener socket
-      //   connection = listen_sock_.Accept();
-      //   connection_list_.emplace(std::make_shared<ServerConnection>(connection));
-      // } else {
-      //   // Timeout, send ping to other peer
-      // }
+      auto server = std::make_shared<ServerConnection>(connection, key_);
+      connection_list_.insert(server);
     } catch (std::exception err) {
       break;
     }
   }
-
-  //   RemoveStaleConnections();
-
-  //   std::string peer_host;
-  //   int peer_port;
-  //   connection.GetPeerAddress(peer_host, peer_port);
-  //   std::lock_guard<std::mutex> guard(mutex_);
-  //   connection_list_.insert(
-  //       std::make_shared<ConnectionInfo>(this, peer_host, peer_port, connection));
-  // }
 }
 
 void ServerObj::Stop() {}
@@ -132,7 +109,7 @@ int ServerObj::GetPort() const { return my_port_; }
 
 void ServerObj::RegisterWithTracker() {
   std::cout << __FILE__ << " " << __LINE__ << " RegisterWithTracker unimplemented " << std::endl;
-  exit(-1);
+  // exit(-1);
 }
 
 TVM_REGISTER_NODE_TYPE(ServerObj);
@@ -145,7 +122,7 @@ TVM_REGISTER_GLOBAL("rpc.Server")
                               key, load_library, custom_host, custom_port, silent);
     });
 
-ServerConnection::ServerConnection(support::TCPSocket conn) : RPCBase{conn} {
+ServerConnection::ServerConnection(support::TCPSocket conn, std::string key) : RPCBase{conn}, key_{key} {
   connection_task_ = std::thread(&ServerConnection::ConnectionLoopEntry, this);
   connection_task_.detach();
 }
@@ -154,6 +131,7 @@ ServerConnection::~ServerConnection() {}
 
 void ServerConnection::ConnectionLoopEntry() {
   MagicHandshake(RPC_CODE::RPC_MAGIC);
+  InitiateRPCSession();
 
   while (true) {
     std::string json;
@@ -171,16 +149,27 @@ void ServerConnection::ConnectionLoopEntry() {
   }
 }
 
+bool ServerConnection::InitiateRPCSession() {
+  bool rc = false;
+  try {
+    std::string json = ReceivePacket();
+    std::cout << __FILE__ << " " << __LINE__ << " msg " << json << std::endl;
+    static std::regex client_reg("client:(.*)");
+    std::smatch sm;
+    if (std::regex_match(json, sm, client_reg)) {
+      std::cout << __FILE__ << " " << __LINE__ << " client " << sm[1] << std::endl;
+      SendPacket("server:"+key_);
+      rc = true;
+    }
+  } catch (std::exception err) {
+    return false;
+  }
+  return rc;
+}
+
 void ServerConnection::ConnectionLoop() {}
 
 void ServerConnection::ProcessMessage(std::string json) {
-  std::cout << __FILE__ << " " << __LINE__ << " msg " << json << std::endl;
-  static std::regex client_reg("client:(.*)");
-  std::smatch sm;
-  if (std::regex_match(json, sm, client_reg)) {
-    std::cout << __FILE__ << " " << __LINE__ << " client " << sm[1] << std::endl;
-    // SendResponse("server:");
-  }
 }
 
 }  // namespace rpc
