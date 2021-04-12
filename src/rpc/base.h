@@ -24,6 +24,8 @@
 #include <sstream>
 
 #include "../support/socket.h"
+#include "../support/arena.h"
+#include "../runtime/minrpc/rpc_reference.h"
 
 namespace tvm {
 namespace rpc {
@@ -53,8 +55,33 @@ class RPCBase {
 
   bool MagicHandshake(RPC_TRANSPORT_CODE);
 
+  template<typename T>
+  void Read(T* value) {
+    RecvAll(value, sizeof(T));
+  }
+  // void Read(int32_t*);
+  // void Read(int64_t*);
+  // void Read(uint64_t*);
+  // void Read(DLDataType*);
+  // void Read(DLDevice*);
+  template<typename T>
+  void ReadArray(T* data, int64_t count) {
+    RecvAll(data, sizeof(T) * count);
+  }
+  void ThrowError(runtime::RPCServerStatus status) {
+    LOG(FATAL) << "RPCServerError:" << status;
+  }
+
+  template <typename T>
+  T* ArenaAlloc(int count) {
+    static_assert(std::is_pod<T>::value, "must be POD");
+    return arena_.template allocate_<T>(count);
+  }
+
  protected:
   support::TCPSocket connection_;
+  /*! \brief arena for dependency graph */
+  support::Arena arena_;
 };
 
 support::TCPSocket AcceptWithTimeout(support::TCPSocket listen_sock, int timeout_ms,
@@ -63,4 +90,4 @@ support::TCPSocket AcceptWithTimeout(support::TCPSocket listen_sock, int timeout
 }  // namespace rpc
 }  // namespace tvm
 
-#endif  // SRC_RPC_BASE_H_
+#endif // SRC_RPC_BASE_H_

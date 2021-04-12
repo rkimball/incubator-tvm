@@ -184,8 +184,20 @@ void ServerConnection::ProcessPacket(std::stringstream& packet) {
     break;
   case runtime::RPCCode::kShutdown:
     break;
-  case runtime::RPCCode::kInitServer:
+  case runtime::RPCCode::kInitServer: {
+    int64_t length;
+    packet.read(reinterpret_cast<char*>(&length), sizeof(length));
+    std::string version;
+    version.resize(length);
+    packet.read(static_cast<char*>(&version[0]), length);
+    std::cout << __FILE__ << " " << __LINE__ << " version=" << version << std::endl;
+
+    TVMValue* values;
+    int* tcodes;
+    int num_args;
+    runtime::RPCReference::RecvPackedSeq(&values, &tcodes, &num_args, this);
     break;
+  }
   case runtime::RPCCode::kCallFunc:
     break;
   case runtime::RPCCode::kReturn:

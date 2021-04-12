@@ -765,14 +765,6 @@ void RPCEndpoint::InitRemoteSession(TVMArgs args) {
       handler_->PackedSeqGetNumBytes(args.values, args.type_codes, args.num_args, true);
 
   // All packet begins with packet nbytes
-  std::cout << __FILE__ << " " << __LINE__ << "InitRemoteSession send packet length "
-            << packet_nbytes << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << "InitRemoteSession send code "
-            << static_cast<int>(code) << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << "InitRemoteSession send length " << length
-            << std::endl;
-  std::cout << __FILE__ << " " << __LINE__ << "InitRemoteSession send ver " << protocol_ver
-            << std::endl;
   handler_->Write(packet_nbytes);
   handler_->Write(code);
   handler_->Write(length);
