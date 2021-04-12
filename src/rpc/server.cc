@@ -136,7 +136,7 @@ void ServerConnection::ConnectionLoopEntry() {
   while (true) {
     std::string json;
     try {
-      json = ReceivePacket();
+      json = ReceiveJSON();
     } catch (std::exception err) {
       return;
     }
@@ -152,13 +152,13 @@ void ServerConnection::ConnectionLoopEntry() {
 bool ServerConnection::InitiateRPCSession() {
   bool rc = false;
   try {
-    std::string json = ReceivePacket();
+    std::string json = ReceiveJSON();
     std::cout << __FILE__ << " " << __LINE__ << " msg " << json << std::endl;
     static std::regex client_reg("client:(.*)");
     std::smatch sm;
     if (std::regex_match(json, sm, client_reg)) {
       std::cout << __FILE__ << " " << __LINE__ << " client " << sm[1] << std::endl;
-      SendPacket("server:"+key_);
+      SendJSON("server:"+key_);
       rc = true;
     }
   } catch (std::exception err) {

@@ -45,8 +45,8 @@ class RPCBase {
   RPCBase(support::TCPSocket conn) : connection_{conn} {}
   int RecvAll(void* data, size_t length);
   int SendAll(const void* data, size_t length);
-  std::string ReceivePacket();
-  void SendPacket(std::string data);
+  std::string ReceiveJSON();
+  void SendJSON(std::string data);
 
   bool MagicHandshake(RPC_CODE);
 

@@ -53,7 +53,7 @@ int RPCBase::SendAll(const void* data, size_t length) {
   return length;
 }
 
-std::string RPCBase::ReceivePacket() {
+std::string RPCBase::ReceiveJSON() {
   std::string data;
   int32_t length = 0;
   if (RecvAll(&length, sizeof(length)) != sizeof(length)) {
@@ -66,7 +66,7 @@ std::string RPCBase::ReceivePacket() {
   return data;
 }
 
-void RPCBase::SendPacket(std::string data) {
+void RPCBase::SendJSON(std::string data) {
   int32_t length = data.size();
   SendAll(&length, sizeof(length));
   SendAll(data.data(), length);
