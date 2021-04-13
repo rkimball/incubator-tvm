@@ -195,7 +195,9 @@ void ServerConnection::ProcessPacket(std::stringstream& packet) {
     TVMValue* values;
     int* tcodes;
     int num_args;
-    runtime::RPCReference::RecvPackedSeq(&values, &tcodes, &num_args, this);
+    StreamReader reader(packet);
+    runtime::RPCReference::RecvPackedSeq(&values, &tcodes, &num_args, &reader);
+    std::cout << __FILE__ << " " << __LINE__ << " num_args=" << num_args << std::endl;
     break;
   }
   case runtime::RPCCode::kCallFunc:

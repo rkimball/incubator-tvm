@@ -25,6 +25,12 @@
 #include <streambuf>
 #include <string>
 
+#include "../support/arena.h"
+#include "../runtime/minrpc/rpc_reference.h"
+
+namespace tvm {
+namespace rpc {
+
 class IPAddress {
  public:
   IPAddress() : host_{}, port_{-1} {}
@@ -35,43 +41,38 @@ class IPAddress {
   operator bool() { return is_valid(); }
 };
 
-// class IMemBuf: std::streambuf
-// {
-// public:
-// 	IMemBuf(const char* base, size_t size)
-// 	{
-// 		char* p(const_cast<char*>(base));
-// 		this->setg(p, p, p + size);
-// 	}
-// };
+class StreamReader {
+public:
+  StreamReader(std::istream& is) : is_{is} {
+  }
+  template<typename T>
+  void Read(T* value) {
+    is_.read(reinterpret_cast<char*>(value), sizeof(T));
+  }
 
-// class IMemStream: virtual IMemBuf, std::istream
-// {
-// public:
-// 	IMemStream(const char* mem, size_t size) :
-// 		IMemBuf(mem, size),
-// 		std::istream(static_cast<std::streambuf*>(this))
-// 	{
-// 	}
-// };
+  template<typename T>
+  void ReadArray(T* data, int64_t count) {
+    is_.read(reinterpret_cast<char*>(data), sizeof(T) * count);
+  }
 
-// class OMemBuf: std::streambuf
-// {
-// public:
-// 	OMemBuf(char* base, size_t size)
-// 	{
-// 		this->setp(base, base + size);
-// 	}
-// };
+  void ThrowError(runtime::RPCServerStatus status) {
+    std::cout << __FILE__ << " " << __LINE__ << " exception" << std::endl;
+    LOG(FATAL) << "RPCServerError:" << status;
+  }
 
-// class OMemStream: virtual OMemBuf, std::ostream
-// {
-// public:
-// 	OMemStream(char* mem, size_t size) :
-// 		OMemBuf(mem, size),
-// 		std::ostream(static_cast<std::streambuf*>(this))
-// 	{
-// 	}
-// };
+  template <typename T>
+  T* ArenaAlloc(int count) {
+    static_assert(std::is_pod<T>::value, "must be POD");
+    return arena_.template allocate_<T>(count);
+  }
 
-#endif  // SRC_RPC_UTIL_H_
+private:
+  /*! \brief arena for dependency graph */
+  support::Arena arena_;
+  std::istream& is_;
+};
+
+}  // namespace rpc
+}  // namespace tvm
+
+#endif // SRC_RPC_UTIL_H_
