@@ -22,6 +22,7 @@
 #include <dmlc/json.h>
 #include <poll.h>
 #include <tvm/runtime/registry.h>
+#include <tvm/runtime/packed_func.h>
 
 #include <iomanip>
 #include <memory>
@@ -45,6 +46,13 @@ class ServerConnection : public RPCBase {
   bool InitiateRPCSession();
 
  private:
+  /*!
+    * \brief Recive incoming packed seq from the stream.
+    * \return The received argments.
+    * \note The TVMArgs is available until we switchstate.
+    */
+  runtime::TVMArgs RecvPackedSeq(StreamReader* reader);
+
   std::thread connection_task_;
   std::string host_;
   // int port_;
@@ -172,6 +180,19 @@ bool ServerConnection::InitiateRPCSession() {
 
 void ServerConnection::ConnectionLoop() {}
 
+/*!
+  * \brief Recive incoming packed seq from the stream.
+  * \return The received argments.
+  * \note The TVMArgs is available until we switchstate.
+  */
+runtime::TVMArgs ServerConnection::RecvPackedSeq(StreamReader* reader) {
+  TVMValue* values;
+  int* tcodes;
+  int num_args;
+  runtime::RPCReference::RecvPackedSeq(&values, &tcodes, &num_args, reader);
+  return runtime::TVMArgs(values, tcodes, num_args);
+}
+
 void ServerConnection::ProcessPacket(std::stringstream& packet) {
   runtime::RPCCode code;
   std::cout << __FILE__ << " " << __LINE__ << " offset " << packet.tellg() << std::endl;
@@ -192,12 +213,9 @@ void ServerConnection::ProcessPacket(std::stringstream& packet) {
     packet.read(static_cast<char*>(&version[0]), length);
     std::cout << __FILE__ << " " << __LINE__ << " version=" << version << std::endl;
 
-    TVMValue* values;
-    int* tcodes;
-    int num_args;
     StreamReader reader(packet);
-    runtime::RPCReference::RecvPackedSeq(&values, &tcodes, &num_args, &reader);
-    std::cout << __FILE__ << " " << __LINE__ << " num_args=" << num_args << std::endl;
+    runtime::TVMArgs args = RecvPackedSeq(&reader);
+    std::cout << __FILE__ << " " << __LINE__ << " num_args=" << args.num_args << std::endl;
     break;
   }
   case runtime::RPCCode::kCallFunc:
