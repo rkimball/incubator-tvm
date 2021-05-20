@@ -1,0 +1,13 @@
+{
+    "image": "tvm:devcontainer",
+    "dockerFile": "Dockerfile.dev_cpu",
+    "workspaceFolder": "/usr/tvm",
+    "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cmake-tools",
+        "tqchen.ffi-navigator",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+    ]
+}

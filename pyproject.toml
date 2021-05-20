@@ -46,3 +46,38 @@ exclude = '''
   )/
 )
 '''
+
+[tool.poetry]
+name = "tvm"
+version = "0.1.0"
+description = "TVM"
+authors = ["Robert Kimball <bobkimball@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pyaml = "^20.4.0"
+structlog = "^20.1.0"
+keras2onnx = "1.6.1"
+onnx = "1.6"
+onnxruntime = "1.4.0"
+tflite = "2.2.0"
+tensorflow = "2.1.0"
+tensorflow-estimator = "^2.1.0"
+numpy = "1.20.1"
+decorator = "4.4.2"
+psutil = "5.7.2"
+tornado = "6.0.4"
+cloudpickle = "^1.6.0"
+xgboost = "^1.4.1"
+black = "^21.5b0"
+isort = "^5.8.0"
+mypy = "^0.812"
+flake8 = "^3.9.2"
+ffi-navigator = "^0.5.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.1.2"
+pytest-cov = "^2.8.1"
+pytest-mock = "^3.1.0"
+pytest-faker = "^2.0.0"
+pytest-testmon = "^1.0.3"
