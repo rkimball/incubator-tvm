@@ -44,12 +44,9 @@ RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/${POETRY_VE
 # Install just
 RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag v0.9.2 --to /usr/local/bin
 
-WORKDIR ${TVM_ROOT}
-
-COPY pyproject.toml poetry.lock ${TVM_HOME}}/
-RUN poetry install --no-interaction --no-ansi
+WORKDIR ${TVM_HOME}
 
 COPY . ${TVM_HOME}/
-RUN ${TVM_HOME}/docker/build_dev.sh
+RUN poetry install --no-interaction --no-ansi
 
-COPY . ${HULK_ROOT}
+RUN ${TVM_HOME}/docker/build_dev.sh
